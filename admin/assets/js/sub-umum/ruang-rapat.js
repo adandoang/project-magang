@@ -42,6 +42,7 @@
         } catch (e) { return null; }
     }
     function clearCache() { Object.values(CACHE_KEYS).forEach(k => localStorage.removeItem(k)); }
+    function showCacheIndicator() { const el = document.getElementById('rr-cache-indicator'); if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2000); } }
 
     // ── API (JSONP) ─────────────────────────────────────────
     function fetchAPI(action, params = {}) {
@@ -72,6 +73,15 @@
     function openModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
     function closeModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
 
+    // ── Auto-set bulan helper ─────────────────────────────────
+    function setCurrentMonth(elId) {
+        const el = document.getElementById(elId);
+        if (el && !el.value) {
+            const mn = ['', 'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+            el.value = mn[new Date().getMonth() + 1];
+        }
+    }
+
     // ── Tab switch ────────────────────────────────────────────
     function rrSwitchTab(tabName, btn) {
         document.querySelectorAll('#section-ruang-rapat .tab').forEach(t => t.classList.remove('active'));
@@ -94,13 +104,19 @@
         try {
             if (!forceRefresh) {
                 const cached = getFromCache(CACHE_KEYS.REQUESTS);
-                if (cached) { masterRequests = cached; allRequests = [...masterRequests]; requestsCurrentPage = 1; renderPaginatedRequests(); return; }
+                if (cached) {
+                    // cache disimpan urutan asli, reverse agar terbaru tampil di atas
+                    masterRequests = cached.slice().reverse();
+                    rrApplyFilter(); showCacheIndicator(); return;
+                }
             }
             const response = await fetchAPI('getRoomRequests');
-            masterRequests = Array.isArray(response) ? response : (response?.data || []);
-            allRequests = [...masterRequests]; requestsCurrentPage = 1;
-            saveToCache(CACHE_KEYS.REQUESTS, masterRequests);
-            renderPaginatedRequests();
+            const rawData = Array.isArray(response) ? response : (response?.data || []);
+            // simpan ke cache dalam urutan ASLI dari API/sheet
+            saveToCache(CACHE_KEYS.REQUESTS, rawData);
+            // reverse untuk tampilan: terbaru (index akhir) → halaman 1 atas
+            masterRequests = rawData.slice().reverse();
+            rrApplyFilter();
         } catch (err) {
             if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="rrLoadRoomRequests(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
             if (window.showToast) showToast('Gagal memuat data permintaan: ' + err.message, 'error');
@@ -201,11 +217,20 @@
             <button onclick="rrChangeReqPage(${requestsCurrentPage + 1})" ${requestsCurrentPage === totalPages ? 'disabled' : ''}>Next &#8250;</button>`;
     }
     window.rrChangeReqPage = (page) => { const t = Math.ceil(allRequests.length / itemsPerPage); if (page < 1 || page > t) return; requestsCurrentPage = page; renderPaginatedRequests(); };
-    window.rrSearchRequests = () => {
+
+    function rrApplyFilter() {
+        const status = (document.getElementById('rr-filter-status')?.value || '').toUpperCase();
         const term = (document.getElementById('rr-search-requests')?.value || '').toLowerCase();
-        allRequests = masterRequests.filter(r => (r.nama_pemohon || '').toLowerCase().includes(term) || (r.kegiatan || '').toLowerCase().includes(term) || (r.keperluan || '').toLowerCase().includes(term));
+        allRequests = masterRequests.filter(r => {
+            if (status && (r.status || '').toUpperCase() !== status) return false;
+            return !term || (r.nama_pemohon || '').toLowerCase().includes(term)
+                || (r.kegiatan || '').toLowerCase().includes(term)
+                || (r.keperluan || '').toLowerCase().includes(term);
+        });
         requestsCurrentPage = 1; renderPaginatedRequests();
-    };
+    }
+    window.rrApplyFilter = rrApplyFilter;
+    window.rrSearchRequests = rrApplyFilter; // alias agar tetap kompatibel
 
     window.rrOpenApprove = (id) => { currentApproveId = id; const el = document.getElementById('rr-room-select'); if (el) el.value = ''; openModal('rr-approveModal'); };
     window.rrConfirmApprove = async () => {
@@ -293,24 +318,40 @@
     };
 
     // ═══ TAB 2: PELANGGARAN ══════════════════════════════════
+    // FIX: Pola yang sama dengan requests.js — reverse di sini, simpan urutan asli ke cache
     async function loadViolations(forceRefresh = false) {
+        // Auto-set filter bulan ke bulan sekarang jika belum dipilih
+        setCurrentMonth('rr-filter-bulan');
+
+        if (!forceRefresh) {
+            const cached = getFromCache(CACHE_KEYS.VIOLATIONS);
+            if (cached) {
+                // cached sudah disimpan dalam urutan asli (ascending),
+                // reverse agar data terbaru (index akhir) tampil di halaman 1 atas
+                masterViolations = cached.slice().reverse();
+                window.rrFilterViolations();
+                showCacheIndicator();
+                return;
+            }
+        }
+
         const tbody = document.getElementById('rr-violations-tbody');
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>`;
+
         try {
-            if (!forceRefresh) {
-                const cached = getFromCache(CACHE_KEYS.VIOLATIONS);
-                if (cached) { masterViolations = cached; allViolations = [...masterViolations]; violationsCurrentPage = 1; renderPaginatedViolations(); return; }
-            }
             const res = await fetchAPI('getRoomViolations');
-            masterViolations = Array.isArray(res) ? res : (res?.data || []);
-            allViolations = [...masterViolations]; violationsCurrentPage = 1;
-            saveToCache(CACHE_KEYS.VIOLATIONS, masterViolations);
-            renderPaginatedViolations();
+            const rawData = Array.isArray(res) ? res : (res?.data || []);
+            // Simpan ke cache dalam urutan ASLI (ascending) dari API/sheet
+            saveToCache(CACHE_KEYS.VIOLATIONS, rawData);
+            // Reverse untuk tampilan: data terbaru (ditambahkan terakhir) → halaman 1 atas
+            masterViolations = rawData.slice().reverse();
+            window.rrFilterViolations();
         } catch (e) {
             if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="rrLoadViolations(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
             if (window.showToast) showToast('Gagal memuat data pelanggaran: ' + e.message, 'error');
         }
     }
+
     window.rrFilterViolations = () => {
         const b = document.getElementById('rr-filter-bulan')?.value || '';
         const u = document.getElementById('rr-filter-unit')?.value || '';
@@ -328,7 +369,7 @@
             if (cards) cards.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;">Data tidak ditemukan</div>';
             if (pgn) pgn.innerHTML = ''; return;
         }
-        const t = Math.ceil(allViolations.length / itemsPerPage);
+        const totalPages = Math.ceil(allViolations.length / itemsPerPage);
         const start = (violationsCurrentPage - 1) * itemsPerPage;
         const items = allViolations.slice(start, start + itemsPerPage);
 
@@ -340,8 +381,10 @@
             <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${v.laporan || ''}">${v.laporan || '—'}</td>
             <td>
                 <div class="action-buttons">
-                    <button onclick='rrOpenEditViol(${JSON.stringify(v).replace(/'/g, "&#39;")})' class="btn btn-sm btn-action-edit">${ICONS.edit} Edit</button>
-                    <button onclick="rrDeleteViol('${v.id}','${v.bulan}','${v.unit}')" class="btn btn-sm btn-action-delete">${ICONS.trash}</button>
+                    <div class="btn-icon-group">
+                        <button onclick='rrOpenEditViol(${JSON.stringify(v).replace(/'/g, "&#39;")})' class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
+                        <button onclick="rrDeleteViol('${v.id}','${v.bulan}','${v.unit}')" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
+                    </div>
                 </div>
             </td>
         </tr>`).join('');
@@ -358,20 +401,28 @@
                 <div class="violation-card-item"><div class="violation-card-label">Nama Ruang</div><div class="violation-card-value">${v.namaRuang || '—'}</div></div>
                 <div class="violation-card-item" style="grid-column:1/-1"><div class="violation-card-label">Laporan</div><div class="violation-card-value">${v.laporan || '—'}</div></div>
             </div>
-            <div class="violation-card-footer" style="display:flex;gap:8px;">
-                <button onclick='rrOpenEditViol(${JSON.stringify(v).replace(/'/g, "&#39;")})' class="btn btn-sm btn-action-edit" style="flex:1;">${ICONS.edit} Edit</button>
-                <button onclick="rrDeleteViol('${v.id}','${v.bulan}','${v.unit}')" class="btn btn-sm btn-action-delete" style="flex:1;">${ICONS.trash} Hapus</button>
+            <div class="violation-card-footer">
+                <div class="action-buttons" style="justify-content:flex-end;">
+                    <div class="btn-icon-group">
+                        <button onclick='rrOpenEditViol(${JSON.stringify(v).replace(/'/g, "&#39;")})' class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
+                        <button onclick="rrDeleteViol('${v.id}','${v.bulan}','${v.unit}')" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
+                    </div>
+                </div>
             </div>
         </div>`).join('');
 
         if (pgn) pgn.innerHTML = `
             <button onclick="rrChangeViolPage(${violationsCurrentPage - 1})" ${violationsCurrentPage === 1 ? 'disabled' : ''}>&#8249; Prev</button>
-            <span class="pagination-info">Halaman ${violationsCurrentPage} dari ${t} (${allViolations.length} data)</span>
-            <button onclick="rrChangeViolPage(${violationsCurrentPage + 1})" ${violationsCurrentPage === t ? 'disabled' : ''}>Next &#8250;</button>`;
+            <span class="pagination-info">Halaman ${violationsCurrentPage} dari ${totalPages} (${allViolations.length} data)</span>
+            <button onclick="rrChangeViolPage(${violationsCurrentPage + 1})" ${violationsCurrentPage === totalPages ? 'disabled' : ''}>Next &#8250;</button>`;
     }
     window.rrChangeViolPage = (p) => { const t = Math.ceil(allViolations.length / itemsPerPage); if (p < 1 || p > t) return; violationsCurrentPage = p; renderPaginatedViolations(); };
 
-    window.rrOpenAddViol = () => { document.getElementById('rr-violationForm')?.reset(); openModal('rr-addViolationModal'); };
+    window.rrOpenAddViol = () => {
+        document.getElementById('rr-violationForm')?.reset();
+        setCurrentMonth('rr-violation-bulan');
+        openModal('rr-addViolationModal');
+    };
     window.rrSubmitViol = async () => {
         const form = document.getElementById('rr-violationForm'); if (form && !form.checkValidity()) { form.reportValidity(); return; }
         const btn = document.getElementById('rr-submit-violation-btn'), orig = btn.innerHTML;
@@ -564,7 +615,13 @@
             <div class="card-header">
                 <h2 class="card-title">Daftar Permintaan Ruang Rapat</h2>
                 <div class="filter-container">
-                    <input type="text" class="search-input" placeholder="Cari nama pemohon..." id="rr-search-requests" oninput="rrSearchRequests()">
+                    <select class="select-input" id="rr-filter-status" onchange="rrApplyFilter()">
+                        <option value="">Semua Status</option>
+                        <option value="PENDING">Menunggu</option>
+                        <option value="APPROVED">Disetujui</option>
+                        <option value="COMPLETED">Selesai</option>
+                    </select>
+                    <input type="text" class="search-input" placeholder="Cari nama pemohon..." id="rr-search-requests" oninput="rrApplyFilter()">
                     <button onclick="rrLoadRoomRequests(true)" class="btn btn-sm btn-action-view">${ICONS.refresh} Refresh</button>
                 </div>
             </div>

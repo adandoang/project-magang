@@ -16,7 +16,6 @@
     let requestsCurrentPage = 1, violationsCurrentPage = 1;
     const itemsPerPage = 10;
 
-    // ── SVG Icons ─────────────────────────────────────────────
     const ICONS = {
         refresh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`,
         export: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
@@ -106,14 +105,24 @@
     async function loadRequests(forceRefresh = false) {
         if (!forceRefresh) {
             const cached = getFromCache(CACHE_KEYS.REQUESTS);
-            if (cached) { masterRequests = cached; allRequests = [...masterRequests]; requestsCurrentPage = 1; renderPaginatedRequests(); showCacheIndicator(); return; }
+            if (cached) {
+                // cache disimpan urutan asli, reverse agar terbaru tampil di atas
+                masterRequests = cached.slice().reverse();
+                allRequests = [...masterRequests]; requestsCurrentPage = 1;
+                renderPaginatedRequests(); showCacheIndicator(); return;
+            }
         }
         const tbody = document.getElementById('req-requests-tbody');
         if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
         try {
             const res = await callAPI({ action: 'getRequests' });
-            masterRequests = Array.isArray(res) ? res : []; allRequests = [...masterRequests]; requestsCurrentPage = 1;
-            saveToCache(CACHE_KEYS.REQUESTS, masterRequests); renderPaginatedRequests();
+            const rawData = Array.isArray(res) ? res : [];
+            // simpan ke cache dalam urutan ASLI dari API/sheet
+            saveToCache(CACHE_KEYS.REQUESTS, rawData);
+            // reverse untuk tampilan: terbaru (index akhir) → halaman 1 atas
+            masterRequests = rawData.slice().reverse();
+            allRequests = [...masterRequests]; requestsCurrentPage = 1;
+            renderPaginatedRequests();
         } catch (e) { if (window.showToast) showToast('Gagal memuat data: ' + e.message, 'error'); }
     }
     window.reqLoadRequests = (f) => loadRequests(f);
@@ -274,18 +283,35 @@
         catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); }
     };
 
+    // ── Auto-set bulan helper ─────────────────────────────────
+    function setCurrentMonth(elId) {
+        const el = document.getElementById(elId);
+        if (el && !el.value) {
+            const mn = ['', 'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+            el.value = mn[new Date().getMonth() + 1];
+        }
+    }
+
     // ═══ TAB 2: VIOLATIONS ═══════════════════════════════════
     async function loadViolations(forceRefresh = false) {
+        setCurrentMonth('req-filter-bulan');
         if (!forceRefresh) {
             const cached = getFromCache(CACHE_KEYS.VIOLATIONS);
-            if (cached) { masterViolations = cached; allViolations = [...masterViolations]; violationsCurrentPage = 1; renderPaginatedViolations(); showCacheIndicator(); return; }
+            if (cached) {
+                masterViolations = cached.slice().reverse();
+                window.reqFilterViolations();
+                showCacheIndicator();
+                return;
+            }
         }
         const tbody = document.getElementById('req-violations-tbody');
         if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
         try {
             const res = await callAPI({ action: 'getVehicleViolations' });
-            masterViolations = Array.isArray(res) ? res : []; allViolations = [...masterViolations]; violationsCurrentPage = 1;
-            saveToCache(CACHE_KEYS.VIOLATIONS, masterViolations); renderPaginatedViolations();
+            const rawData = Array.isArray(res) ? res : [];
+            saveToCache(CACHE_KEYS.VIOLATIONS, rawData);
+            masterViolations = rawData.slice().reverse();
+            window.reqFilterViolations();
         } catch (e) { if (window.showToast) showToast('Gagal memuat data pelanggaran', 'error'); }
     }
     window.reqLoadViolations = (f) => loadViolations(f);
@@ -362,7 +388,11 @@
     }
     window.reqChangeViolPage = (page) => { const t = Math.ceil(allViolations.length / itemsPerPage); if (page < 1 || page > t) return; violationsCurrentPage = page; renderPaginatedViolations(); };
 
-    window.reqOpenAddViol = () => { document.getElementById('req-violationForm')?.reset(); openModal('req-addViolModal'); };
+    window.reqOpenAddViol = () => {
+        document.getElementById('req-violationForm')?.reset();
+        setCurrentMonth('req-violation-bulan');
+        openModal('req-addViolModal');
+    };
     window.reqSubmitViol = async () => {
         const form = document.getElementById('req-violationForm'); if (form && !form.checkValidity()) { form.reportValidity(); return; }
         const btn = document.getElementById('req-submit-viol-btn'), orig = btn.innerHTML;
@@ -526,36 +556,11 @@
 .section-page-header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid #f1f5f9; }
 .section-page-title { font-size:22px; font-weight:700; color:#0f172a; margin-bottom:4px; }
 .section-page-subtitle { font-size:14px; color:#64748b; }
-
-/* Score mode switcher */
-.score-mode-switcher {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #f8fafc;
-}
-.score-mode-btn {
-    padding: 7px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    font-family: 'Inter', sans-serif;
-    color: #64748b;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-    border-right: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.score-mode-btn:last-child { border-right: none; }
-.score-mode-btn:hover { background: #f1f5f9; color: #374151; }
-.score-mode-btn.active { background: #0f172a; color: white; }
+.score-mode-switcher { display:flex; align-items:center; gap:0; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc; }
+.score-mode-btn { padding:7px 14px; font-size:13px; font-weight:500; font-family:'Inter',sans-serif; color:#64748b; background:transparent; border:none; cursor:pointer; transition:all 0.15s; white-space:nowrap; border-right:1px solid #e2e8f0; display:flex; align-items:center; gap:5px; }
+.score-mode-btn:last-child { border-right:none; }
+.score-mode-btn:hover { background:#f1f5f9; color:#374151; }
+.score-mode-btn.active { background:#0f172a; color:white; }
 </style>
 
 <div class="container">
@@ -660,7 +665,6 @@
             <div class="card-header">
                 <h2 class="card-title">Rekapitulasi Penilaian Kendaraan Dinas</h2>
                 <div class="filter-container">
-                    <!-- Mode Penilaian: custom toggle buttons agar tidak terpotong -->
                     <div class="score-mode-switcher">
                         <button class="score-mode-btn active" id="req-mode-btn-kunci" onclick="reqSetScoreMode('KUNCI', this)">
                             ${ICONS.car} Pengembalian Kunci
@@ -838,7 +842,6 @@
     </div>
 </div>`;
 
-        // Handler untuk toggle mode penilaian
         window.reqSetScoreMode = function (mode, btnEl) {
             document.getElementById('req-score-mode').value = mode;
             document.querySelectorAll('.score-mode-btn').forEach(b => b.classList.remove('active'));
