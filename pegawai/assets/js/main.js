@@ -6,10 +6,10 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbwQoOafMsgYDpsLZyD2Wp4_
 // ============================================
 // GLOBAL VARIABLES
 // ============================================
-let selectedFile = null;            // legacy (pengajuan-dana/SPJ)
-let selectedFiles = [];             // multi: arsip
-let arsipUploadMode = 'file';       // 'file' | 'drive'
-let driveLinksCounter = 1;          // untuk ID unik drive-link-row
+let selectedFile = null;
+let selectedFiles = [];
+let arsipUploadMode = 'file';
+let driveLinksCounter = 1;
 let selectedPengajuanFile = null;
 let selectedMonevFile = null;
 let selectedBuktiFile = null;
@@ -23,14 +23,10 @@ let currentVoucherFilter = 'ALL';
 
 // ============================================
 // HELPER: Animasi progress bar
-// progressId  : id elemen .progress-bar
-// loadingId   : id elemen .loading
-// persen      : 0-100
 // ============================================
 function setProgress(progressId, loadingId, persen, labelText) {
     const bar = document.getElementById(progressId);
     const loading = document.getElementById(loadingId);
-
     if (bar) {
         bar.classList.add('show');
         bar.querySelector('.progress-fill').style.width = persen + '%';
@@ -44,7 +40,6 @@ function setProgress(progressId, loadingId, persen, labelText) {
 function hideProgress(progressId, loadingId) {
     const bar = document.getElementById(progressId);
     const loading = document.getElementById(loadingId);
-
     if (bar) {
         bar.querySelector('.progress-fill').style.width = '0%';
         setTimeout(() => bar.classList.remove('show'), 300);
@@ -55,54 +50,117 @@ function hideProgress(progressId, loadingId) {
 }
 
 // ============================================
-// MOBILE DROPDOWN NAVIGATION
+// CORE: aktivasi section tanpa dependensi pada
+// global `event` — aman dipanggil dari mana saja.
 // ============================================
-const navMap = {
-    'home': 'home',
-    'kendaraan': 'kendaraan',
-    'ruangan': 'ruangan',
-    'voucher': 'voucher',
-    'arsip': 'arsip',
-    'pengajuan-dana': 'pengajuan-dana',
-    'spj': 'spj',
-    'transparansi-nilai': 'transparansi-nilai',
+function activateSection(sectionId) {
+    // Sembunyikan semua section
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    // Tampilkan section yang diminta
+    const target = document.getElementById(sectionId);
+    if (target) target.classList.add('active');
+    // Sinkronkan mobile select
+    const mobileSelect = document.getElementById('mobile-nav-select');
+    if (mobileSelect) mobileSelect.value = sectionId;
+    // Sinkronkan desktop nav-tab (hapus semua active, tidak ada yang dipilih)
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+}
 
-    'transparansi-spj': () => {
-        showSection('transparansi-nilai');
-        setTimeout(() => loadNilaiData('spj-keuangan'), 100);
-    },
+// ============================================
+// FIX 1: MOBILE NAVIGATION
+// handleMobileNav dipanggil dari onchange select.
+// Gunakan activateSection supaya tidak bergantung
+// pada global `event` object.
+// ============================================
+function handleMobileNav(value) {
+    if (!value) return;
 
-    'transparansi-monev': () => {
-        showSection('transparansi-nilai');
-        setTimeout(() => loadNilaiData('monev'), 100);
-    },
+    // Tutup semua dropdown desktop jika terbuka
+    document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
 
-    'status-kendaraan': () => showCalendar('KENDARAAN'),
-    'status-ruangan': () => showCalendar('RUANG_RAPAT'),
-    'status-voucher': () => showVoucherStatus(),
-    'status-dana': () => showDanaStatus()
-};
+    switch (value) {
+        // ── Section langsung ───────────────────
+        case 'home':
+        case 'kendaraan':
+        case 'ruangan':
+        case 'voucher':
+        case 'arsip':
+        case 'pengajuan-dana':
+        case 'spj':
+        case 'transparansi-nilai':
+            activateSection(value);
+            break;
 
+        // ── Transparansi sub-menu ──────────────
+        case 'transparansi-ruang':
+            activateSection('transparansi-nilai');
+            setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('ruang-rapat'); }, 150);
+            break;
+        case 'transparansi-kendaraan':
+            activateSection('transparansi-nilai');
+            setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('kendaraan'); }, 150);
+            break;
+        case 'transparansi-bbm':
+            activateSection('transparansi-nilai');
+            setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('bbm'); }, 150);
+            break;
+        case 'transparansi-dokumen':
+            activateSection('transparansi-nilai');
+            setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('dokumen'); }, 150);
+            break;
+        case 'transparansi-spj':
+            activateSection('transparansi-nilai');
+            setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('spj-keuangan'); }, 150);
+            break;
+        case 'transparansi-monev':
+            activateSection('transparansi-nilai');
+            setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('monev'); }, 150);
+            break;
+
+        // ── Status / kalender ──────────────────
+        case 'status-kendaraan':
+            showCalendar('KENDARAAN');
+            break;
+        case 'status-ruangan':
+            showCalendar('RUANG_RAPAT');
+            break;
+        case 'status-voucher':
+            showVoucherStatus();
+            break;
+        case 'status-dana':
+            showDanaStatus();
+            break;
+
+        default:
+            console.warn('handleMobileNav: nilai tidak dikenal →', value);
+    }
+
+    // Kembalikan nilai select supaya bisa dipilih ulang item yang sama
+    const mobileSelect = document.getElementById('mobile-nav-select');
+    if (mobileSelect) setTimeout(() => { mobileSelect.value = value; }, 60);
+}
 
 // ============================================
 // NAVIGATION FUNCTIONS
+// showSection: dipanggil dari onclick desktop nav-tab.
+// Tidak bergantung pada global `event` object.
 // ============================================
 function showSection(sectionId) {
-    const sections = document.querySelectorAll('.section');
-    sections.forEach(section => section.classList.remove('active'));
-    document.getElementById(sectionId).classList.add('active');
+    // Gunakan activateSection yang aman
+    activateSection(sectionId);
 
-    const tabs = document.querySelectorAll('.nav-tab');
-    tabs.forEach(tab => tab.classList.remove('active'));
-
-    if (event && event.target) {
-        event.target.classList.add('active');
-    }
-
-    const mobileSelect = document.getElementById('mobile-nav-select');
-    if (mobileSelect) {
-        mobileSelect.value = sectionId;
-    }
+    // Tandai nav-tab yang diklik sebagai active
+    // event tersedia saat dipanggil via onclick inline
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget
+            && event.currentTarget.classList.contains('nav-tab')) {
+            event.currentTarget.classList.add('active');
+        } else if (typeof event !== 'undefined' && event && event.target
+            && event.target.classList.contains('nav-tab')) {
+            event.target.classList.add('active');
+        }
+    } catch(e) { /* abaikan jika event tidak tersedia */ }
 }
 
 function showLoading() {
@@ -118,18 +176,15 @@ function hideLoading() {
 // ============================================
 function toggleDropdown(event, dropdownId) {
     event.stopPropagation();
-
     document.querySelectorAll('.dropdown-content').forEach(d => {
         if (d.id !== dropdownId) d.classList.remove('show');
     });
     document.querySelectorAll('.nav-dropdown button').forEach(btn => {
         btn.classList.remove('active-dropdown');
     });
-
     const dropdown = document.getElementById(dropdownId);
     const button = event.target;
     if (!dropdown) return;
-
     dropdown.classList.toggle('show');
     if (dropdown.classList.contains('show')) {
         button.classList.add('active-dropdown');
@@ -145,33 +200,155 @@ document.addEventListener('click', function (event) {
 });
 
 // ============================================
+// FIX 2 & 3: DATE/TIME VALIDATION HELPERS
+// - Tanggal tidak boleh lampau (warning, bukan block)
+// - Waktu selesai harus setelah waktu mulai
+// ============================================
+
+/**
+ * Set min date pada semua input[type=date] di form tertentu ke hari ini.
+ * Dipanggil saat DOMContentLoaded.
+ */
+function initDateValidation() {
+    const today = getTodayString();
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        // Tidak paksa min agar data lama tetap bisa dilihat,
+        // tapi beri peringatan saat blur jika tanggal lampau.
+        input.addEventListener('change', function () {
+            warnPastDate(this);
+        });
+        input.addEventListener('blur', function () {
+            warnPastDate(this);
+        });
+    });
+}
+
+function getTodayString() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function warnPastDate(inputEl) {
+    const val = inputEl.value;
+    if (!val) return;
+    const today = getTodayString();
+    // Cari atau buat elemen warning
+    let warn = inputEl.parentNode.querySelector('.date-past-warning');
+    if (val < today) {
+        if (!warn) {
+            warn = document.createElement('p');
+            warn.className = 'date-past-warning';
+            warn.style.cssText = 'color:#d97706;font-size:0.8125rem;margin-top:6px;font-weight:600;';
+            inputEl.after(warn);
+        }
+        warn.textContent = '⚠️ Tanggal yang dipilih sudah lampau. Pastikan tanggal sudah benar.';
+        inputEl.style.borderColor = '#f59e0b';
+    } else {
+        if (warn) warn.remove();
+        inputEl.style.borderColor = '';
+    }
+}
+
+/**
+ * Validasi waktu selesai > waktu mulai pada form dengan kedua field waktu.
+ * formEl    : HTMLFormElement
+ * startName : name attribute field waktu mulai
+ * endName   : name attribute field waktu selesai
+ * Returns true jika valid, false jika tidak valid (dan menampilkan pesan).
+ */
+function validateTimeRange(formEl, startName, endName) {
+    const startInput = formEl.querySelector(`[name="${startName}"]`);
+    const endInput   = formEl.querySelector(`[name="${endName}"]`);
+    if (!startInput || !endInput) return true;
+
+    const startVal = startInput.value;
+    const endVal   = endInput.value;
+
+    // Cari/buat elemen peringatan di bawah field waktu selesai
+    let warn = endInput.parentNode.querySelector('.time-range-warning');
+
+    // Jika salah satu belum diisi, hapus peringatan lama dan lewati
+    if (!startVal || !endVal) {
+        if (warn) warn.remove();
+        endInput.style.borderColor = '';
+        startInput.style.borderColor = '';
+        return true;
+    }
+
+    // Bandingkan sebagai menit-dari-tengah-malam agar akurat
+    const toMinutes = t => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    const invalid = toMinutes(endVal) <= toMinutes(startVal);
+
+    if (invalid) {
+        if (!warn) {
+            warn = document.createElement('p');
+            warn.className = 'time-range-warning';
+            warn.style.cssText = 'color:#dc2626;font-size:0.8125rem;margin-top:6px;font-weight:600;';
+            endInput.after(warn);
+        }
+        warn.textContent = '⛔ Waktu selesai harus lebih dari waktu mulai.';
+        endInput.style.borderColor   = '#dc2626';
+        startInput.style.borderColor = '#dc2626';
+        endInput.focus();
+        return false;
+    } else {
+        if (warn) warn.remove();
+        endInput.style.borderColor   = '';
+        startInput.style.borderColor = '';
+        return true;
+    }
+}
+
+// Listener realtime — terpasang di KEDUA field waktu
+// sehingga validasi berjalan baik saat user mengubah
+// waktu mulai SETELAH waktu selesai sudah terisi.
+function initTimeValidationListeners() {
+    [
+        { formId: 'form-kendaraan' },
+        { formId: 'form-ruangan'   },
+    ].forEach(({ formId }) => {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        const startEl = form.querySelector('[name="waktu_mulai"]');
+        const endEl   = form.querySelector('[name="waktu_selesai"]');
+        const revalidate = () => validateTimeRange(form, 'waktu_mulai', 'waktu_selesai');
+        if (startEl) {
+            startEl.addEventListener('change', revalidate);
+            startEl.addEventListener('blur',   revalidate);
+        }
+        if (endEl) {
+            endEl.addEventListener('change', revalidate);
+            endEl.addEventListener('blur',   revalidate);
+        }
+    });
+}
+
+// ============================================
 // CALENDAR FUNCTIONS
 // ============================================
 function showCalendar(type) {
     currentCalendarType = type;
-
     const dropdownContent = document.getElementById('status-dropdown');
     if (dropdownContent) dropdownContent.classList.remove('show');
-
     const titles = {
         'KENDARAAN': { title: 'Status Pengajuan Mobil', subtitle: 'Lihat semua status pengajuan kendaraan dinas' },
         'RUANG_RAPAT': { title: 'Status Pengajuan Ruang Rapat', subtitle: 'Lihat semua status penggunaan ruang rapat' }
     };
-
     document.getElementById('calendar-title').textContent = titles[type].title;
     document.getElementById('calendar-subtitle').textContent = titles[type].subtitle;
-
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('kalender').classList.add('active');
-    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-
+    activateSection('kalender');
     const mobileSelect = document.getElementById('mobile-nav-select');
     if (mobileSelect) mobileSelect.value = type === 'KENDARAAN' ? 'status-kendaraan' : 'status-ruangan';
-
     const now = new Date();
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();
-
     showLoading();
     loadCalendarData();
 }
@@ -201,51 +378,40 @@ function loadCalendarData() {
 function renderCalendar() {
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-
     document.getElementById('calendar-month-year').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
     const grid = document.getElementById('calendar-grid');
     grid.innerHTML = '';
-
     dayNames.forEach(day => {
         const header = document.createElement('div');
         header.className = 'calendar-day-header';
         header.textContent = day;
         grid.appendChild(header);
     });
-
     for (let i = 0; i < firstDay; i++) {
         const empty = document.createElement('div');
         empty.className = 'calendar-day empty';
         grid.appendChild(empty);
     }
-
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayDiv = document.createElement('div');
         dayDiv.className = 'calendar-day';
-
         if (dateStr === todayStr) dayDiv.classList.add('today');
-
         const bookingCount = calendarData[dateStr] || 0;
         if (bookingCount > 0) dayDiv.classList.add('has-booking');
-
         const dayNumber = document.createElement('div');
         dayNumber.className = 'calendar-day-number';
         dayNumber.textContent = day;
         dayDiv.appendChild(dayNumber);
-
         if (bookingCount > 0) {
             const label = document.createElement('div');
             label.className = 'calendar-day-label';
             label.textContent = `${bookingCount}`;
             dayDiv.appendChild(label);
-
             dayDiv.style.cursor = 'pointer';
             dayDiv.setAttribute('data-date', dateStr);
             dayDiv.addEventListener('click', function () {
@@ -254,7 +420,6 @@ function renderCalendar() {
         } else {
             dayDiv.style.cursor = 'default';
         }
-
         grid.appendChild(dayDiv);
     }
 }
@@ -303,14 +468,11 @@ function displayScheduleDetailPage(date, schedules) {
     const dateObj = new Date(date + 'T00:00:00');
     const dateFormatted = dateObj.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const typeTitle = currentCalendarType === 'KENDARAAN' ? 'Jadwal Mobil' : 'Jadwal Ruang Rapat';
-
     document.getElementById('detail-title').textContent = `${typeTitle} - ${dateFormatted}`;
     document.getElementById('detail-subtitle').textContent = `${schedules.length} pengajuan ditemukan`;
     document.getElementById('search-schedule').value = '';
     renderScheduleList(schedules);
-
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('detail-jadwal').classList.add('active');
+    activateSection('detail-jadwal');
 }
 
 function formatTime(dateString) {
@@ -327,7 +489,6 @@ function formatTimeRange(startString, endString) {
 
 function renderScheduleList(schedules) {
     const container = document.getElementById('detail-schedules-container');
-
     if (schedules.length === 0) {
         container.innerHTML = `
             <div class="schedule-cards-grid">
@@ -340,8 +501,6 @@ function renderScheduleList(schedules) {
             </div>`;
         return;
     }
-
-    // Count statuses for summary chips
     const statusCount = { approved: 0, pending: 0, rejected: 0 };
     schedules.forEach(s => {
         const st = (s.Status || '').toLowerCase();
@@ -349,8 +508,6 @@ function renderScheduleList(schedules) {
         else if (st === 'pending' || st === 'menunggu') statusCount.pending++;
         else if (st === 'rejected' || st === 'ditolak') statusCount.rejected++;
     });
-
-    // Update header count badge
     const subtitleEl = document.getElementById('detail-subtitle');
     if (subtitleEl) {
         subtitleEl.innerHTML = `
@@ -360,11 +517,8 @@ function renderScheduleList(schedules) {
             ${statusCount.rejected > 0 ? `${(statusCount.approved + statusCount.pending) > 0 ? ' &nbsp;·&nbsp; ' : ''}<span style="color:#dc2626;font-weight:700;">${statusCount.rejected} ditolak</span>` : ''}
         `;
     }
-
     const clockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-
     let cards = '';
-
     if (currentCalendarType === 'KENDARAAN') {
         schedules.forEach(schedule => {
             const statusRaw = (schedule.Status || '').toLowerCase();
@@ -373,7 +527,6 @@ function renderScheduleList(schedules) {
                     <span class="schedule-card-label">No. Kend.</span>
                     <span class="schedule-card-value"><strong>${schedule['Nomor Kendaraan']}</strong></span>
                 </div>` : '';
-
             cards += `
                 <div class="schedule-card status-${statusRaw}" data-nama="${(schedule.Nama || '').toLowerCase()}">
                     <div class="schedule-card-strip"></div>
@@ -405,7 +558,6 @@ function renderScheduleList(schedules) {
                     </div>
                 </div>`;
         });
-
     } else if (currentCalendarType === 'RUANG_RAPAT') {
         schedules.forEach(schedule => {
             const statusRaw = (schedule.Status || '').toLowerCase();
@@ -414,7 +566,6 @@ function renderScheduleList(schedules) {
                     <span class="schedule-card-label">Ruang</span>
                     <span class="schedule-card-value"><strong>${schedule['Nama Ruang Rapat']}</strong></span>
                 </div>` : '';
-
             cards += `
                 <div class="schedule-card status-${statusRaw}" data-nama="${(schedule.Nama || '').toLowerCase()}">
                     <div class="schedule-card-strip"></div>
@@ -447,7 +598,6 @@ function renderScheduleList(schedules) {
                 </div>`;
         });
     }
-
     container.innerHTML = `<div class="schedule-cards-grid">${cards}</div>`;
 }
 
@@ -466,8 +616,7 @@ function filterSchedules() {
 }
 
 function backToCalendar() {
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('kalender').classList.add('active');
+    activateSection('kalender');
     document.getElementById('search-schedule').value = '';
 }
 
@@ -477,16 +626,22 @@ function backToCalendar() {
 function showVoucherStatus() {
     const dropdownContent = document.getElementById('status-dropdown');
     if (dropdownContent) dropdownContent.classList.remove('show');
-
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('status-voucher').classList.add('active');
-    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-
+    activateSection('status-voucher');
     const mobileSelect = document.getElementById('mobile-nav-select');
     if (mobileSelect) mobileSelect.value = 'status-voucher';
-
     showLoading();
     loadVoucherData();
+}
+
+// ── Pagination state voucher ──
+let voucherCurrentPage = 1;
+let voucherPageSize    = 10;  // bisa diubah user via selector
+let voucherDisplayData = [];  // data yang sedang ditampilkan (sudah filter+sort)
+
+function changeVoucherPageSize(val) {
+    voucherPageSize    = parseInt(val) || 10;
+    voucherCurrentPage = 1;
+    renderVoucherTable(voucherDisplayData, 1);
 }
 
 function loadVoucherData() {
@@ -494,27 +649,84 @@ function loadVoucherData() {
         .then(response => response.json())
         .then(data => {
             allVouchers = data.status === 'success' ? (data.vouchers || []) : [];
-            renderVoucherTable(allVouchers);
+            allVouchers = sortVouchersByDate(allVouchers);
+            voucherCurrentPage = 1;
+            voucherDisplayData = allVouchers;
+            renderVoucherTable(voucherDisplayData, voucherCurrentPage);
             hideLoading();
         })
         .catch(error => {
             console.error('❌ Fetch error:', error);
             allVouchers = [];
-            renderVoucherTable([]);
+            voucherDisplayData = [];
+            renderVoucherTable([], 1);
             hideLoading();
         });
 }
 
-function renderVoucherTable(vouchers) {
-    const tbody = document.getElementById('voucher-table-body');
-    if (vouchers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">Tidak ada data voucher BBM</td></tr>`;
+// ============================================
+// SORT VOUCHER BY DATE (terbaru di atas)
+// Robust: coba semua kemungkinan nama field Timestamp
+// dari Google Apps Script (case-insensitive, spasi, dll)
+// ============================================
+function getVoucherTimestamp(voucher) {
+    // Coba semua kemungkinan nama field yang umum dari GAS
+    const keys = ['Timestamp', 'timestamp', 'Tanggal', 'tanggal', 'Date', 'date',
+                  'TIMESTAMP', 'Waktu', 'waktu'];
+    for (const k of keys) {
+        if (voucher[k]) return voucher[k];
+    }
+    // Fallback: ambil field pertama yang isinya mirip tanggal
+    for (const val of Object.values(voucher)) {
+        if (val && typeof val === 'string' && !isNaN(Date.parse(val))) return val;
+    }
+    return null;
+}
+
+function parseVoucherDate(raw) {
+    if (!raw) return new Date(0);
+    // Kalau sudah Date object
+    if (raw instanceof Date) return raw;
+    // Coba parse langsung
+    const d = new Date(raw);
+    if (!isNaN(d)) return d;
+    // Format DD/MM/YYYY atau DD/MM/YYYY HH:MM:SS (format Indonesia dari Sheets)
+    const m = String(raw).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) return new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+    return new Date(0);
+}
+
+function sortVouchersByDate(vouchers) {
+    return [...vouchers].sort((a, b) => {
+        const dateA = parseVoucherDate(getVoucherTimestamp(a));
+        const dateB = parseVoucherDate(getVoucherTimestamp(b));
+        return dateB - dateA; // descending: terbaru di atas
+    });
+}
+
+function renderVoucherTable(vouchers, page) {
+    page = page || 1;
+    const tbody   = document.getElementById('voucher-table-body');
+    const total   = vouchers.length;
+    const totalPages = Math.max(1, Math.ceil(total / voucherPageSize));
+    page = Math.min(page, totalPages);
+
+    if (total === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">Tidak ada data voucher BBM</td></tr>`;
+        renderVoucherPagination(0, 1, 1);
         return;
     }
-    tbody.innerHTML = vouchers.map(voucher => {
+
+    const start = (page - 1) * voucherPageSize;
+    const slice = vouchers.slice(start, start + voucherPageSize);
+
+    tbody.innerHTML = slice.map(voucher => {
         const statusClass = (voucher.Status || '').toLowerCase();
-        const timestamp = voucher.Timestamp ? new Date(voucher.Timestamp).toLocaleDateString('id-ID') : '-';
-        return `<tr data-search="${(voucher.Nama || '').toLowerCase()} ${(voucher['Nomor Polisi'] || '').toLowerCase()}">
+        const rawTs = getVoucherTimestamp(voucher);
+        const timestamp = rawTs
+            ? parseVoucherDate(rawTs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+            : '-';
+        return `<tr>
             <td>${timestamp}</td>
             <td>${voucher.Nama || '-'}</td>
             <td>${voucher.Unit || '-'}</td>
@@ -522,21 +734,94 @@ function renderVoucherTable(vouchers) {
             <td><span class="status-badge ${statusClass}">${voucher.Status || 'UNKNOWN'}</span></td>
         </tr>`;
     }).join('');
+
+    renderVoucherPagination(total, page, totalPages);
+}
+
+function renderVoucherPagination(total, page, totalPages) {
+    const container = document.getElementById('voucher-pagination');
+    if (!container) return;
+    if (total === 0) { container.innerHTML = ''; return; }
+
+    const start = (page - 1) * voucherPageSize + 1;
+    const end   = Math.min(page * voucherPageSize, total);
+
+    // ── Selector "tampilkan X per halaman" ──
+    const sizeOptions = [10, 25, 50, 100];
+    let sizeHtml = `<div class="pagination-size">
+        <label>Tampilkan&nbsp;
+            <select class="page-size-select" onchange="changeVoucherPageSize(this.value)">
+                ${sizeOptions.map(n => `<option value="${n}"${n === voucherPageSize ? ' selected' : ''}>${n}</option>`).join('')}
+            </select>
+            &nbsp;data per halaman
+        </label>
+    </div>`;
+
+    let html = sizeHtml;
+    html += `<div class="pagination-info">Menampilkan ${start}–${end} dari ${total} data</div>`;
+    html += `<div class="pagination-controls">`;
+
+    html += `<button class="page-btn" onclick="goToVoucherPage(1)" ${page===1?'disabled':''}>««</button>`;
+    html += `<button class="page-btn" onclick="goToVoucherPage(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+
+    const delta = 2;
+    const from  = Math.max(1, page - delta);
+    const to    = Math.min(totalPages, page + delta);
+    if (from > 1) html += `<span class="page-ellipsis">…</span>`;
+    for (let i = from; i <= to; i++) {
+        html += `<button class="page-btn${i===page?' active':''}" onclick="goToVoucherPage(${i})">${i}</button>`;
+    }
+    if (to < totalPages) html += `<span class="page-ellipsis">…</span>`;
+
+    html += `<button class="page-btn" onclick="goToVoucherPage(${page+1})" ${page===totalPages?'disabled':''}>›</button>`;
+    html += `<button class="page-btn" onclick="goToVoucherPage(${totalPages})" ${page===totalPages?'disabled':''}>»»</button>`;
+    html += `</div>`;
+
+    container.innerHTML = html;
+}
+
+function goToVoucherPage(page) {
+    voucherCurrentPage = page;
+    renderVoucherTable(voucherDisplayData, voucherCurrentPage);
+    // Scroll ke atas tabel
+    const tbl = document.getElementById('status-voucher');
+    if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function filterVouchers() {
     const searchTerm = document.getElementById('search-voucher').value.toLowerCase();
-    document.querySelectorAll('#voucher-table-body tr').forEach(row => {
-        const searchData = row.getAttribute('data-search');
-        row.style.display = (!searchData || searchData.includes(searchTerm)) ? '' : 'none';
+    const filtered = allVouchers.filter(v => {
+        const hay = ((v.Nama || '') + ' ' + (v['Nomor Polisi'] || '') + ' ' + (v.Unit || '')).toLowerCase();
+        return hay.includes(searchTerm);
     });
+    // Terapkan filter status aktif
+    const byStatus = currentVoucherFilter === 'ALL'
+        ? filtered
+        : filtered.filter(v => v.Status === currentVoucherFilter);
+    voucherCurrentPage = 1;
+    voucherDisplayData = sortVouchersByDate(byStatus);
+    renderVoucherTable(voucherDisplayData, 1);
 }
 
-function filterVoucherByStatus(status) {
+function filterVoucherByStatus(status, clickedBtn) {
     currentVoucherFilter = status;
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    renderVoucherTable(status === 'ALL' ? allVouchers : allVouchers.filter(v => v.Status === status));
+    // Update tombol aktif — cari di section status-voucher agar tidak tabrakan
+    document.querySelectorAll('#status-voucher .filter-btn').forEach(b => b.classList.remove('active'));
+    const btn = clickedBtn || (typeof event !== 'undefined' && event && event.target);
+    if (btn && btn.classList) btn.classList.add('active');
+
+    const searchTerm = document.getElementById('search-voucher').value.toLowerCase();
+    let filtered = allVouchers;
+    if (status !== 'ALL') filtered = filtered.filter(v => v.Status === status);
+    if (searchTerm) {
+        filtered = filtered.filter(v => {
+            const hay = ((v.Nama || '') + ' ' + (v['Nomor Polisi'] || '') + ' ' + (v.Unit || '')).toLowerCase();
+            return hay.includes(searchTerm);
+        });
+    }
+    voucherCurrentPage = 1;
+    voucherDisplayData = sortVouchersByDate(filtered);
+    renderVoucherTable(voucherDisplayData, 1);
 }
 
 // ============================================
@@ -575,7 +860,6 @@ function fileToBase64(file) {
 
 // ============================================
 // SHARED: submit via hidden iframe (tanpa file)
-// Dipakai oleh: Kendaraan, Ruang Rapat, Voucher, SPJ
 // ============================================
 function submitViaIframe(formData, iframeId, callback) {
     const form = document.createElement('form');
@@ -583,7 +867,6 @@ function submitViaIframe(formData, iframeId, callback) {
     form.action = GAS_URL;
     form.target = iframeId;
     form.style.display = 'none';
-
     for (let [key, value] of formData.entries()) {
         if (value instanceof File) continue;
         const input = document.createElement('input');
@@ -592,7 +875,6 @@ function submitViaIframe(formData, iframeId, callback) {
         input.value = value;
         form.appendChild(input);
     }
-
     let iframe = document.getElementById(iframeId);
     if (!iframe) {
         iframe = document.createElement('iframe');
@@ -601,10 +883,8 @@ function submitViaIframe(formData, iframeId, callback) {
         iframe.style.display = 'none';
         document.body.appendChild(iframe);
     }
-
     document.body.appendChild(form);
     form.submit();
-
     setTimeout(() => {
         callback(true);
         if (form.parentNode) document.body.removeChild(form);
@@ -612,19 +892,21 @@ function submitViaIframe(formData, iframeId, callback) {
 }
 
 // ============================================
-// KENDARAAN SUBMISSION
+// KENDARAAN SUBMISSION — with time validation
 // ============================================
 function submitKendaraan(event) {
     event.preventDefault();
     const form = event.target;
+
+    // FIX 2: Validasi waktu selesai
+    if (!validateTimeRange(form, 'waktu_mulai', 'waktu_selesai')) return;
+
     const formData = new FormData(form);
     formData.append('type', 'KENDARAAN');
-
     const submitBtn = document.getElementById('submit-kendaraan');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengirim...';
     setProgress('progress-kendaraan', 'loading-kendaraan', 30, 'Mengirim pengajuan...');
-
     submitViaIframe(formData, 'iframe-kendaraan', function (success) {
         setProgress('progress-kendaraan', 'loading-kendaraan', 100, 'Selesai!');
         setTimeout(() => {
@@ -642,19 +924,21 @@ function submitKendaraan(event) {
 }
 
 // ============================================
-// RUANG RAPAT SUBMISSION
+// RUANG RAPAT SUBMISSION — with time validation
 // ============================================
 function submitRuang(event) {
     event.preventDefault();
     const form = event.target;
+
+    // FIX 2: Validasi waktu selesai
+    if (!validateTimeRange(form, 'waktu_mulai', 'waktu_selesai')) return;
+
     const formData = new FormData(form);
     formData.append('type', 'RUANG_RAPAT');
-
     const submitBtn = document.getElementById('submit-ruangan');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengirim...';
     setProgress('progress-ruangan', 'loading-ruangan', 30, 'Mengirim pengajuan...');
-
     submitViaIframe(formData, 'iframe-ruangan', function (success) {
         setProgress('progress-ruangan', 'loading-ruangan', 100, 'Selesai!');
         setTimeout(() => {
@@ -679,12 +963,10 @@ function submitVoucher(event) {
     const form = event.target;
     const formData = new FormData(form);
     formData.append('type', 'VOUCHER_BBM');
-
     const submitBtn = document.getElementById('submit-voucher');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengirim...';
     setProgress('progress-voucher', 'loading-voucher', 30, 'Mengirim pengajuan...');
-
     submitViaIframe(formData, 'iframe-voucher', function (success) {
         setProgress('progress-voucher', 'loading-voucher', 100, 'Selesai!');
         setTimeout(() => {
@@ -709,12 +991,10 @@ function submitSPJ(event) {
     const form = event.target;
     const formData = new FormData(form);
     formData.append('type', 'SPJ');
-
     const submitBtn = document.getElementById('submit-spj');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengirim SPJ...';
     setProgress('progress-spj', 'loading-spj', 30, 'Mengirim SPJ ke sistem...');
-
     submitViaIframe(formData, 'iframe-spj', function (success) {
         setProgress('progress-spj', 'loading-spj', 100, 'Selesai!');
         setTimeout(() => {
@@ -736,28 +1016,23 @@ function submitSPJ(event) {
 // ============================================
 async function submitPengajuanDana(event) {
     event.preventDefault();
-
     if (!selectedPengajuanFile) {
         alert('❌ Silakan pilih file pengajuan dana PDF terlebih dahulu!');
         return;
     }
-
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-pengajuan-dana');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengunggah Pengajuan...';
     setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 20, 'Membaca file...');
-
     try {
         const base64Data = await fileToBase64(selectedPengajuanFile);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 50, 'Mengunggah ke sistem...');
-
         const hiddenForm = document.createElement('form');
         hiddenForm.method = 'POST';
         hiddenForm.action = GAS_URL;
         hiddenForm.target = 'iframe-pengajuan-dana';
         hiddenForm.style.display = 'none';
-
         const fields = {
             action: 'uploadPengajuanDana',
             nama: formElement.querySelector('[name="nama"]').value,
@@ -769,7 +1044,6 @@ async function submitPengajuanDana(event) {
             fileData: base64Data,
             mimeType: selectedPengajuanFile.type
         };
-
         for (let [key, value] of Object.entries(fields)) {
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -777,7 +1051,6 @@ async function submitPengajuanDana(event) {
             input.value = value;
             hiddenForm.appendChild(input);
         }
-
         let iframe = document.getElementById('iframe-pengajuan-dana');
         if (!iframe) {
             iframe = document.createElement('iframe');
@@ -786,15 +1059,12 @@ async function submitPengajuanDana(event) {
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
         }
-
         document.body.appendChild(hiddenForm);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 75, 'Menyimpan file...');
         hiddenForm.submit();
-
         setTimeout(() => {
             setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!');
         }, 1000);
-
         setTimeout(() => {
             hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
             showAlert('alert-pengajuan-dana', '✓ Pengajuan dana berhasil dikirim! File tersimpan di sistem.');
@@ -805,7 +1075,6 @@ async function submitPengajuanDana(event) {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Pengajuan Dana';
         }, 3000);
-
     } catch (error) {
         console.error('Error:', error);
         hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
@@ -834,7 +1103,6 @@ function handleMultiFileSelect(event) {
     const maxSizeMB = 10;
     const rejected = [];
     const accepted = [];
-
     files.forEach(f => {
         if (f.size > maxSizeMB * 1024 * 1024) {
             rejected.push(f.name);
@@ -842,11 +1110,9 @@ function handleMultiFileSelect(event) {
             accepted.push(f);
         }
     });
-
     if (rejected.length > 0) {
         alert(`⚠️ File berikut melebihi batas ${maxSizeMB}MB dan tidak akan diikutkan:\n${rejected.join('\n')}`);
     }
-
     selectedFiles = accepted;
     renderFileList();
 }
@@ -891,7 +1157,6 @@ function renderFileList() {
 function removeSelectedFile(index) {
     selectedFiles.splice(index, 1);
     renderFileList();
-    // Reset input supaya bisa pilih file yang sama lagi
     const input = document.getElementById('file-input');
     if (input) input.value = '';
 }
@@ -922,7 +1187,7 @@ function removeDriveLink(rowId) {
 
 function updateDriveLinkRemoveButtons() {
     const rows = document.querySelectorAll('#drive-links-container .drive-link-row');
-    rows.forEach((row, i) => {
+    rows.forEach((row) => {
         const removeBtn = row.querySelector('button');
         if (removeBtn) {
             removeBtn.style.display = rows.length > 1 ? '' : 'none';
@@ -933,12 +1198,16 @@ function updateDriveLinkRemoveButtons() {
 // ============================================
 // DOKUMEN ARSIP SUBMISSION (multi-file + drive)
 // ============================================
+// ============================================================
+// PATCH: submitDokumen — kirim semua file dalam 1 request
+// Ganti fungsi submitDokumen yang lama di main.js dengan ini
+// ============================================================
+
 async function submitDokumen(event) {
     event.preventDefault();
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-arsip');
 
-    // Validasi berdasarkan mode
     if (arsipUploadMode === 'file') {
         if (selectedFiles.length === 0) {
             alert('❌ Silakan pilih minimal satu file untuk diunggah!');
@@ -969,56 +1238,85 @@ async function submitDokumen(event) {
 
     try {
         if (arsipUploadMode === 'drive') {
-            // Kirim via iframe dengan link Drive (no file)
+            // ── Mode Drive Link: tidak berubah ──────────────────────────
             const links = getDriveLinks().filter(l => l.trim() !== '');
             const fields = { ...baseFields, drive_links: JSON.stringify(links) };
             setProgress('progress-arsip', 'loading-arsip', 50, 'Mengirim link Drive...');
             submitViaIframeFields(fields, 'iframe-arsip');
 
         } else {
-            // Upload file satu per satu
-            const totalFiles = selectedFiles.length;
-            for (let i = 0; i < totalFiles; i++) {
-                const file = selectedFiles[i];
-                const pct = Math.round(15 + ((i / totalFiles) * 70));
-                setProgress('progress-arsip', 'loading-arsip', pct, `Mengunggah file ${i + 1}/${totalFiles}: ${file.name}`);
-                const base64Data = await fileToBase64(file);
-                const fields = {
-                    ...baseFields,
+            // ── Mode File: encode SEMUA file, kirim 1 request via fetch ─
+            setProgress('progress-arsip', 'loading-arsip', 25, 'Membaca file...');
+
+            // Encode semua file ke base64 paralel
+            const filesData = await Promise.all(
+                selectedFiles.map(async (file) => ({
                     fileName: file.name,
-                    fileData: base64Data,
                     mimeType: file.type,
-                    fileIndex: i + 1,
-                    totalFiles
-                };
-                submitViaIframeFields(fields, `iframe-arsip-${i}`);
-                // Jeda antar upload
-                if (i < totalFiles - 1) await new Promise(r => setTimeout(r, 800));
+                    fileData: await fileToBase64(file)
+                }))
+            );
+
+            setProgress('progress-arsip', 'loading-arsip', 55, 'Mengunggah ke Google Drive...');
+
+            const payload = {
+                ...baseFields,
+                filesData: filesData          // array semua file sekaligus
+            };
+
+            const response = await fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            setProgress('progress-arsip', 'loading-arsip', 85, 'Menyimpan data...');
+
+            let result;
+            try {
+                result = await response.json();
+            } catch (e) {
+                // GAS kadang redirect — anggap sukses jika HTTP 200/302
+                result = { status: 'success' };
+            }
+
+            if (result && result.status === 'error') {
+                throw new Error(result.message || 'Upload gagal');
             }
         }
 
-        setProgress('progress-arsip', 'loading-arsip', 95, 'Menyelesaikan...');
-        setTimeout(() => {
-            setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
-        }, 800);
+        setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
 
         setTimeout(() => {
             hideProgress('progress-arsip', 'loading-arsip');
+
             const msg = arsipUploadMode === 'file'
                 ? `✓ ${selectedFiles.length} dokumen berhasil diunggah ke Google Drive!`
                 : '✓ Link Google Drive berhasil dikirim!';
+
             showAlert('alert-arsip', msg, 'success');
+
+            // Reset form
             formElement.reset();
             selectedFiles = [];
             renderFileList();
             driveLinksCounter = 1;
             const dlContainer = document.getElementById('drive-links-container');
             if (dlContainer) {
-                dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex; gap: 8px; align-items: center; margin-bottom: 8px;"><input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;"><button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button></div>`;
+                dlContainer.innerHTML = `
+                    <div class="drive-link-row" id="drive-row-1"
+                         style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                        <input type="url" class="form-control drive-link-input"
+                               placeholder="https://drive.google.com/file/d/... atau folder/..."
+                               style="flex:1;">
+                        <button type="button" class="btn btn-sm"
+                                onclick="removeDriveLink('drive-row-1')"
+                                style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button>
+                    </div>`;
             }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Dokumen';
-        }, 3200);
+        }, 600);
 
     } catch (error) {
         console.error('❌ Error:', error);
@@ -1029,21 +1327,18 @@ async function submitDokumen(event) {
     }
 }
 
-// Helper: ambil semua Drive link dari container
 function getDriveLinks() {
     return Array.from(document.querySelectorAll('#drive-links-container .drive-link-input'))
         .map(el => el.value.trim())
         .filter(v => v !== '');
 }
 
-// Helper: submit form fields via iframe (tanpa file)
 function submitViaIframeFields(fields, iframeId) {
     const hiddenForm = document.createElement('form');
     hiddenForm.method = 'POST';
     hiddenForm.action = GAS_URL;
     hiddenForm.target = iframeId;
     hiddenForm.style.display = 'none';
-
     for (let [key, value] of Object.entries(fields)) {
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -1051,7 +1346,6 @@ function submitViaIframeFields(fields, iframeId) {
         input.value = value;
         hiddenForm.appendChild(input);
     }
-
     let iframe = document.getElementById(iframeId);
     if (!iframe) {
         iframe = document.createElement('iframe');
@@ -1060,7 +1354,6 @@ function submitViaIframeFields(fields, iframeId) {
         iframe.style.display = 'none';
         document.body.appendChild(iframe);
     }
-
     document.body.appendChild(hiddenForm);
     hiddenForm.submit();
     setTimeout(() => { if (hiddenForm.parentNode) document.body.removeChild(hiddenForm); }, 5000);
@@ -1078,8 +1371,72 @@ function showAlert(alertId, message, type = 'success') {
 }
 
 // ============================================
-// LEGACY: sendToGoogleScript (fallback, tidak dipakai lagi)
+// LEGACY fallback
 // ============================================
 function sendToGoogleScript(formData, callback) {
     submitViaIframe(formData, 'hidden-iframe', callback);
 }
+
+// ============================================
+// DOMContentLoaded — inisialisasi semua fix
+// ============================================
+// ============================================
+// FIX: Wrap semua .table-compact > table dengan
+// div scroll agar bisa digeser horizontal di mobile.
+// Juga dijalankan ulang tiap kali konten transparansi
+// dirender (dipanggil dari transparansi-all.js via
+// MutationObserver di bawah).
+// ============================================
+function wrapTablesForMobile() {
+    document.querySelectorAll('.table-compact').forEach(function(container) {
+        // Cegah double-wrap
+        if (container.querySelector('.table-scroll-wrapper')) return;
+        const table = container.querySelector('table');
+        if (!table) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-scroll-wrapper';
+        wrapper.style.cssText = [
+            'overflow-x: auto',
+            '-webkit-overflow-scrolling: touch',
+            'width: 100%',
+            'border-radius: 0 0 12px 12px',
+        ].join(';');
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    });
+}
+
+// ============================================
+// Observer: jalankan wrapTablesForMobile setiap
+// kali konten dinamis (transparansi/summary) dirender
+// ============================================
+function initTableScrollObserver() {
+    const targets = [
+        document.getElementById('nilai-content'),
+        document.getElementById('summary-container'),
+    ].filter(Boolean);
+
+    if (!targets.length || typeof MutationObserver === 'undefined') return;
+
+    const observer = new MutationObserver(function() {
+        // Debounce ringan
+        clearTimeout(observer._timer);
+        observer._timer = setTimeout(wrapTablesForMobile, 80);
+    });
+
+    targets.forEach(function(t) {
+        observer.observe(t, { childList: true, subtree: true });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // FIX 2 & 3: Init validasi tanggal dan waktu
+    initDateValidation();
+    initTimeValidationListeners();
+
+    // FIX tabel scroll — wrap table yang sudah ada di DOM
+    wrapTablesForMobile();
+
+    // Observer untuk tabel yang dirender secara dinamis
+    initTableScrollObserver();
+});

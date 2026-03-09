@@ -35,7 +35,7 @@
             <h1>Sistem Pelayanan Internal</h1>
             <p>Dinas Koperasi dan UKM DIY - Digitalisasi layanan internal untuk efisiensi dan transparansi</p>
             <div class="hero-badge">
-                <span>Terintegrasi & Real-time</span>
+                <span>Terintegrasi &amp; Real-time</span>
             </div>
         </div>
     </div>
@@ -54,10 +54,13 @@
                     <option value="pengajuan-dana">Pengajuan Dana</option>
                     <option value="spj">Penyampaian SPJ</option>
                     <option value="" disabled>───────────</option>
-                    <option value="transparansi-nilai">Transparansi Nilai</option>
-                    <option value="transparansi-spj" onclick="handleTransparansiClick('spj-keuangan')">↳ Nilai SPJ
-                        Keuangan</option>
-                    <option value="transparansi-monev" onclick="handleTransparansiClick('monev')">↳ Nilai Monev</option>
+                    <option value="" disabled>Transparansi Nilai</option>
+                    <option value="transparansi-ruang">&nbsp;&nbsp;Ruang Rapat</option>
+                    <option value="transparansi-kendaraan">&nbsp;&nbsp;Kendaraan Dinas</option>
+                    <option value="transparansi-bbm">&nbsp;&nbsp;Voucher BBM</option>
+                    <option value="transparansi-dokumen">&nbsp;&nbsp;Dokumen Arsip</option>
+                    <option value="transparansi-spj">&nbsp;&nbsp;Nilai SPJ Keuangan</option>
+                    <option value="transparansi-monev">&nbsp;&nbsp;Nilai Monev</option>
                     <option value="" disabled>───────────</option>
                     <option value="status-kendaraan">Jadwal Mobil</option>
                     <option value="status-ruangan">Jadwal Ruang Rapat</option>
@@ -454,10 +457,10 @@
                         <label>Nomor Kendaraan *</label>
                         <select class="form-control" name="nomor_polisi" required>
                             <option value="">Pilih Nomor Kendaraan</option>
-                            <option value="AB1027AV">AB1027AV</option>
-                            <option value="AB1869UA">AB1869UA</option>
-                            <option value="AB1147UH">AB1147UH</option>
-                            <option value="AB1340UH">AB1340UH</option>
+                            <option value="AB 1027 AV">AB 1027 AV</option>
+                            <option value="AB 1869 UA">AB 1869 UA</option>
+                            <option value="AB 1147 UH">AB 1147 UH</option>
+                            <option value="AB 1340 UH">AB 1340 UH</option>
                             <option value="AB 1530 UH">AB 1530 UH</option>
                             <option value="AB 1067 IA">AB 1067 IA</option>
                         </select>
@@ -754,10 +757,11 @@
                     </div>
                     <div class="form-group">
                         <label>Nominal Pengajuan (Rp) *</label>
-                        <input type="number" class="form-control" name="nominal_pengajuan" placeholder="Contoh: 5000000"
-                            min="0" step="1000" required>
-                        <small style="color: #6b7280; display: block; margin-top: 8px;">Masukkan nominal dalam Rupiah
-                            tanpa titik/koma</small>
+                        <input type="text" class="form-control rupiah-input" id="display-nominal-pengajuan"
+                            placeholder="Contoh: 5.000.000" autocomplete="off" inputmode="numeric" required
+                            oninput="formatRupiah(this, 'nominal_pengajuan')">
+                        <input type="hidden" name="nominal_pengajuan" id="nominal_pengajuan">
+                        <small style="color: #6b7280; display: block; margin-top: 8px;">Angka otomatis diformat dengan titik pemisah</small>
                     </div>
                     <div class="form-group">
                         <label>Upload File Laporan Pengajuan Dana (PDF) *</label>
@@ -931,10 +935,11 @@
                     </div>
                     <div class="form-group">
                         <label>Nominal SPJ yang Masuk (Rp) *</label>
-                        <input type="number" class="form-control" name="nominal_spj" placeholder="Contoh: 4800000"
-                            min="0" step="1000" required>
-                        <small style="color: #6b7280; display: block; margin-top: 8px;">Nominal yang sudah
-                            dipertanggungjawabkan</small>
+                        <input type="text" class="form-control rupiah-input" id="display-nominal-spj"
+                            placeholder="Contoh: 4.800.000" autocomplete="off" inputmode="numeric" required
+                            oninput="formatRupiah(this, 'nominal_spj')">
+                        <input type="hidden" name="nominal_spj" id="nominal_spj">
+                        <small style="color: #6b7280; display: block; margin-top: 8px;">Nominal yang sudah dipertanggungjawabkan</small>
                     </div>
                     <div class="spj-deadline-info">
                         <p>ℹ️ <strong>Info Penting:</strong> SPJ dapat disubmit kapan saja sesuai jadwal pelaporan unit.
@@ -1031,6 +1036,8 @@
                     </table>
                 </div>
             </div>
+            <!-- PAGINATION VOUCHER BBM -->
+            <div id="voucher-pagination" class="pagination-wrapper"></div>
         </div>
     </div>
 
@@ -1077,6 +1084,8 @@
                     </table>
                 </div>
             </div>
+            <!-- PAGINATION PENGAJUAN DANA -->
+            <div id="dana-pagination" class="pagination-wrapper"></div>
         </div>
     </div>
 
@@ -1107,8 +1116,40 @@
     <!-- Footer -->
     <div class="footer">
         <p><span class="footer-logo">Dinas Koperasi dan UKM DIY</span></p>
-        <p style="margin-top: 8px; font-size: 0.875rem;">Sistem Pelayanan Internal © 2026</p>
+        <p style="margin-top: 8px; font-size: 0.875rem;">Sistem Pelayanan Internal &copy; 2026</p>
     </div>
+
+    <script>
+    // ── Format Rupiah: titik pemisah ribuan ───────────────────
+    function formatRupiah(inputEl, hiddenId) {
+        // Ambil hanya angka
+        let raw = inputEl.value.replace(/\D/g, '');
+        // Simpan ke hidden input (nilai murni tanpa titik)
+        document.getElementById(hiddenId).value = raw;
+        // Format tampilan dengan titik ribuan
+        if (raw === '') { inputEl.value = ''; return; }
+        inputEl.value = parseInt(raw, 10).toLocaleString('id-ID');
+    }
+
+    // Validasi: pastikan hidden input terisi sebelum submit
+    document.getElementById('form-pengajuan-dana').addEventListener('submit', function(e) {
+        const raw = document.getElementById('nominal_pengajuan').value;
+        if (!raw || parseInt(raw) <= 0) {
+            e.preventDefault();
+            document.getElementById('display-nominal-pengajuan').focus();
+            alert('Nominal pengajuan harus diisi dengan angka yang valid.');
+        }
+    });
+
+    document.getElementById('form-spj').addEventListener('submit', function(e) {
+        const raw = document.getElementById('nominal_spj').value;
+        if (!raw || parseInt(raw) <= 0) {
+            e.preventDefault();
+            document.getElementById('display-nominal-spj').focus();
+            alert('Nominal SPJ harus diisi dengan angka yang valid.');
+        }
+    });
+    </script>
 
     <script src="assets/js/main.js"></script>
     <script src="assets/js/transparansi-all.js"></script>
