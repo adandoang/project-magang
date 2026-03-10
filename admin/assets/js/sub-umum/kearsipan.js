@@ -1,6 +1,11 @@
 // ============================================================
 // kearsipan.js — Kearsipan Internal section (SPA)
 // Admin Panel — Dinas Koperasi UKM
+// Changes:
+//   1. Hapus tombol lihat file dari kolom Aksi
+//   2. Modal detail diperbaiki: breakdown skor per komponen
+//   3. Section file lampiran multi-link (parse newline/koma) di modal detail
+//   4. Fix filter bulan otomatis saat pertama dimuat
 // ============================================================
 (function () {
     'use strict';
@@ -16,21 +21,54 @@
     // ── SVG Icons ─────────────────────────────────────────────
     const ICONS = {
         refresh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`,
-        check: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        x: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+        plus: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
         eye: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
         edit: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
         link: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+        check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+        x: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+        user: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+        building: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h6"/><path d="M3 15h6"/><path d="M15 9h3"/><path d="M15 15h3"/></svg>`,
+        calendar: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+        fileText: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
     };
 
-    // ── Modal helpers ─────────────────────────────────────────
-    function openModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
-    function closeModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
-
+    // ── Helpers ───────────────────────────────────────────────
     function normalizeMonth(str) {
         if (!str) return '';
         const s = str.trim().toLowerCase();
         return MONTHS_ID.find(m => m.toLowerCase() === s) || str;
+    }
+
+    /**
+     * Parse field file_url yang bisa berisi banyak URL dipisah
+     * dengan newline, koma, atau spasi.
+     * Mengembalikan array URL yang bersih.
+     */
+    function parseFileUrls(raw) {
+        if (!raw) return [];
+        return raw
+            .split(/[\n,]+/)
+            .map(s => s.trim())
+            .filter(s => s.startsWith('http'));
+    }
+
+    /**
+     * Beri label otomatis per link: "File 1", "File 2", dst.
+     * Kalau URL mengandung nama file di-extract untuk label.
+     */
+    function getLinkLabel(url, index) {
+        try {
+            const u = new URL(url);
+            // Coba ambil nama dari path terakhir
+            const parts = u.pathname.split('/').filter(Boolean);
+            const last = parts[parts.length - 1];
+            if (last && last.length > 3 && last.length < 60) {
+                // Decode URL encoding dan potong ekstensi panjang
+                return decodeURIComponent(last).replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+            }
+        } catch { }
+        return `File ${index + 1}`;
     }
 
     // ── Auto-set bulan saat ini ───────────────────────────────
@@ -44,19 +82,21 @@
     // ── Load Documents ────────────────────────────────────────
     async function loadDocuments() {
         const tbody = document.getElementById('krs-docs-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div><p style="margin-top:16px;">Memuat data...</p></td></tr>';
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;">
+            <div class="spinner"></div><div style="margin-top:12px;color:#94a3b8;">Memuat data...</div>
+        </td></tr>`;
         try {
             const response = await fetch(`${APPS_SCRIPT_URL}?action=getDocuments`);
             const documents = await response.json();
             if (Array.isArray(documents)) {
-                // simpan urutan asli, reverse untuk tampilan (terbaru di atas)
                 masterDocuments = documents.slice().reverse();
                 applyFilters();
                 loadStats();
             }
         } catch (error) {
             if (window.showToast) showToast('Gagal memuat data kearsipan', 'error');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="krsLoadDocuments()" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data.
+                <button onclick="krsLoadDocuments()" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
         }
     }
     window.krsLoadDocuments = loadDocuments;
@@ -67,8 +107,8 @@
             const monthDocs = masterDocuments.filter(d => normalizeMonth(d.bulan).toLowerCase() === curMonth.toLowerCase());
             const pending = masterDocuments.filter(d => d.status !== 'ASSESSED').length;
             const assessed = masterDocuments.filter(d => d.status === 'ASSESSED');
-            const avg = assessed.length ? (assessed.reduce((a, d) => a + (parseFloat(d.nilai) || 0), 0) / assessed.length) : 0;
-
+            const sum = assessed.reduce((a, d) => a + (Math.round(parseFloat(String(d.nilai).replace(",", ".")) * 10) / 10 || 0), 0);
+            const avg = assessed.length ? Math.round((sum / assessed.length) * 10) / 10 : 0;
             const el = id => document.getElementById(id);
             if (el('krs-avg-score')) el('krs-avg-score').textContent = avg.toFixed(1);
             if (el('krs-total-assessed')) el('krs-total-assessed').textContent = assessed.length;
@@ -89,26 +129,20 @@
             return true;
         });
         documentsCurrentPage = 1;
-        renderActiveBadges(bulan, status, search);
         renderPaginatedDocuments();
     }
     window.krsApplyFilters = applyFilters;
 
-    function renderActiveBadges(bulan, status, search) { }
-
     // ── Render Table ──────────────────────────────────────────
     function renderPaginatedDocuments() {
         const tbody = document.getElementById('krs-docs-tbody');
-        const cards = document.getElementById('krs-docs-cards');
         const pgn = document.getElementById('krs-docs-pagination');
         if (!tbody) return;
 
         if (allDocuments.length === 0) {
-            const msg = masterDocuments.length === 0
-                ? '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Tidak ada dokumen</td></tr>'
-                : '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">🔍 Tidak ada dokumen yang sesuai filter</td></tr>';
-            tbody.innerHTML = msg;
-            if (cards) cards.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;">Data tidak ditemukan</div>';
+            tbody.innerHTML = masterDocuments.length === 0
+                ? `<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen</td></tr>`
+                : `<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen yang sesuai filter</td></tr>`;
             if (pgn) pgn.innerHTML = '';
             return;
         }
@@ -117,9 +151,11 @@
         const start = (documentsCurrentPage - 1) * itemsPerPage;
         const items = allDocuments.slice(start, start + itemsPerPage);
 
-        // ── Desktop table ──────────────────────────────────────
         tbody.innerHTML = items.map(doc => {
             const isPending = doc.status !== 'ASSESSED';
+            const nilaiDisplay = isPending
+                ? '<span style="color:#94a3b8;">—</span>'
+                : `<strong style="font-size:16px;color:#10b981;">${doc.nilai}</strong>`;
             return `<tr>
                 <td style="font-size:13px;color:#64748b;">${doc.timestamp || '-'}</td>
                 <td>
@@ -133,53 +169,17 @@
                         ${doc.status === 'ASSESSED' ? 'Sudah Dinilai' : 'Pending'}
                     </span>
                 </td>
-                <td>${doc.nilai ? `<strong style="font-size:16px;color:#10b981;">${doc.nilai}</strong>` : '-'}</td>
+                <td>${nilaiDisplay}</td>
                 <td>
-                    <div class="action-buttons">
-                        <div class="btn-icon-group">
-                            <a href="${doc.file_url}" target="_blank" class="btn-icon btn-icon-view" title="Lihat File" rel="noopener noreferrer">${ICONS.link}</a>
-                            ${isPending
-                    ? `<button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.check}</button>`
+                    <div class="action-buttons"><div class="btn-icon-group">
+                        ${isPending
+                    ? `<button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.plus}</button>`
                     : `<button onclick="krsViewAssess('${doc.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>
                                <button onclick="krsEditAssess('${doc.id}')" class="btn-icon btn-icon-edit" title="Edit Penilaian">${ICONS.edit}</button>`
                 }
-                        </div>
-                    </div>
+                    </div></div>
                 </td>
             </tr>`;
-        }).join('');
-
-        // ── Mobile cards ───────────────────────────────────────
-        if (cards) cards.innerHTML = items.map(doc => {
-            const isPending = doc.status !== 'ASSESSED';
-            return `<div class="requests-card">
-                <div class="requests-card-header">
-                    <div style="flex:1;">
-                        <div class="requests-card-title">${doc.nama_pengirim || '-'}</div>
-                        <div class="requests-card-subtitle">${doc.unit || '-'}</div>
-                    </div>
-                    <span class="badge ${doc.status === 'ASSESSED' ? 'badge-assessed' : 'badge-pending'}">
-                        ${doc.status === 'ASSESSED' ? 'Dinilai' : 'Pending'}
-                    </span>
-                </div>
-                <div class="requests-card-body">
-                    <div class="requests-card-row"><span class="requests-card-label">Jenis</span><span class="requests-card-value">${doc.jenis_dokumen || '-'}</span></div>
-                    <div class="requests-card-row"><span class="requests-card-label">Periode</span><span class="requests-card-value">${doc.bulan || '-'} ${doc.tahun || ''}</span></div>
-                    ${doc.nilai ? `<div class="requests-card-row"><span class="requests-card-label">Nilai</span><span class="requests-card-value" style="font-size:16px;font-weight:700;color:#10b981;">${doc.nilai}</span></div>` : ''}
-                </div>
-                <div class="requests-card-footer">
-                    <div class="action-buttons" style="justify-content:flex-end;">
-                        <div class="btn-icon-group">
-                            <a href="${doc.file_url}" target="_blank" class="btn-icon btn-icon-view" title="Lihat File" rel="noopener noreferrer">${ICONS.link}</a>
-                            ${isPending
-                    ? `<button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.check}</button>`
-                    : `<button onclick="krsViewAssess('${doc.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>
-                               <button onclick="krsEditAssess('${doc.id}')" class="btn-icon btn-icon-edit" title="Edit Penilaian">${ICONS.edit}</button>`
-                }
-                        </div>
-                    </div>
-                </div>
-            </div>`;
         }).join('');
 
         if (pgn) pgn.innerHTML = `
@@ -196,7 +196,175 @@
     };
 
     // ═══════════════════════════════════════════════════════════
-    // ASSESSMENT MODAL
+    // VIEW DETAIL MODAL — diperbaiki
+    // ═══════════════════════════════════════════════════════════
+    window.krsViewAssess = (docId) => {
+        const doc = allDocuments.find(d => d.id === docId) || masterDocuments.find(d => d.id === docId);
+        if (!doc) return;
+        document.getElementById('krs-viewModal')?.remove();
+
+        // Hitung sub-skor dari field yang tersimpan
+        const bl = doc.bukti_lengkap !== false ? 1 : 0;
+        const bb = doc.bukti_benar !== false ? 1 : 0;
+        const btw = doc.bukti_tepat_waktu !== false;
+        const hari = parseInt(doc.hari_terlambat) || 0;
+        const scoreBukti = bl + bb + (btw ? 1 : Math.max(0, 1 - 0.1 * hari));
+        const scoreSrikandi = doc.sudah_srikandi !== false ? 1 : 0;
+        const sesuaiTND = doc.surat_sesuai_tnd !== false;
+        const jss = parseInt(doc.jumlah_surat_salah) || 0;
+        const scoreSurat = sesuaiTND ? 1 : Math.max(0, 1 - 0.1 * jss);
+        const total = parseFloat(doc.nilai) || (scoreBukti + scoreSrikandi + scoreSurat);
+
+        // Warna skor
+        const scoreColor = total >= 4.5 ? '#10b981' : total >= 3 ? '#f59e0b' : '#ef4444';
+        const scoreBg = total >= 4.5 ? '#f0fdf4' : total >= 3 ? '#fffbeb' : '#fff1f2';
+        const scoreBorder = total >= 4.5 ? '#86efac' : total >= 3 ? '#fde68a' : '#fecaca';
+
+        // Helper badge check/x
+        const yesNo = (val) => val !== false
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;color:#10b981;font-weight:600;font-size:13px;">${ICONS.check} Ya</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;color:#ef4444;font-weight:600;font-size:13px;">${ICONS.x} Tidak</span>`;
+
+        // Parse file URLs
+        const urls = parseFileUrls(doc.file_url);
+        const fileSection = urls.length > 0 ? `
+            <div class="krs-detail-section">
+                <div class="krs-detail-section-title">
+                    <span style="color:#3b82f6;">${ICONS.fileText}</span> File Lampiran
+                    <span style="font-weight:400;color:#94a3b8;font-size:11px;">${urls.length} file</span>
+                </div>
+                <div class="krs-file-list">
+                    ${urls.map((url, i) => `
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="krs-file-item">
+                        <div class="krs-file-icon">${ICONS.link}</div>
+                        <div class="krs-file-info">
+                            <div class="krs-file-label">${getLinkLabel(url, i)}</div>
+                            <div class="krs-file-url">${url.length > 55 ? url.slice(0, 55) + '…' : url}</div>
+                        </div>
+                        <div class="krs-file-arrow">›</div>
+                    </a>`).join('')}
+                </div>
+            </div>` : '';
+
+        const modal = document.createElement('div');
+        modal.id = 'krs-viewModal';
+        modal.className = 'modal-overlay';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Detail Penilaian Kearsipan</h2>
+            </div>
+            <div class="modal-content" style="display:flex;flex-direction:column;gap:14px;">
+
+                <!-- Banner info dokumen -->
+                <div class="krs-detail-section" style="flex-direction:row;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:160px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <div class="krs-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.user}</div>
+                            <div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Pengirim</div>
+                                <div style="font-size:14px;font-weight:700;color:#1e293b;">${doc.nama_pengirim || '-'}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <div class="krs-detail-field-icon" style="background:#f0fdf4;color:#10b981;">${ICONS.building}</div>
+                            <div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Unit / Bidang</div>
+                                <div style="font-size:13px;font-weight:600;color:#1e293b;">${doc.unit || '-'}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div class="krs-detail-field-icon" style="background:#fefce8;color:#ca8a04;">${ICONS.calendar}</div>
+                            <div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Periode</div>
+                                <div style="font-size:13px;font-weight:600;color:#1e293b;">${doc.bulan || '-'} ${doc.tahun || ''} · ${doc.jenis_dokumen || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Skor besar -->
+                    <div style="text-align:center;padding:16px 24px;background:${scoreBg};border:2px solid ${scoreBorder};border-radius:12px;min-width:110px;">
+                        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${scoreColor};margin-bottom:4px;">Skor</div>
+                        <div style="font-size:48px;font-weight:800;color:${scoreColor};line-height:1;">${total.toFixed(1)}</div>
+                        <div style="font-size:12px;color:#64748b;margin-top:4px;">dari 5.0</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">oleh ${doc.penilai || 'Admin'}</div>
+                    </div>
+                </div>
+
+                <!-- Breakdown skor -->
+                <div class="krs-detail-section">
+                    <div class="krs-detail-section-title">
+                        <span style="color:#3b82f6;">📊</span> Rincian Penilaian
+                    </div>
+                    <!-- Bukti Dukung -->
+                    <div class="krs-score-row">
+                        <div class="krs-score-row-label">
+                            <span class="krs-score-badge" style="background:#eff6ff;color:#3b82f6;">1</span>
+                            Bukti Dukung
+                        </div>
+                        <div class="krs-score-row-detail">
+                            <div class="krs-score-sub-row">
+                                <span>Bukti lengkap</span>${yesNo(doc.bukti_lengkap)}
+                            </div>
+                            <div class="krs-score-sub-row">
+                                <span>Sesuai ketentuan</span>${yesNo(doc.bukti_benar)}
+                            </div>
+                            <div class="krs-score-sub-row">
+                                <span>Tepat waktu</span>${yesNo(doc.bukti_tepat_waktu)}
+                                ${!btw && hari > 0 ? `<span style="font-size:12px;color:#64748b;margin-left:4px;">(${hari} hari)</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="krs-score-chip" style="background:#eff6ff;color:#3b82f6;">${scoreBukti.toFixed(1)}</div>
+                    </div>
+                    <!-- Srikandi -->
+                    <div class="krs-score-row">
+                        <div class="krs-score-row-label">
+                            <span class="krs-score-badge" style="background:#fdf4ff;color:#8b5cf6;">2</span>
+                            Srikandi
+                        </div>
+                        <div class="krs-score-row-detail">
+                            <div class="krs-score-sub-row">
+                                <span>Sudah di Srikandi</span>${yesNo(doc.sudah_srikandi)}
+                            </div>
+                        </div>
+                        <div class="krs-score-chip" style="background:#fdf4ff;color:#8b5cf6;">${scoreSrikandi.toFixed(1)}</div>
+                    </div>
+                    <!-- Surat Keluar -->
+                    <div class="krs-score-row">
+                        <div class="krs-score-row-label">
+                            <span class="krs-score-badge" style="background:#fffbeb;color:#f59e0b;">3</span>
+                            Surat Keluar
+                        </div>
+                        <div class="krs-score-row-detail">
+                            <div class="krs-score-sub-row">
+                                <span>Sesuai TND</span>${yesNo(doc.surat_sesuai_tnd)}
+                                ${!sesuaiTND && jss > 0 ? `<span style="font-size:12px;color:#64748b;margin-left:4px;">(${jss} surat)</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="krs-score-chip" style="background:#fffbeb;color:#f59e0b;">${scoreSurat.toFixed(1)}</div>
+                    </div>
+                </div>
+
+                ${doc.catatan ? `
+                <div class="krs-detail-section">
+                    <div class="krs-detail-section-title"><span style="color:#3b82f6;">📝</span> Catatan</div>
+                    <div style="font-size:13.5px;color:#374151;line-height:1.6;white-space:pre-line;">${doc.catatan}</div>
+                </div>` : ''}
+
+                ${fileSection}
+
+            </div>
+            <div class="modal-footer">
+                <button onclick="document.getElementById('krs-viewModal').remove()" class="btn" style="flex:1;">Tutup</button>
+                <button onclick="document.getElementById('krs-viewModal').remove();krsEditAssess('${docId}')" class="btn btn-primary" style="flex:1;">✏️ Edit Penilaian</button>
+            </div>
+        </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // ASSESSMENT MODAL (nilai / edit)
     // ═══════════════════════════════════════════════════════════
     window.krsOpenAssess = (docId) => openAssessmentModal(docId, false);
     window.krsEditAssess = (docId) => openAssessmentModal(docId, true);
@@ -232,7 +400,7 @@
         modal.innerHTML = `
         <div class="modal" style="max-width:600px;">
             <div class="modal-header">
-                <h2 class="modal-title">${isEdit ? '✏️ Edit' : '✓ Nilai'} Dokumen Kearsipan</h2>
+                <h2 class="modal-title">${isEdit ? '✏️ Edit' : '✚ Nilai'} Dokumen Kearsipan</h2>
             </div>
             <div class="modal-content">
                 <div class="info-box" style="margin-bottom:20px;">
@@ -242,7 +410,6 @@
                 <div class="alert alert-info" style="margin-bottom:20px;">
                     📋 <strong>Sistem Penilaian:</strong> Bukti Dukung (3 poin) + Srikandi (1 poin) + Surat Keluar (1 poin) = <strong>Total 5 poin</strong>
                 </div>
-                <!-- 1. Bukti Dukung -->
                 <div class="score-section">
                     <div class="score-section-title">1️⃣ Bukti Dukung <span style="font-weight:400;color:#64748b;font-size:13px;">(maks 3 poin)</span></div>
                     <div class="checkbox-container">
@@ -262,7 +429,6 @@
                         <input type="number" class="form-input" id="krs-hari-terlambat" value="${existingData.hari_terlambat}" min="0" max="30" style="width:120px;">
                     </div>
                 </div>
-                <!-- 2. Srikandi -->
                 <div class="score-section" style="border-left-color:#8b5cf6;">
                     <div class="score-section-title">2️⃣ Srikandi <span style="font-weight:400;color:#64748b;font-size:13px;">(1 poin)</span></div>
                     <div class="checkbox-container">
@@ -270,7 +436,6 @@
                         <label for="krs-sudah-srikandi" style="cursor:pointer;font-size:14px;">Sudah ada di Srikandi (+1 poin)</label>
                     </div>
                 </div>
-                <!-- 3. Surat Keluar -->
                 <div class="score-section" style="border-left-color:#f59e0b;">
                     <div class="score-section-title">3️⃣ Surat Keluar sesuai TND <span style="font-weight:400;color:#64748b;font-size:13px;">(1 poin)</span></div>
                     <div class="checkbox-container">
@@ -282,7 +447,6 @@
                         <input type="number" class="form-input" id="krs-jumlah-surat-salah" value="${existingData.jumlah_surat_salah}" min="0" style="width:120px;">
                     </div>
                 </div>
-                <!-- Score Preview -->
                 <div class="score-preview">
                     <div class="score-preview-title">TOTAL SKOR</div>
                     <div class="score-preview-value" id="krs-total-score">5.0</div>
@@ -292,7 +456,6 @@
                         <div class="score-item"><div class="score-item-label">Surat Keluar</div><div class="score-item-value" id="krs-score-surat">1.0</div></div>
                     </div>
                 </div>
-                <!-- Catatan -->
                 <div class="form-group">
                     <label class="input-label">Catatan Tambahan (Opsional)</label>
                     <textarea class="form-textarea" name="krs-catatan" rows="3" placeholder="Tambahkan catatan...">${existingData.catatan}</textarea>
@@ -302,7 +465,7 @@
                 <button onclick="document.getElementById('krs-assessModal').remove()" class="btn" style="flex:1;">Batal</button>
                 <button onclick="krsSubmitAssessment('${docId}', ${isEdit})" id="krs-submit-assess-btn"
                     class="btn ${isEdit ? 'btn-warning' : 'btn-success'}" style="flex:1;">
-                    ${isEdit ? '💾 Update Penilaian' : `${ICONS.check} Simpan Penilaian`}
+                    ${isEdit ? '💾 Update Penilaian' : `${ICONS.plus} Simpan Penilaian`}
                 </button>
             </div>
         </div>`;
@@ -351,7 +514,6 @@
     window.krsSubmitAssessment = async (docId, isEdit) => {
         const modal = document.getElementById('krs-assessModal');
         if (!modal) return;
-
         const buktiLengkap = modal.querySelector('#krs-bukti-lengkap').checked;
         const buktiBenar = modal.querySelector('#krs-bukti-benar').checked;
         const buktiTepatWaktu = modal.querySelector('#krs-bukti-tepat-waktu').checked;
@@ -361,12 +523,9 @@
         const jumlahSuratSalah = suratSesuaiTND ? 0 : (modal.querySelector('#krs-jumlah-surat-salah').value || 0);
         const catatan = modal.querySelector('textarea[name="krs-catatan"]').value;
         const user = (window.AUTH && window.AUTH.getUser) ? window.AUTH.getUser() : {};
-
         const btn = document.getElementById('krs-submit-assess-btn');
         const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
-
+        btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
         const params = new URLSearchParams({
             action: isEdit ? 'updateDocumentAssessment' : 'createDocumentAssessment',
             doc_id: docId,
@@ -376,7 +535,6 @@
             jumlah_surat_salah: jumlahSuratSalah, catatan,
             penilai_nama: user.name || 'Admin'
         });
-
         try {
             const response = await fetch(`${APPS_SCRIPT_URL}?${params}`);
             const result = await response.json();
@@ -394,39 +552,6 @@
         }
     };
 
-    // ── View Assessment Detail ────────────────────────────────
-    window.krsViewAssess = (docId) => {
-        const doc = allDocuments.find(d => d.id === docId) || masterDocuments.find(d => d.id === docId);
-        if (!doc) return;
-
-        document.getElementById('krs-viewModal')?.remove();
-        const modal = document.createElement('div');
-        modal.id = 'krs-viewModal';
-        modal.className = 'modal-overlay';
-        modal.style.display = 'flex';
-        modal.innerHTML = `
-        <div class="modal">
-            <div class="modal-header"><h2 class="modal-title">Detail Penilaian</h2></div>
-            <div class="modal-content">
-                <div class="info-box" style="margin-bottom:20px;">
-                    <p style="font-weight:600;margin:0 0 4px;">${doc.nama_pengirim} — ${doc.unit}</p>
-                    <p style="font-size:13px;color:#64748b;margin:0;">${doc.jenis_dokumen} · ${doc.bulan} ${doc.tahun || ''}</p>
-                </div>
-                <div style="text-align:center;padding:20px 0;">
-                    <div style="font-size:56px;font-weight:700;color:#10b981;line-height:1;">${doc.nilai}</div>
-                    <div style="font-size:14px;color:#64748b;margin-top:8px;">dari 5.0 &nbsp;·&nbsp; Dinilai oleh ${doc.penilai || 'Admin'}</div>
-                </div>
-                ${doc.catatan ? `<div style="padding:16px;background:#f8fafc;border-left:4px solid #3b82f6;border-radius:6px;white-space:pre-line;font-size:14px;">${doc.catatan}</div>` : ''}
-            </div>
-            <div class="modal-footer">
-                <button onclick="document.getElementById('krs-viewModal').remove()" class="btn" style="flex:1;">Tutup</button>
-                <button onclick="document.getElementById('krs-viewModal').remove();krsEditAssess('${docId}')" class="btn btn-warning" style="flex:1;">✏️ Edit Penilaian</button>
-            </div>
-        </div>`;
-        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-        document.body.appendChild(modal);
-    };
-
     // ═══════════════════════════════════════════════════════════
     // REGISTER SECTION & INJECT HTML
     // ═══════════════════════════════════════════════════════════
@@ -437,45 +562,59 @@
 
         section.innerHTML = `
 <style>
-/* ─── KRS local styles ─── */
-.score-section {
-    background: #f8fafc; padding: 16px; border-radius: 8px;
-    margin-bottom: 16px; border-left: 4px solid #3b82f6;
-}
-.score-section-title { font-weight: 600; color: #1e293b; margin-bottom: 12px; font-size: 15px; }
-.score-preview {
-    background: white; padding: 20px; border-radius: 8px;
-    margin-bottom: 16px; border: 2px solid #e5e7eb;
-}
-.score-preview-title { font-size: 13px; color: #64748b; margin-bottom: 8px; text-align: center; }
-.score-preview-value { font-size: 36px; font-weight: 700; color: #0f172a; text-align: center; }
-.score-breakdown { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
-.score-item { text-align: center; padding: 12px; background: #f8fafc; border-radius: 6px; }
-.score-item-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
-.score-item-value { font-size: 20px; font-weight: 700; color: #1e293b; }
-.checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.checkbox-container input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #0f172a; }
-.form-textarea {
-    width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px;
-    font-size: 14px; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.15s;
-}
-.form-textarea:focus { border-color: #0f172a; box-shadow: 0 0 0 3px rgba(15,23,42,0.08); }
-.alert { padding: 12px 16px; border-radius: 6px; font-size: 13px; }
-.alert-info { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e3a8a; }
-.info-box { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 16px; }
-.section-page-header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid #f1f5f9; }
-.section-page-title { font-size:22px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-.section-page-subtitle { font-size:14px; color:#64748b; }
+/* ─── Score section (modal penilaian) ─── */
+.score-section { background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:16px; border-left:4px solid #3b82f6; }
+.score-section-title { font-weight:600; color:#1e293b; margin-bottom:12px; font-size:15px; }
+.score-preview { background:white; padding:20px; border-radius:8px; margin-bottom:16px; border:2px solid #e5e7eb; }
+.score-preview-title { font-size:13px; color:#64748b; margin-bottom:8px; text-align:center; text-transform:uppercase; letter-spacing:.05em; }
+.score-preview-value { font-size:36px; font-weight:700; color:#0f172a; text-align:center; }
+.score-breakdown { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:12px; }
+.score-item { text-align:center; padding:12px; background:#f8fafc; border-radius:6px; }
+.score-item-label { font-size:11px; color:#64748b; margin-bottom:4px; }
+.score-item-value { font-size:20px; font-weight:700; color:#1e293b; }
+/* ─── Checkbox ─── */
+.checkbox-container { display:flex; align-items:center; gap:10px; margin-bottom:10px; cursor:pointer; }
+.checkbox-container input[type="checkbox"] { appearance:none; -webkit-appearance:none; width:18px; height:18px; border-radius:5px; border:2px solid #cbd5e1; background:#fff; cursor:pointer; flex-shrink:0; transition:background .15s,border-color .15s,box-shadow .15s; position:relative; }
+.checkbox-container input[type="checkbox"]:checked { background:#3b82f6; border-color:#3b82f6; box-shadow:0 0 0 3px #dbeafe; }
+.checkbox-container input[type="checkbox"]:checked::after { content:''; position:absolute; top:2px; left:5px; width:5px; height:9px; border:2px solid #fff; border-top:none; border-left:none; transform:rotate(45deg); }
+.checkbox-container input[type="checkbox"]:hover:not(:checked) { border-color:#93c5fd; box-shadow:0 0 0 3px #eff6ff; }
+/* ─── Misc ─── */
+.form-textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px; font-family:inherit; resize:vertical; outline:none; transition:border-color .15s; box-sizing:border-box; }
+.form-textarea:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.1); }
+.alert { padding:12px 16px; border-radius:6px; font-size:13px; }
+.alert-info { background:#eff6ff; border-left:4px solid #3b82f6; color:#1e3a8a; }
+.info-box { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:14px 16px; }
+.badge-assessed { background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+.badge-pending  { background:#fef9c3; color:#a16207; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+/* ─── Detail modal ─── */
+.krs-detail-section { background:#f8fafc; border-radius:10px; padding:14px; border:1px solid #f1f5f9; display:flex; flex-direction:column; gap:8px; }
+.krs-detail-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+.krs-detail-field-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+/* Score rows */
+.krs-score-row { display:flex; align-items:flex-start; gap:10px; padding:10px; background:white; border-radius:8px; border:1px solid #f1f5f9; }
+.krs-score-row-label { display:flex; align-items:center; gap:6px; font-weight:600; font-size:13px; color:#1e293b; min-width:110px; flex-shrink:0; }
+.krs-score-badge { width:20px; height:20px; border-radius:50%; font-size:11px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+.krs-score-row-detail { flex:1; display:flex; flex-direction:column; gap:4px; }
+.krs-score-sub-row { display:flex; align-items:center; justify-content:space-between; font-size:12.5px; color:#64748b; }
+.krs-score-chip { font-size:16px; font-weight:800; padding:6px 12px; border-radius:8px; flex-shrink:0; }
+/* File list */
+.krs-file-list { display:flex; flex-direction:column; gap:6px; }
+.krs-file-item { display:flex; align-items:center; gap:10px; padding:10px 12px; background:white; border:1px solid #e2e8f0; border-radius:8px; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s; }
+.krs-file-item:hover { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.08); }
+.krs-file-icon { width:32px; height:32px; border-radius:8px; background:#eff6ff; color:#3b82f6; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.krs-file-info { flex:1; min-width:0; }
+.krs-file-label { font-size:13px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; }
+.krs-file-url { font-size:11px; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+.krs-file-arrow { font-size:18px; color:#cbd5e1; flex-shrink:0; }
+.krs-file-item:hover .krs-file-arrow { color:#3b82f6; }
 </style>
 
 <div class="container">
-
     <div class="section-page-header">
         <h1 class="section-page-title">Penilaian Kearsipan Internal</h1>
         <p class="section-page-subtitle">Sistem penilaian 3 komponen: Bukti Dukung, Srikandi, Surat Keluar</p>
     </div>
 
-    <!-- Stats -->
     <div class="stats-grid">
         <div class="stat-card" style="border-left:4px solid #10b981;">
             <div class="stat-label">Nilai Rata-rata</div>
@@ -518,10 +657,9 @@
                     <option value="ASSESSED">Sudah Dinilai</option>
                 </select>
                 <input type="text" class="search-input" id="krs-search-input" placeholder="Cari nama / unit / jenis..." oninput="krsApplyFilters()">
-                <button onclick="krsLoadDocuments()" class="btn btn-sm btn-action-view" title="Refresh Data">${ICONS.refresh} Refresh</button>
+                <button onclick="krsLoadDocuments()" class="btn btn-sm" title="Refresh Data">${ICONS.refresh} Refresh</button>
             </div>
         </div>
-
         <div class="table-container">
             <table>
                 <thead>
@@ -536,19 +674,21 @@
                     </tr>
                 </thead>
                 <tbody id="krs-docs-tbody">
-                    <tr><td colspan="7" class="loading"><div class="spinner"></div><p style="margin-top:16px;">Memuat data...</p></td></tr>
+                    <tr><td colspan="7" style="text-align:center;padding:40px;">
+                        <div class="spinner"></div>
+                        <div style="margin-top:12px;color:#94a3b8;">Memuat data...</div>
+                    </td></tr>
                 </tbody>
             </table>
         </div>
-        <div id="krs-docs-cards"></div>
         <div class="pagination" id="krs-docs-pagination"></div>
     </div>
 </div>`;
 
         currentUser = (window.AUTH && window.AUTH.getUser) ? window.AUTH.getUser() || {} : {};
-        // Set bulan saat ini sebelum loadDocuments → applyFilters otomatis pakai bulan ini
         setCurrentMonth();
-        loadDocuments();
+        // Load data lalu langsung jalankan filter bulan saat ini
+        loadDocuments().then(() => applyFilters());
     };
 
 })();

@@ -113,7 +113,36 @@
         if (document.getElementById('spj-units-pending')) document.getElementById('spj-units-pending').textContent = Math.max(0, 6 - vals.length);
     }
 
+    // ── Currency formatting helpers ───────────────────────────
+    // Format angka ke string dengan titik (1000000 → "1.000.000")
+    function fmtCurrency(val) {
+        if (!val && val !== 0) return '';
+        return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    // Parse string dengan titik kembali ke angka (hapus titik)
+    function parseCurrency(str) {
+        return parseFloat(String(str).replace(/\./g, '')) || 0;
+    }
+    // Attach currency mask ke sebuah input element
+    function attachCurrencyMask(el) {
+        if (!el || el._currencyMasked) return;
+        el._currencyMasked = true;
+        el.addEventListener('input', function () {
+            const raw = this.value.replace(/\./g, '').replace(/[^0-9]/g, '');
+            const num = raw ? parseInt(raw, 10) : '';
+            const formatted = num !== '' ? fmtCurrency(num) : '';
+            const caretPos = this.selectionStart;
+            const dotsBefore = (this.value.slice(0, caretPos).match(/\./g) || []).length;
+            this.value = formatted;
+            // Restore kursor dengan mempertimbangkan titik baru
+            const dotsAfter = (formatted.slice(0, caretPos).match(/\./g) || []).length;
+            try { this.setSelectionRange(caretPos + dotsAfter - dotsBefore, caretPos + dotsAfter - dotsBefore); } catch (e) { }
+        });
+    }
+
     // ── Tab 1: Input ──────────────────────────────────────────
+    // Renders all units automatically when a month is selected.
+    // Units with existing data show their scores; units without show inline input rows.
     window.spjRenderInputTable = function () {
         const bulan = document.getElementById('spj-select-bulan-input')?.value;
         const tbody = document.getElementById('spj-input-tbody');
@@ -124,33 +153,37 @@
         }
         const data = getLocalData();
         const monthData = data[bulan] || {};
-        if (Object.keys(monthData).length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8;">Belum ada penilaian untuk ${bulan}. Klik "Input Penilaian" untuk mulai.</td></tr>`;
-            updateStats(bulan); return;
-        }
         const fmt = n => new Intl.NumberFormat('id-ID').format(n);
+
         tbody.innerHTML = UNITS.map(unit => {
             const u = monthData[unit];
-            if (!u) return `<tr>
-                <td style="font-weight:500;">${unit}</td>
-                <td>${bulan}</td>
-                <td colspan="5" style="color:#94a3b8;font-style:italic;">Belum dinilai</td>
-                <td>
-                    <div class="action-buttons"><div class="btn-icon-group">
-                        <button onclick="spjOpenEditModal('${unit}','${bulan}')" class="btn-icon btn-icon-approve" title="Isi Nilai">${ICONS.plus}</button>
-                    </div></div>
-                </td>
-            </tr>`;
+            if (!u) {
+                // Unit belum dinilai — tampilkan baris kosong dengan tombol isi nilai
+                return `<tr>
+                    <td style="font-weight:500;vertical-align:middle;">${unit}</td>
+                    <td style="text-align:center;vertical-align:middle;">${bulan}</td>
+                    <td style="text-align:right;vertical-align:middle;">—</td>
+                    <td style="text-align:right;vertical-align:middle;">—</td>
+                    <td style="text-align:center;vertical-align:middle;">—</td>
+                    <td style="text-align:center;vertical-align:middle;">—</td>
+                    <td style="text-align:center;vertical-align:middle;"><span class="badge" style="background:#f1f5f9;color:#94a3b8;">Belum Dinilai</span></td>
+                    <td style="text-align:center;vertical-align:middle;">
+                        <div class="action-buttons"><div class="btn-icon-group">
+                            <button onclick="spjOpenEditModal('${unit}','${bulan}')" class="btn-icon btn-icon-approve" title="Isi Nilai">${ICONS.plus}</button>
+                        </div></div>
+                    </td>
+                </tr>`;
+            }
             const badgeClass = u.totalNilai >= 30 ? 'badge-approved' : u.totalNilai >= 20 ? 'badge-pending' : 'badge-rejected';
             return `<tr>
-                <td style="font-weight:500;">${unit}</td>
-                <td>${bulan}</td>
-                <td>${u.totalPengajuan > 0 ? 'Rp ' + fmt(u.totalPengajuan) : '—'}</td>
-                <td>${u.nominalTepat > 0 ? 'Rp ' + fmt(u.nominalTepat) : '—'}</td>
-                <td>${u.nilaiTepat.toFixed(2)}</td>
-                <td style="color:#ef4444;">${u.sanksi > 0 ? '−' + u.sanksi.toFixed(2) : '0.00'}</td>
-                <td><span class="badge ${badgeClass}">${u.totalNilai.toFixed(2)}</span></td>
-                <td>
+                <td style="font-weight:500;vertical-align:middle;">${unit}</td>
+                <td style="text-align:center;vertical-align:middle;">${bulan}</td>
+                <td style="text-align:right;vertical-align:middle;">${u.totalPengajuan > 0 ? 'Rp ' + fmt(u.totalPengajuan) : '—'}</td>
+                <td style="text-align:right;vertical-align:middle;">${u.nominalTepat > 0 ? 'Rp ' + fmt(u.nominalTepat) : '—'}</td>
+                <td style="text-align:center;vertical-align:middle;">${u.nilaiTepat.toFixed(2)}</td>
+                <td style="text-align:center;vertical-align:middle;color:#ef4444;">${u.sanksi > 0 ? '−' + u.sanksi.toFixed(2) : '0.00'}</td>
+                <td style="text-align:center;vertical-align:middle;"><span class="badge ${badgeClass}">${u.totalNilai.toFixed(2)}</span></td>
+                <td style="text-align:center;vertical-align:middle;">
                     <div class="action-buttons"><div class="btn-icon-group">
                         <button onclick="spjOpenEditModal('${unit}','${bulan}')" class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
                         <button onclick="spjDeleteEntry('${unit}','${bulan}')" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
@@ -161,39 +194,53 @@
         updateStats(bulan);
     };
 
-    window.spjOpenInputModal = function () {
-        const bulan = document.getElementById('spj-select-bulan-input')?.value;
-        if (!bulan) { if (window.showToast) showToast('Pilih bulan terlebih dahulu', 'error'); return; }
-        document.getElementById('spj-modal-bulan-label').textContent = `Bulan: ${bulan}`;
-        document.getElementById('spj-input-unit').value = '';
-        document.getElementById('spj-input-unit').disabled = false;
-        ['spj-input-total', 'spj-input-nominal-tepat', 'spj-input-hari-terlambat', 'spj-input-catatan'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.value = '';
-        });
-        ['spj-modal-total-nilai', 'spj-modal-nilai-tepat', 'spj-modal-sisa-bobot', 'spj-modal-sanksi'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.textContent = '—';
-        });
-        document.getElementById('spj-inputModal').style.display = 'flex';
-    };
-
     window.spjOpenEditModal = function (unit, bulan) {
         const data = getLocalData();
         const u = (data[bulan] || {})[unit];
         document.getElementById('spj-modal-bulan-label').textContent = `Unit: ${unit} | Bulan: ${bulan}`;
         document.getElementById('spj-input-unit').value = unit;
         document.getElementById('spj-input-unit').disabled = true;
-        document.getElementById('spj-input-total').value = u ? u.totalPengajuan : '';
-        document.getElementById('spj-input-nominal-tepat').value = u ? u.nominalTepat : '';
+
+        const totalEl = document.getElementById('spj-input-total');
+        const tepatEl = document.getElementById('spj-input-nominal-tepat');
+        totalEl.value = u && u.totalPengajuan ? fmtCurrency(u.totalPengajuan) : '';
+        tepatEl.value = u && u.nominalTepat ? fmtCurrency(u.nominalTepat) : '';
         document.getElementById('spj-input-hari-terlambat').value = u ? u.hariTerlambat : '';
         document.getElementById('spj-input-catatan').value = u ? u.catatan : '';
+
+        // Attach currency mask (idempotent)
+        attachCurrencyMask(totalEl);
+        attachCurrencyMask(tepatEl);
+
+        // Clear validation state
+        ['spj-input-total', 'spj-input-nominal-tepat', 'spj-input-hari-terlambat'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.borderColor = '';
+        });
+        const warn = document.getElementById('spj-hari-warning');
+        if (warn) warn.style.display = 'none';
+
         spjUpdateModalScore();
         document.getElementById('spj-inputModal').style.display = 'flex';
     };
 
     window.spjUpdateModalScore = function () {
-        const total = parseFloat(document.getElementById('spj-input-total').value) || 0;
-        const tepat = parseFloat(document.getElementById('spj-input-nominal-tepat').value) || 0;
+        const total = parseCurrency(document.getElementById('spj-input-total').value);
+        const tepat = parseCurrency(document.getElementById('spj-input-nominal-tepat').value);
         const hari = parseFloat(document.getElementById('spj-input-hari-terlambat').value) || 0;
+
+        // Validasi: jika tepat < total, hari terlambat wajib > 0
+        const hariEl = document.getElementById('spj-input-hari-terlambat');
+        const warnEl = document.getElementById('spj-hari-warning');
+        const adaSelisih = total > 0 && tepat < total;
+        if (adaSelisih && hari === 0) {
+            if (hariEl) hariEl.style.borderColor = '#ef4444';
+            if (warnEl) { warnEl.style.display = 'flex'; warnEl.querySelector('span').textContent = `Ada Rp ${fmtCurrency(total - tepat)} yang tidak tepat waktu. Wajib isi hari terlambat!`; }
+        } else {
+            if (hariEl) hariEl.style.borderColor = '';
+            if (warnEl) warnEl.style.display = 'none';
+        }
+
         const setVals = (nilaiTepat, sisaBobot, sanksi, totalNilai) => {
             document.getElementById('spj-modal-total-nilai').textContent = totalNilai.toFixed(2);
             document.getElementById('spj-modal-nilai-tepat').textContent = nilaiTepat.toFixed(2);
@@ -214,10 +261,19 @@
         const unit = document.getElementById('spj-input-unit').value;
         if (!unit) { if (window.showToast) showToast('Pilih unit terlebih dahulu', 'error'); return; }
 
-        const totalPengajuan = parseFloat(document.getElementById('spj-input-total').value) || 0;
-        const nominalTepat = parseFloat(document.getElementById('spj-input-nominal-tepat').value) || 0;
+        const totalPengajuan = parseCurrency(document.getElementById('spj-input-total').value);
+        const nominalTepat = parseCurrency(document.getElementById('spj-input-nominal-tepat').value);
         const hariTerlambat = parseFloat(document.getElementById('spj-input-hari-terlambat').value) || 0;
         const catatan = document.getElementById('spj-input-catatan').value;
+
+        // ── Validasi: ada selisih tapi hari terlambat kosong ──
+        if (totalPengajuan > 0 && nominalTepat < totalPengajuan && hariTerlambat === 0) {
+            const selisih = fmtCurrency(totalPengajuan - nominalTepat);
+            if (window.showToast) showToast(`Ada Rp ${selisih} yang tidak tepat waktu. Isi jumlah hari terlambat!`, 'error');
+            const hariEl = document.getElementById('spj-input-hari-terlambat');
+            if (hariEl) { hariEl.style.borderColor = '#ef4444'; hariEl.focus(); }
+            return;
+        }
 
         let nilaiTepat, sanksi, totalNilai, sisaBobot;
         if (totalPengajuan === 0 && nominalTepat === 0) {
@@ -276,19 +332,19 @@
         const totalNilai = UNITS.map(u => (monthData[u]?.totalNilai ?? 0).toFixed(2));
         tbody.innerHTML = `
         <tr>
-            <td style="text-align:center;">1</td>
-            <td style="font-weight:500;">SPJ yang masuk tepat waktu</td>
-            ${nilaiTepat.map(v => `<td class="${parseFloat(v) < 35 ? 'rekap-bad' : 'rekap-good'}" style="text-align:center;">${v}</td>`).join('')}
+            <td style="text-align:center;vertical-align:middle;">1</td>
+            <td style="font-weight:500;vertical-align:middle;">SPJ yang masuk tepat waktu</td>
+            ${nilaiTepat.map(v => `<td class="${parseFloat(v) < 35 ? 'rekap-bad' : 'rekap-good'}" style="text-align:center;vertical-align:middle;">${v}</td>`).join('')}
         </tr>
         <tr>
-            <td style="text-align:center;">2</td>
-            <td style="font-weight:500;">SPJ yang terlambat (sanksi)</td>
-            ${nilaiTerlambat.map(v => `<td style="text-align:center;color:${parseFloat(v) > 0 ? '#ef4444' : '#64748b'};">${parseFloat(v) > 0 ? '−' : ''}${v}</td>`).join('')}
+            <td style="text-align:center;vertical-align:middle;">2</td>
+            <td style="font-weight:500;vertical-align:middle;">SPJ yang terlambat (sanksi)</td>
+            ${nilaiTerlambat.map(v => `<td style="text-align:center;vertical-align:middle;color:${parseFloat(v) > 0 ? '#ef4444' : '#64748b'};">${parseFloat(v) > 0 ? '−' : ''}${v}</td>`).join('')}
         </tr>
         <tr style="background:#f0f7ff;">
-            <td></td>
-            <td style="font-weight:700;">TOTAL NILAI</td>
-            ${totalNilai.map(v => `<td style="text-align:center;font-weight:700;color:${parseFloat(v) >= 30 ? '#065f46' : parseFloat(v) >= 20 ? '#1e40af' : '#991b1b'};">${v}</td>`).join('')}
+            <td style="vertical-align:middle;"></td>
+            <td style="font-weight:700;vertical-align:middle;">TOTAL NILAI</td>
+            ${totalNilai.map(v => `<td style="text-align:center;vertical-align:middle;font-weight:700;color:${parseFloat(v) >= 30 ? '#065f46' : parseFloat(v) >= 20 ? '#1e40af' : '#991b1b'};">${v}</td>`).join('')}
         </tr>`;
 
         if (chartTepat) chartTepat.destroy();
@@ -338,11 +394,62 @@
 .section-page-header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid #f1f5f9; }
 .section-page-title  { font-size:22px; font-weight:700; color:#0f172a; margin-bottom:4px; }
 .section-page-subtitle { font-size:14px; color:#64748b; }
+
+/* ── Tabel alignment fix ── */
+#section-spj-keuangan table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+#section-spj-keuangan table th,
+#section-spj-keuangan table td {
+    vertical-align: middle;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    /* TIDAK overflow:hidden agar tombol aksi tidak terpotong */
+}
+
+/* Kolom input table */
+#spj-input-table { table-layout: fixed; }
+#spj-input-table th:nth-child(1), #spj-input-table td:nth-child(1) { width: 22%; white-space: normal; word-break: break-word; }
+#spj-input-table th:nth-child(2), #spj-input-table td:nth-child(2) { width: 9%; text-align: center; }
+#spj-input-table th:nth-child(3), #spj-input-table td:nth-child(3) { width: 14%; text-align: right; }
+#spj-input-table th:nth-child(4), #spj-input-table td:nth-child(4) { width: 14%; text-align: right; }
+#spj-input-table th:nth-child(5), #spj-input-table td:nth-child(5) { width: 11%; text-align: center; }
+#spj-input-table th:nth-child(6), #spj-input-table td:nth-child(6) { width: 10%; text-align: center; }
+#spj-input-table th:nth-child(7), #spj-input-table td:nth-child(7) { width: 12%; text-align: center; }
+#spj-input-table th:nth-child(8), #spj-input-table td:nth-child(8) { width: 8%; text-align: center; white-space: nowrap; }
+
+/* Pastikan action-buttons tidak terpotong */
+#spj-input-table .action-buttons,
+#spj-input-table .btn-icon-group { display: flex; justify-content: center; align-items: center; gap: 4px; }
+#spj-input-table .btn-icon { flex-shrink: 0; }
+
+/* Kolom rekap table */
+#spj-rekap-table { table-layout: fixed; }
+#spj-rekap-table th:nth-child(1), #spj-rekap-table td:nth-child(1) { width: 4%; text-align: center; }
+#spj-rekap-table th:nth-child(2), #spj-rekap-table td:nth-child(2) { width: 26%; }
+#spj-rekap-table th:nth-child(n+3), #spj-rekap-table td:nth-child(n+3) { width: 11.67%; text-align: center; }
+
+/* Warning box di modal */
+#spj-hari-warning {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #b91c1c;
+}
+#spj-hari-warning svg { flex-shrink: 0; }
 </style>
 
 <div class="container">
 
-    <!-- Header — konsisten dengan semua halaman lain -->
+    <!-- Header -->
     <div class="section-page-header">
         <h1 class="section-page-title">Penilaian SPJ Keuangan</h1>
         <p class="section-page-subtitle">Monitoring ketepatan waktu penyampaian SPJ per unit bidang</p>
@@ -380,17 +487,21 @@
                         <option value="JULI">Juli</option><option value="AGUSTUS">Agustus</option><option value="SEPTEMBER">September</option>
                         <option value="OKTOBER">Oktober</option><option value="NOVEMBER">November</option><option value="DESEMBER">Desember</option>
                     </select>
-                    <button onclick="spjOpenInputModal()" class="btn btn-sm btn-action-edit">
-                        ${ICONS.plus} Input Penilaian
-                    </button>
+                    <button onclick="spjRenderInputTable()" class="btn btn-sm" title="Refresh Data">${ICONS.refresh} Refresh</button>
                 </div>
             </div>
             <div class="table-container">
-                <table>
+                <table id="spj-input-table">
                     <thead>
                         <tr>
-                            <th>Unit</th><th>Bulan</th><th>Total Pengajuan (Rp)</th><th>SPJ Tepat Waktu (Rp)</th>
-                            <th>Nilai Tepat Waktu</th><th>Nilai Sanksi</th><th>Total Nilai (maks 35)</th><th>Aksi</th>
+                            <th>Unit</th>
+                            <th style="text-align:center;">Bulan</th>
+                            <th style="text-align:right;">Total Pengajuan (Rp)</th>
+                            <th style="text-align:right;">SPJ Tepat Waktu (Rp)</th>
+                            <th style="text-align:center;">Nilai Tepat Waktu</th>
+                            <th style="text-align:center;">Nilai Sanksi</th>
+                            <th style="text-align:center;">Total Nilai (maks 35)</th>
+                            <th style="text-align:center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="spj-input-tbody">
@@ -414,6 +525,7 @@
                         <option value="JULI">Juli</option><option value="AGUSTUS">Agustus</option><option value="SEPTEMBER">September</option>
                         <option value="OKTOBER">Oktober</option><option value="NOVEMBER">November</option><option value="DESEMBER">Desember</option>
                     </select>
+                    <button onclick="spjRenderRekap()" class="btn btn-sm" title="Refresh Data">${ICONS.refresh} Refresh</button>
                 </div>
             </div>
             <div class="card-content">
@@ -428,13 +540,17 @@
                     </div>
                 </div>
                 <div class="table-container">
-                    <table class="rekap">
+                    <table id="spj-rekap-table" class="rekap">
                         <thead>
                             <tr>
-                                <th>No</th><th>Indikator Penilaian</th>
-                                <th class="center">BLUT</th><th class="center">Bid. Kewirausahaan</th>
-                                <th class="center">Bid. Koperasi</th><th class="center">Bid. UKM</th>
-                                <th class="center">Bid. Usaha Mikro</th><th class="center">Sekretariat</th>
+                                <th style="text-align:center;">No</th>
+                                <th>Indikator Penilaian</th>
+                                <th style="text-align:center;">BLUT</th>
+                                <th style="text-align:center;">Bid. Kewirausahaan</th>
+                                <th style="text-align:center;">Bid. Koperasi</th>
+                                <th style="text-align:center;">Bid. UKM</th>
+                                <th style="text-align:center;">Bid. Usaha Mikro</th>
+                                <th style="text-align:center;">Sekretariat</th>
                             </tr>
                         </thead>
                         <tbody id="spj-rekap-tbody">
@@ -525,7 +641,7 @@
                     </div>
                     <div class="form-group" style="margin:0;">
                         <label class="input-label">Total Pengajuan Dana (Rp)</label>
-                        <input type="number" class="form-input" id="spj-input-total" placeholder="Contoh: 40000000" oninput="spjUpdateModalScore()">
+                        <input type="text" inputmode="numeric" class="form-input" id="spj-input-total" placeholder="Contoh: 40.000.000" oninput="spjUpdateModalScore()">
                     </div>
                 </div>
             </div>
@@ -533,16 +649,19 @@
                 <div class="score-section-title">Komponen 1: SPJ Tepat Waktu (sebelum tgl 25)</div>
                 <div class="form-group" style="margin:0;">
                     <label class="input-label">Nominal SPJ yang masuk tepat waktu (Rp)</label>
-                    <input type="number" class="form-input" id="spj-input-nominal-tepat" placeholder="Contoh: 30000000" oninput="spjUpdateModalScore()">
+                    <input type="text" inputmode="numeric" class="form-input" id="spj-input-nominal-tepat" placeholder="Contoh: 30.000.000" oninput="spjUpdateModalScore()">
                 </div>
             </div>
             <div class="score-section" style="border-left-color:#ef4444;">
                 <div class="score-section-title">Komponen 2: SPJ Terlambat (tgl 26–30)</div>
                 <div class="form-group" style="margin:0;">
-                    <label class="input-label">Jumlah Hari Terlambat</label>
+                    <label class="input-label">Jumlah Hari Terlambat <span style="color:#ef4444;font-size:11px;" id="spj-hari-required-mark"></span></label>
                     <input type="number" class="form-input" id="spj-input-hari-terlambat" placeholder="0 jika tidak ada keterlambatan" min="0" max="6" oninput="spjUpdateModalScore()">
                     <div style="font-size:12px;color:#64748b;margin-top:4px;">Sanksi per hari = 100%/6 ≈ 17% × sisa nilai bobot</div>
-                </div>
+                    <div id="spj-hari-warning">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span></span>
+                    </div>
             </div>
             <div class="score-preview">
                 <div class="score-preview-title">TOTAL NILAI</div>
@@ -573,6 +692,10 @@
                 if (unit) unit.disabled = false;
             }
         });
+
+        // Attach currency mask ke input Rp di modal
+        attachCurrencyMask(document.getElementById('spj-input-total'));
+        attachCurrencyMask(document.getElementById('spj-input-nominal-tepat'));
 
         // Auto-set bulan saat ini
         const currentMonthIdx = new Date().getMonth();
