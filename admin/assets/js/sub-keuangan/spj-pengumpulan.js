@@ -1,13 +1,7 @@
 // ============================================================
 // spj-pengumpulan.js — Pengumpulan SPJ section (SPA)
 // Admin Panel — Dinas Koperasi UKM
-// Changes:
-//   1. Hapus kolom No
-//   2. PENDING → tombol approve+reject di kolom Status
-//   3. APPROVED/REJECTED → badge di kolom Status + tombol detail
-//   4. Empty state diperkecil (inline, tanpa icon besar)
-//   5. Fix card Bulan Ini: pakai BULAN_MAP agar tidak 0
-//   6. Pagination 10 data per halaman
+// v2: delete pakai confirm() browser (bukan modal)
 // ============================================================
 (function () {
     'use strict';
@@ -20,7 +14,6 @@
     let allData = [];
     let filteredData = [];
     let currentPage = 1;
-    let currentDeleteId = null;
     let currentEditId = null;
     let currentEditStatus = null;
 
@@ -337,43 +330,24 @@
         }
     };
 
-    // ── Delete Modal ──────────────────────────────────────────
-    window.spjpOpenDeleteModal = function (id) {
+    // ── Delete — pakai confirm() browser ─────────────────────
+    window.spjpOpenDeleteModal = async function (id) {
         const item = allData.find(d => d.id === id);
         if (!item) return;
-        currentDeleteId = id;
-        document.getElementById('spjp-delete-info-nama').textContent = item.nama || '-';
-        document.getElementById('spjp-delete-info-detail').textContent =
-            `${item.unit || '-'} · ${item.bulanSPJ || '-'} · Rp ${fmtNum(item.nominalSPJMasuk || 0)}`;
-        document.getElementById('spjp-deleteModal').style.display = 'flex';
-    };
-
-    window.spjpCloseDeleteModal = function () {
-        document.getElementById('spjp-deleteModal').style.display = 'none';
-        currentDeleteId = null;
-    };
-
-    window.spjpSubmitDelete = async function () {
-        if (!currentDeleteId) return;
-        const btn = document.getElementById('spjp-btn-submit-delete');
-        const orig = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menghapus...';
+        if (!confirm(`Hapus data SPJ ini?\n\n${item.nama || '-'} — ${item.unit || '-'}\nBulan: ${item.bulanSPJ || '-'} · Rp ${fmtNum(item.nominalSPJMasuk || 0)}`)) return;
         try {
-            const result = await callAPI({ action: 'deletePenyampaianSPJ', id: currentDeleteId });
+            const result = await callAPI({ action: 'deletePenyampaianSPJ', id });
             if (result && result.success) {
                 if (window.showToast) showToast('Data SPJ berhasil dihapus', 'success');
-                window.spjpClearCache(); window.spjpCloseDeleteModal(); await window.spjpLoadData(true);
+                window.spjpClearCache(); await window.spjpLoadData(true);
             } else {
-                allData = allData.filter(d => d.id !== currentDeleteId);
-                filteredData = filteredData.filter(d => d.id !== currentDeleteId);
+                allData = allData.filter(d => d.id !== id);
+                filteredData = filteredData.filter(d => d.id !== id);
                 setCachedData(allData); renderTable(); updateStats();
                 if (window.showToast) showToast('Dihapus lokal. Server: ' + (result?.message || ''), 'error');
-                window.spjpCloseDeleteModal();
             }
         } catch (err) {
             if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
-        } finally {
-            btn.disabled = false; btn.innerHTML = orig;
         }
     };
 
@@ -464,7 +438,6 @@
         if (!section) return;
         section.innerHTML = `
 <style>
-/* ── Detail modal ── */
 .spjp-detail-wrap { display:flex; flex-direction:column; gap:14px; }
 .spjp-detail-status-banner { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; border:1.5px solid; }
 .spjp-detail-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
@@ -476,7 +449,6 @@
 .spjp-detail-field-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .spjp-detail-field-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; }
 .spjp-detail-field-value { font-size:13.5px; font-weight:600; color:#1e293b; line-height:1.4; }
-/* ── Edit modal status pills ── */
 .spjp-status-options { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
 .spjp-status-option { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.15s; }
 .spjp-status-option:hover { border-color:#94a3b8; background:#f8fafc; }
@@ -486,12 +458,10 @@
 .spjp-opt-selected-pending  { border-color:#f59e0b !important; background:#fffbeb !important; }
 .spjp-opt-selected-approved { border-color:#10b981 !important; background:#f0fdf4 !important; }
 .spjp-opt-selected-rejected { border-color:#ef4444 !important; background:#fff1f2 !important; }
-/* ── Info grid in edit modal ── */
 .spjp-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f8fafc; border-radius:10px; padding:14px; border:1px solid #f1f5f9; margin-bottom:16px; }
 .spjp-info-item { display:flex; flex-direction:column; gap:2px; }
 .spjp-info-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
 .spjp-info-value { font-size:13px; font-weight:600; color:#1e293b; }
-/* ── Misc ── */
 #section-spj-pengumpulan .filter-container { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 #spjp-data-tbody tr td:nth-child(7) { text-align:center; vertical-align:middle; }
 #spjp-data-tbody tr { vertical-align:middle; }
@@ -619,37 +589,10 @@
             </button>
         </div>
     </div>
-</div>
-
-<!-- DELETE MODAL -->
-<div id="spjp-deleteModal" class="modal-overlay" style="display:none;">
-    <div class="modal" style="max-width:420px;">
-        <div class="modal-content" style="text-align:center;padding:32px 24px;">
-            <div style="width:52px;height:52px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-            </div>
-            <h3 style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Hapus Data SPJ?</h3>
-            <p style="font-size:14px;color:#64748b;margin-bottom:4px;">Data berikut akan dihapus permanen:</p>
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:16px 0;text-align:left;">
-                <div style="font-size:13px;color:#991b1b;font-weight:600;" id="spjp-delete-info-nama">—</div>
-                <div style="font-size:12px;color:#b91c1c;margin-top:2px;" id="spjp-delete-info-detail">—</div>
-            </div>
-            <p style="font-size:13px;color:#ef4444;font-weight:500;">⚠️ Tindakan ini tidak dapat dibatalkan.</p>
-        </div>
-        <div class="modal-footer">
-            <button onclick="spjpCloseDeleteModal()" class="btn" style="flex:1;">Batal</button>
-            <button onclick="spjpSubmitDelete()" id="spjp-btn-submit-delete"
-                style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#ef4444;color:white;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                Ya, Hapus
-            </button>
-        </div>
-    </div>
 </div>`;
 
         window.addEventListener('click', e => {
             if (e.target.id === 'spjp-editModal') window.spjpCloseEditModal();
-            if (e.target.id === 'spjp-deleteModal') window.spjpCloseDeleteModal();
         });
 
         const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();

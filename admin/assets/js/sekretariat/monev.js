@@ -99,22 +99,16 @@
     // ─── LOAD DATA DARI SERVER ────────────────────────────────
     window.mnvLoadDataFromServer = async function () {
         showTableLoading();
-        setStatusBar('loading', '⏳ Memuat data dari server...');
         try {
             const result = await callAPIGet({ action: 'getAllSheetData' });
             if (result && result.status === 'success') {
                 setLocalData(result.data || {});
-                const now = new Date().toLocaleTimeString('id-ID');
-                setStatusBar('visible', '✅ Data dimuat dari server · ' + now);
             } else {
                 throw new Error((result && result.message) || 'Respons tidak valid');
             }
         } catch (err) {
             const cached = getLocalData();
             if (Object.keys(cached).length > 0) {
-                setStatusBar('error', '⚠️ Gagal koneksi server — menampilkan data cache lokal');
-            } else {
-                setStatusBar('error', '⚠️ Gagal memuat data: ' + err.message);
             }
         } finally {
             const selectBulan = document.getElementById('mnv-select-bulan-input');

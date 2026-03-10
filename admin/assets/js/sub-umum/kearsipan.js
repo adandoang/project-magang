@@ -6,6 +6,8 @@
 //   2. Modal detail diperbaiki: breakdown skor per komponen
 //   3. Section file lampiran multi-link (parse newline/koma) di modal detail
 //   4. Fix filter bulan otomatis saat pertama dimuat
+//   5. Tambah tombol lihat file lampiran (ikon link) di samping tombol +
+//      hanya muncul saat dokumen PENDING dan ada file_url — ikut hilang bersama + saat sudah dinilai
 // ============================================================
 (function () {
     'use strict';
@@ -58,14 +60,39 @@
      * Kalau URL mengandung nama file di-extract untuk label.
      */
     function getLinkLabel(url, index) {
+        // Kata-kata path yang tidak informatif (terutama Google Drive/Docs/Sheets)
+        const SKIP_WORDS = new Set(['edit', 'view', 'preview', 'pub', 'export', 'download', 'copy', 'present', 'htmlview']);
         try {
             const u = new URL(url);
-            // Coba ambil nama dari path terakhir
             const parts = u.pathname.split('/').filter(Boolean);
-            const last = parts[parts.length - 1];
-            if (last && last.length > 3 && last.length < 60) {
-                // Decode URL encoding dan potong ekstensi panjang
-                return decodeURIComponent(last).replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+
+            // Untuk Google Drive / Docs / Sheets — ambil ID sebelum kata skip,
+            // tapi lebih baik langsung gunakan label generik berbasis host
+            const host = u.hostname.toLowerCase();
+            if (host.includes('docs.google.com')) {
+                // pathname: /spreadsheets/d/<ID>/edit  atau /document/d/<ID>/edit
+                if (u.pathname.includes('/spreadsheets/')) return `Spreadsheet ${index + 1}`;
+                if (u.pathname.includes('/document/')) return `Dokumen ${index + 1}`;
+                if (u.pathname.includes('/presentation/')) return `Presentasi ${index + 1}`;
+                if (u.pathname.includes('/forms/')) return `Formulir ${index + 1}`;
+                return `Google Docs ${index + 1}`;
+            }
+            if (host.includes('drive.google.com')) return `Google Drive ${index + 1}`;
+
+            // Coba ambil segmen path yang punya ekstensi file dulu
+            const withExt = parts.find(p => /\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|zip|csv)$/i.test(p));
+            if (withExt) {
+                const ext = withExt.match(/\.([^.]+)$/)?.[1]?.toUpperCase() || '';
+                const name = decodeURIComponent(withExt).replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+                return ext ? `${name} (${ext})` : name;
+            }
+
+            // Fallback: segmen path terakhir yang bukan kata skip
+            const meaningful = parts.reverse().find(p =>
+                p.length > 3 && p.length < 60 && !SKIP_WORDS.has(p.toLowerCase())
+            );
+            if (meaningful) {
+                return decodeURIComponent(meaningful).replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
             }
         } catch { }
         return `File ${index + 1}`;
@@ -82,7 +109,7 @@
     // ── Load Documents ────────────────────────────────────────
     async function loadDocuments() {
         const tbody = document.getElementById('krs-docs-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;">
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;">
             <div class="spinner"></div><div style="margin-top:12px;color:#94a3b8;">Memuat data...</div>
         </td></tr>`;
         try {
@@ -95,7 +122,7 @@
             }
         } catch (error) {
             if (window.showToast) showToast('Gagal memuat data kearsipan', 'error');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data.
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data.
                 <button onclick="krsLoadDocuments()" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
         }
     }
@@ -141,8 +168,8 @@
 
         if (allDocuments.length === 0) {
             tbody.innerHTML = masterDocuments.length === 0
-                ? `<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen</td></tr>`
-                : `<tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen yang sesuai filter</td></tr>`;
+                ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen</td></tr>`
+                : `<tr><td colspan="7" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen yang sesuai filter</td></tr>`;
             if (pgn) pgn.innerHTML = '';
             return;
         }
@@ -153,6 +180,7 @@
 
         tbody.innerHTML = items.map(doc => {
             const isPending = doc.status !== 'ASSESSED';
+            const hasFiles = !!(doc.file_url && parseFileUrls(doc.file_url).length > 0);
             const nilaiDisplay = isPending
                 ? '<span style="color:#94a3b8;">—</span>'
                 : `<strong style="font-size:16px;color:#10b981;">${doc.nilai}</strong>`;
@@ -173,7 +201,10 @@
                 <td>
                     <div class="action-buttons"><div class="btn-icon-group">
                         ${isPending
-                    ? `<button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.plus}</button>`
+                    ? `${hasFiles
+                        ? `<button onclick="krsViewFiles('${doc.id}')" class="btn-icon btn-icon-file" title="Lihat File Lampiran">${ICONS.link}</button>`
+                        : ''}
+                               <button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.plus}</button>`
                     : `<button onclick="krsViewAssess('${doc.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>
                                <button onclick="krsEditAssess('${doc.id}')" class="btn-icon btn-icon-edit" title="Edit Penilaian">${ICONS.edit}</button>`
                 }
@@ -193,6 +224,59 @@
         if (page < 1 || page > t) return;
         documentsCurrentPage = page;
         renderPaginatedDocuments();
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // VIEW FILE LAMPIRAN (PENDING) — modal khusus lihat file
+    // ═══════════════════════════════════════════════════════════
+    window.krsViewFiles = (docId) => {
+        const doc = allDocuments.find(d => d.id === docId) || masterDocuments.find(d => d.id === docId);
+        if (!doc) return;
+
+        const urls = parseFileUrls(doc.file_url);
+        if (urls.length === 0) {
+            if (window.showToast) showToast('Tidak ada file lampiran', 'error');
+            return;
+        }
+
+        document.getElementById('krs-filesModal')?.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'krs-filesModal';
+        modal.className = 'modal-overlay';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h2 class="modal-title">📎 File Lampiran Dokumen</h2>
+            </div>
+            <div class="modal-content" style="display:flex;flex-direction:column;gap:12px;">
+                <div class="info-box">
+                    <p style="font-weight:600;margin:0 0 2px;">${doc.nama_pengirim || '-'} — ${doc.unit || '-'}</p>
+                    <p style="font-size:13px;color:#64748b;margin:0;">${doc.jenis_dokumen || '-'} · ${doc.bulan || '-'} ${doc.tahun || ''}</p>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">
+                    ${urls.length} File Tersedia
+                </div>
+                <div class="krs-file-list">
+                    ${urls.map((url, i) => `
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="krs-file-item">
+                        <div class="krs-file-icon">${ICONS.link}</div>
+                        <div class="krs-file-info">
+                            <div class="krs-file-label">${getLinkLabel(url, i)}</div>
+                            <div class="krs-file-url">${url.length > 55 ? url.slice(0, 55) + '…' : url}</div>
+                        </div>
+                        <div class="krs-file-arrow">›</div>
+                    </a>`).join('')}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="document.getElementById('krs-filesModal').remove()" class="btn" style="flex:1;">Tutup</button>
+                <button onclick="document.getElementById('krs-filesModal').remove();krsOpenAssess('${docId}')" class="btn btn-success" style="flex:1;">${ICONS.plus} Nilai Sekarang</button>
+            </div>
+        </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -392,6 +476,20 @@
 
         document.getElementById('krs-assessModal')?.remove();
 
+        // Cek apakah ada file lampiran untuk ditampilkan di modal penilaian
+        const urls = parseFileUrls(doc.file_url);
+        const fileShortcut = urls.length > 0 ? `
+            <div style="margin-bottom:16px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1e40af;">
+                    ${ICONS.link}
+                    <span>${urls.length} file lampiran tersedia</span>
+                </div>
+                <button type="button" onclick="krsViewFiles('${docId}')"
+                    style="font-size:12px;font-weight:600;color:#2563eb;background:white;border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap;">
+                    Lihat File
+                </button>
+            </div>` : '';
+
         const modal = document.createElement('div');
         modal.id = 'krs-assessModal';
         modal.className = 'modal-overlay';
@@ -403,10 +501,11 @@
                 <h2 class="modal-title">${isEdit ? '✏️ Edit' : '✚ Nilai'} Dokumen Kearsipan</h2>
             </div>
             <div class="modal-content">
-                <div class="info-box" style="margin-bottom:20px;">
+                <div class="info-box" style="margin-bottom:16px;">
                     <p style="font-weight:600;margin:0 0 4px;">${doc.nama_pengirim} — ${doc.unit}</p>
                     <p style="font-size:13px;color:#64748b;margin:0;">${doc.jenis_dokumen} · ${doc.bulan} ${doc.tahun || ''}</p>
                 </div>
+                ${fileShortcut}
                 <div class="alert alert-info" style="margin-bottom:20px;">
                     📋 <strong>Sistem Penilaian:</strong> Bukti Dukung (3 poin) + Srikandi (1 poin) + Surat Keluar (1 poin) = <strong>Total 5 poin</strong>
                 </div>
@@ -607,6 +706,9 @@
 .krs-file-url { font-size:11px; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
 .krs-file-arrow { font-size:18px; color:#cbd5e1; flex-shrink:0; }
 .krs-file-item:hover .krs-file-arrow { color:#3b82f6; }
+/* ─── Tombol file di tabel ─── */
+.btn-icon-file { background:#eff6ff; color:#3b82f6; border:1px solid #bfdbfe; }
+.btn-icon-file:hover { background:#dbeafe; border-color:#93c5fd; }
 </style>
 
 <div class="container">
@@ -687,7 +789,6 @@
 
         currentUser = (window.AUTH && window.AUTH.getUser) ? window.AUTH.getUser() || {} : {};
         setCurrentMonth();
-        // Load data lalu langsung jalankan filter bulan saat ini
         loadDocuments().then(() => applyFilters());
     };
 

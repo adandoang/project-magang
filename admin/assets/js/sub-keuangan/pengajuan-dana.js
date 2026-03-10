@@ -1,16 +1,7 @@
 // ============================================================
 // pengajuan-dana.js — Pengajuan Dana section (SPA)
 // Admin Panel — Dinas Koperasi UKM
-// Features:
-//   1. Kolom Sub Kegiatan tidak dipotong (white-space wrap)
-//   2. Pagination 10 data per halaman (pola voucher-bbm)
-//   3. Modal edit status (pill-style radio, sama dengan spj-pengumpulan)
-//   4. Modal detail bergaya ruang-rapat / spj-pengumpulan
-//   5. Modal delete dengan konfirmasi merah
-//   6. PENDING → tombol approve + reject di kolom Status + edit + delete
-//   7. APPROVED/REJECTED → badge status + detail + edit + delete
-//   8. Chart tren pengajuan per bulan
-//   9. Fix: Bulan Ini menghitung dari allData (bukan filteredData)
+// v2: delete pakai confirm() browser (bukan modal)
 // ============================================================
 (function () {
     'use strict';
@@ -25,7 +16,6 @@
     let currentPage = 1;
     let chartPengajuan = null;
 
-    let currentDeleteId = null;
     let currentEditId = null;
     let currentEditStatus = null;
 
@@ -114,7 +104,7 @@
         try {
             const res = await callAPI({ action: 'getPengajuanDana' });
             if (res?.success) {
-                allData = (res.data || []).slice().reverse(); // newest first
+                allData = (res.data || []).slice().reverse();
                 filteredData = [...allData];
                 setCachedData(allData);
                 currentPage = 1;
@@ -175,13 +165,11 @@
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         const items = filteredData.slice(start, start + ITEMS_PER_PAGE);
 
-        tbody.innerHTML = items.map((item, idx) => {
+        tbody.innerHTML = items.map(item => {
             const isPending = (item.status || '').toUpperCase() === 'PENDING';
             const isApproved = (item.status || '').toUpperCase() === 'APPROVED';
             const isRejected = (item.status || '').toUpperCase() === 'REJECTED';
-            const globalIdx = start + idx + 1;
 
-            // Kolom status: jika pending tampilkan 2 tombol, jika tidak tampilkan badge
             let statusCell;
             if (isPending) {
                 statusCell = `<div style="display:flex;align-items:center;justify-content:center;gap:4px;">
@@ -214,7 +202,6 @@
             </tr>`;
         }).join('');
 
-        // Pagination
         if (pgn) pgn.innerHTML = `
             <button onclick="pdChangePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&#8249; Prev</button>
             <span class="pagination-info">Halaman ${currentPage} dari ${totalPages} (${filteredData.length} data)</span>
@@ -229,8 +216,6 @@
     };
 
     // ── Stats ─────────────────────────────────────────────────
-    // Bulan ini selalu mengacu ke bulan kalender saat ini, tidak terpengaruh filter apapun.
-    // Nama bulan dari toLocaleString id-ID di-map ke nama kapital yang dipakai di data.
     const BULAN_MAP = {
         'januari': 'JANUARI', 'februari': 'FEBRUARI', 'maret': 'MARET', 'april': 'APRIL',
         'mei': 'MEI', 'juni': 'JUNI', 'juli': 'JULI', 'agustus': 'AGUSTUS',
@@ -238,12 +223,10 @@
     };
     function updateStats() {
         const now = new Date();
-        // Nama bulan sekarang dalam format data (misal "MARET")
         const namaHari = now.toLocaleString('id-ID', { month: 'long' }).toLowerCase();
         const currentMonthKey = BULAN_MAP[namaHari] || namaHari.toUpperCase();
         const currentYear = now.getFullYear();
 
-        // Hitung bulan ini: hanya cocokkan field bulanPengajuan dengan nama bulan kalender sekarang
         const bulanIni = allData.filter(i =>
             (i.bulanPengajuan || '').toUpperCase().trim() === currentMonthKey
         );
@@ -255,7 +238,6 @@
         set('pd-stat-bulan', bulanIni.length);
         set('pd-stat-pending', pending.length);
         set('pd-stat-nominal', fmtRupiah(totalNom));
-        // Label bulan di footer card selalu nama bulan + tahun sekarang, tidak berubah
         set('pd-stat-bulan-label', `${currentMonthKey} ${currentYear}`);
     }
 
@@ -283,23 +265,8 @@
             data: {
                 labels,
                 datasets: [
-                    {
-                        label: 'Jumlah Pengajuan',
-                        data: counts,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 6,
-                        yAxisID: 'y'
-                    },
-                    {
-                        label: 'Total Nominal (Juta Rp)',
-                        data: nominals,
-                        type: 'line',
-                        borderColor: '#1e40af',
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        yAxisID: 'y1'
-                    }
+                    { label: 'Jumlah Pengajuan', data: counts, backgroundColor: '#3b82f6', borderRadius: 6, yAxisID: 'y' },
+                    { label: 'Total Nominal (Juta Rp)', data: nominals, type: 'line', borderColor: '#1e40af', backgroundColor: 'transparent', borderWidth: 2, tension: 0.4, yAxisID: 'y1' }
                 ]
             },
             options: {
@@ -418,44 +385,24 @@
         }
     };
 
-    // ── Delete Modal ──────────────────────────────────────────
-    window.pdOpenDeleteModal = function (id) {
+    // ── Delete — pakai confirm() browser ─────────────────────
+    window.pdOpenDeleteModal = async function (id) {
         const item = allData.find(d => d.id === id);
         if (!item) return;
-        currentDeleteId = id;
-        document.getElementById('pd-delete-info-nama').textContent = item.nama || '-';
-        document.getElementById('pd-delete-info-detail').textContent =
-            `${item.unit || '-'} · ${item.bulanPengajuan || '-'} · Rp ${fmtNum(item.nominalPengajuan)}`;
-        document.getElementById('pd-deleteModal').style.display = 'flex';
-    };
-
-    window.pdCloseDeleteModal = function () {
-        document.getElementById('pd-deleteModal').style.display = 'none';
-        currentDeleteId = null;
-    };
-
-    window.pdSubmitDelete = async function () {
-        if (!currentDeleteId) return;
-        const btn = document.getElementById('pd-btn-submit-delete');
-        const orig = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menghapus...';
+        if (!confirm(`Hapus data pengajuan dana ini?\n\n${item.nama || '-'} — ${item.unit || '-'}\nBulan: ${item.bulanPengajuan || '-'} · Rp ${fmtNum(item.nominalPengajuan)}`)) return;
         try {
-            const res = await callAPI({ action: 'deletePengajuanDana', id: currentDeleteId });
+            const res = await callAPI({ action: 'deletePengajuanDana', id });
             if (res?.success) {
                 if (window.showToast) showToast('Data pengajuan dana berhasil dihapus', 'success');
-                window.pdClearCache(); window.pdCloseDeleteModal(); await window.pdLoadData(true);
+                window.pdClearCache(); await window.pdLoadData(true);
             } else {
-                // Fallback: hapus lokal
-                allData = allData.filter(d => d.id !== currentDeleteId);
-                filteredData = filteredData.filter(d => d.id !== currentDeleteId);
+                allData = allData.filter(d => d.id !== id);
+                filteredData = filteredData.filter(d => d.id !== id);
                 setCachedData(allData); renderTable(); updateStats(); renderChart();
                 if (window.showToast) showToast('Dihapus lokal. Server: ' + (res?.message || ''), 'error');
-                window.pdCloseDeleteModal();
             }
         } catch (err) {
             if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
-        } finally {
-            btn.disabled = false; btn.innerHTML = orig;
         }
     };
 
@@ -549,7 +496,6 @@
 
         section.innerHTML = `
 <style>
-/* ── Detail modal ── */
 .pd-detail-wrap { display:flex; flex-direction:column; gap:14px; }
 .pd-detail-status-banner { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; border:1.5px solid; }
 .pd-detail-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
@@ -561,7 +507,6 @@
 .pd-detail-field-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .pd-detail-field-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; }
 .pd-detail-field-value { font-size:13.5px; font-weight:600; color:#1e293b; line-height:1.4; }
-/* ── Edit modal status pills ── */
 .pd-status-options { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
 .pd-status-option { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.15s; }
 .pd-status-option:hover { border-color:#94a3b8; background:#f8fafc; }
@@ -571,14 +516,11 @@
 .pd-opt-selected-pending  { border-color:#f59e0b !important; background:#fffbeb !important; }
 .pd-opt-selected-approved { border-color:#10b981 !important; background:#f0fdf4 !important; }
 .pd-opt-selected-rejected { border-color:#ef4444 !important; background:#fff1f2 !important; }
-/* ── Info grid in edit modal ── */
 .pd-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f8fafc; border-radius:10px; padding:14px; border:1px solid #f1f5f9; margin-bottom:16px; }
 .pd-info-item { display:flex; flex-direction:column; gap:2px; }
 .pd-info-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
 .pd-info-value { font-size:13px; font-weight:600; color:#1e293b; }
-/* ── filter container ── */
 #section-pengajuan-dana .filter-container { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-/* ── Status column center align ── */
 #pd-data-tbody tr td:nth-child(7) { text-align:center; vertical-align:middle; }
 #pd-data-tbody tr { vertical-align:middle; }
 </style>
@@ -589,7 +531,6 @@
         <p class="section-page-subtitle">Kelola dan verifikasi pengajuan dana kegiatan dari setiap unit / bidang</p>
     </div>
 
-    <!-- STATS -->
     <div class="stats-grid">
         <div class="stat-card" style="border-left:4px solid #10b981;">
             <div class="stat-label">Total Pengajuan</div>
@@ -613,13 +554,11 @@
         </div>
     </div>
 
-    <!-- CHART -->
     <div class="card">
         <div class="card-header"><h2 class="card-title">Tren Pengajuan Dana per Bulan</h2></div>
         <div class="card-content"><div class="chart-container"><canvas id="pd-chartPengajuan"></canvas></div></div>
     </div>
 
-    <!-- TABLE -->
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Daftar Pengajuan Dana</h2>
@@ -674,7 +613,7 @@
     </div>
 </div>
 
-<!-- ══ EDIT STATUS MODAL ══ -->
+<!-- EDIT STATUS MODAL -->
 <div id="pd-editModal" class="modal-overlay" style="display:none;">
     <div class="modal" style="max-width:480px;">
         <div class="modal-header">
@@ -715,41 +654,12 @@
             </button>
         </div>
     </div>
-</div>
-
-<!-- ══ DELETE MODAL ══ -->
-<div id="pd-deleteModal" class="modal-overlay" style="display:none;">
-    <div class="modal" style="max-width:420px;">
-        <div class="modal-content" style="text-align:center;padding:32px 24px;">
-            <div style="width:52px;height:52px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-            </div>
-            <h3 style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Hapus Data Pengajuan Dana?</h3>
-            <p style="font-size:14px;color:#64748b;margin-bottom:4px;">Data berikut akan dihapus permanen:</p>
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:16px 0;text-align:left;">
-                <div style="font-size:13px;color:#991b1b;font-weight:600;" id="pd-delete-info-nama">—</div>
-                <div style="font-size:12px;color:#b91c1c;margin-top:2px;" id="pd-delete-info-detail">—</div>
-            </div>
-            <p style="font-size:13px;color:#ef4444;font-weight:500;">⚠️ Tindakan ini tidak dapat dibatalkan.</p>
-        </div>
-        <div class="modal-footer">
-            <button onclick="pdCloseDeleteModal()" class="btn" style="flex:1;">Batal</button>
-            <button onclick="pdSubmitDelete()" id="pd-btn-submit-delete"
-                style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#ef4444;color:white;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                Ya, Hapus
-            </button>
-        </div>
-    </div>
 </div>`;
 
-        // Close modals on backdrop click
         window.addEventListener('click', e => {
             if (e.target.id === 'pd-editModal') window.pdCloseEditModal();
-            if (e.target.id === 'pd-deleteModal') window.pdCloseDeleteModal();
         });
 
-        // Set default filter to current month, lalu jalankan filter setelah data dimuat
         const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
         const fMonth = document.getElementById('pd-filter-bulan');
         if (fMonth) fMonth.value = currentMonthName;

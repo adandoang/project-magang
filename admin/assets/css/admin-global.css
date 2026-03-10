@@ -1848,18 +1848,20 @@ td.loading {
 /* Varian Warna */
 .btn-icon-approve {
     color: #16a34a;
+    background: #dcfce7;
 }
 
 .btn-icon-approve:hover {
-    background: #dcfce7;
+    background: #bbf7d0;
 }
 
 .btn-icon-reject {
     color: #dc2626;
+    background: #fee2e2;
 }
 
 .btn-icon-reject:hover {
-    background: #fee2e2;
+    background: #fecaca;
 }
 
 .btn-icon-complete {
@@ -1936,4 +1938,30 @@ td.loading {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   SECTION PAGE HEADER (kearsipan, monev, pengajuan, spj)
+   ============================================================ */
+.section-page-header {
+    margin-bottom: 24px;
+}
+
+.section-page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.section-page-subtitle {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.filter-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
 }
