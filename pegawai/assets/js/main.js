@@ -1,7 +1,7 @@
 // ============================================
 // GOOGLE APPS SCRIPT CONFIGURATION
 // ============================================
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwQoOafMsgYDpsLZyD2Wp4_S-D-HT1WRRWIpn33UH8i8Qv8hQJqeiir5oPQIwmj90jS/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyKHm8fROuNziK-6oe6vbit2dHO0tb0giugbdmTJ-wWQc1r_qCejp5iY2GTeQYqki3b/exec";
 
 // ============================================
 // GLOBAL VARIABLES
@@ -1198,16 +1198,10 @@ function updateDriveLinkRemoveButtons() {
 // ============================================
 // DOKUMEN ARSIP SUBMISSION (multi-file + drive)
 // ============================================
-// ============================================================
-// PATCH: submitDokumen — kirim semua file dalam 1 request
-// Ganti fungsi submitDokumen yang lama di main.js dengan ini
-// ============================================================
-
 async function submitDokumen(event) {
     event.preventDefault();
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-arsip');
-
     if (arsipUploadMode === 'file') {
         if (selectedFiles.length === 0) {
             alert('❌ Silakan pilih minimal satu file untuk diunggah!');
@@ -1220,11 +1214,9 @@ async function submitDokumen(event) {
             return;
         }
     }
-
     submitBtn.disabled = true;
     submitBtn.textContent = arsipUploadMode === 'file' ? 'Mengunggah...' : 'Mengirim...';
     setProgress('progress-arsip', 'loading-arsip', 15, 'Mempersiapkan data...');
-
     const baseFields = {
         action: 'uploadDokumen',
         nama: formElement.querySelector('[name="nama"]').value,
@@ -1235,89 +1227,52 @@ async function submitDokumen(event) {
         keterangan: formElement.querySelector('[name="keterangan"]').value,
         upload_mode: arsipUploadMode
     };
-
     try {
         if (arsipUploadMode === 'drive') {
-            // ── Mode Drive Link: tidak berubah ──────────────────────────
             const links = getDriveLinks().filter(l => l.trim() !== '');
             const fields = { ...baseFields, drive_links: JSON.stringify(links) };
             setProgress('progress-arsip', 'loading-arsip', 50, 'Mengirim link Drive...');
             submitViaIframeFields(fields, 'iframe-arsip');
-
         } else {
-            // ── Mode File: encode SEMUA file, kirim 1 request via fetch ─
-            setProgress('progress-arsip', 'loading-arsip', 25, 'Membaca file...');
-
-            // Encode semua file ke base64 paralel
-            const filesData = await Promise.all(
-                selectedFiles.map(async (file) => ({
+            const totalFiles = selectedFiles.length;
+            for (let i = 0; i < totalFiles; i++) {
+                const file = selectedFiles[i];
+                const pct = Math.round(15 + ((i / totalFiles) * 70));
+                setProgress('progress-arsip', 'loading-arsip', pct, `Mengunggah file ${i + 1}/${totalFiles}: ${file.name}`);
+                const base64Data = await fileToBase64(file);
+                const fields = {
+                    ...baseFields,
                     fileName: file.name,
+                    fileData: base64Data,
                     mimeType: file.type,
-                    fileData: await fileToBase64(file)
-                }))
-            );
-
-            setProgress('progress-arsip', 'loading-arsip', 55, 'Mengunggah ke Google Drive...');
-
-            const payload = {
-                ...baseFields,
-                filesData: filesData          // array semua file sekaligus
-            };
-
-            const response = await fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            setProgress('progress-arsip', 'loading-arsip', 85, 'Menyimpan data...');
-
-            let result;
-            try {
-                result = await response.json();
-            } catch (e) {
-                // GAS kadang redirect — anggap sukses jika HTTP 200/302
-                result = { status: 'success' };
-            }
-
-            if (result && result.status === 'error') {
-                throw new Error(result.message || 'Upload gagal');
+                    fileIndex: i + 1,
+                    totalFiles
+                };
+                submitViaIframeFields(fields, `iframe-arsip-${i}`);
+                if (i < totalFiles - 1) await new Promise(r => setTimeout(r, 800));
             }
         }
-
-        setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
-
+        setProgress('progress-arsip', 'loading-arsip', 95, 'Menyelesaikan...');
+        setTimeout(() => {
+            setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
+        }, 800);
         setTimeout(() => {
             hideProgress('progress-arsip', 'loading-arsip');
-
             const msg = arsipUploadMode === 'file'
                 ? `✓ ${selectedFiles.length} dokumen berhasil diunggah ke Google Drive!`
                 : '✓ Link Google Drive berhasil dikirim!';
-
             showAlert('alert-arsip', msg, 'success');
-
-            // Reset form
             formElement.reset();
             selectedFiles = [];
             renderFileList();
             driveLinksCounter = 1;
             const dlContainer = document.getElementById('drive-links-container');
             if (dlContainer) {
-                dlContainer.innerHTML = `
-                    <div class="drive-link-row" id="drive-row-1"
-                         style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                        <input type="url" class="form-control drive-link-input"
-                               placeholder="https://drive.google.com/file/d/... atau folder/..."
-                               style="flex:1;">
-                        <button type="button" class="btn btn-sm"
-                                onclick="removeDriveLink('drive-row-1')"
-                                style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button>
-                    </div>`;
+                dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex; gap: 8px; align-items: center; margin-bottom: 8px;"><input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;"><button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button></div>`;
             }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Dokumen';
-        }, 600);
-
+        }, 3200);
     } catch (error) {
         console.error('❌ Error:', error);
         hideProgress('progress-arsip', 'loading-arsip');
