@@ -38,37 +38,33 @@ function makeGradient(ctx, chartArea, colorTop, colorBottom) {
 
 // Palet gradasi eksklusif per tier skor
 const GRAD_TIERS = {
-    excellent: { top: '#1a1a2e', bottom: '#0f3460' },        // deep navy
-    good: { top: '#0f3460', bottom: '#1a4a8a' },        // navy-cobalt
-    fair: { top: '#c5a572', bottom: '#a8885a' },        // gold rich
-    poor: { top: '#dc2626', bottom: '#991b1b' },        // deep red
+    excellent: { top: '#1a1a2e', bottom: '#0f3460' },
+    good: { top: '#0f3460', bottom: '#1a4a8a' },
+    fair: { top: '#c5a572', bottom: '#a8885a' },
+    poor: { top: '#dc2626', bottom: '#991b1b' },
 };
 
 // Palet multi-warna prestisius — untuk bar tiap unit (indeks 0-5)
 const UNIT_GRAD_PALETTE = [
-    { top: '#1a1a2e', bottom: '#0f3460' },       // 0: Sekretariat — deep navy
-    { top: '#0f3460', bottom: '#1e3a5f' },       // 1: Bid. Koperasi — navy steel
-    { top: '#c5a572', bottom: '#8a6030' },       // 2: Bid. UKM — warm gold
-    { top: '#1a4a8a', bottom: '#0f3460' },       // 3: Bid. Usaha Mikro — cobalt
-    { top: '#b5935a', bottom: '#6b4c20' },       // 4: Bid. Kewirausahaan — dark amber
-    { top: '#2d2d5e', bottom: '#1a1a2e' },       // 5: BLUT KUMKM — midnight violet
+    { top: '#1a1a2e', bottom: '#0f3460' },
+    { top: '#0f3460', bottom: '#1e3a5f' },
+    { top: '#c5a572', bottom: '#8a6030' },
+    { top: '#1a4a8a', bottom: '#0f3460' },
+    { top: '#b5935a', bottom: '#6b4c20' },
+    { top: '#2d2d5e', bottom: '#1a1a2e' },
 ];
 
-// Helper: resolusi gradient atau warna fallback
 function resolveGradient(chartCtx, chartArea, pct, unitIndex) {
     if (!chartArea) {
-        // Fallback flat color jika chart belum render
         if (pct >= 90) return GRAD_TIERS.excellent.top;
         if (pct >= 75) return GRAD_TIERS.good.top;
         if (pct >= 50) return GRAD_TIERS.fair.top;
         return GRAD_TIERS.poor.top;
     }
-    // Jika unitIndex tersedia, pakai palet per-unit
     if (unitIndex !== undefined && unitIndex >= 0) {
         const g = UNIT_GRAD_PALETTE[unitIndex % UNIT_GRAD_PALETTE.length];
         return makeGradient(chartCtx, chartArea, g.top, g.bottom);
     }
-    // Fallback berdasarkan tier skor
     let tier;
     if (pct >= 90) tier = GRAD_TIERS.excellent;
     else if (pct >= 75) tier = GRAD_TIERS.good;
@@ -77,7 +73,6 @@ function resolveGradient(chartCtx, chartArea, pct, unitIndex) {
     return makeGradient(chartCtx, chartArea, tier.top, tier.bottom);
 }
 
-// barColor & progressColor — tetap dipakai untuk label/progress bar
 function barColor(pct) {
     if (pct >= 90) return C.primary;
     if (pct >= 75) return C.accent;
@@ -109,6 +104,20 @@ const UNITS_DISPLAY = [
     'Bidang Usaha Mikro', 'Bidang Kewirausahaan',
     'Balai Layanan Usaha Terpadu KUMKM'
 ];
+
+// ── Helper: nama bulan Indonesia sesuai bulan sekarang ───────
+function getCurrentMonthName() {
+    return URUTAN_BULAN[new Date().getMonth()];
+}
+
+// ── Pilih bulan default: bulan ini jika ada data, kalau tidak fallback ke bulan terakhir yang ada data
+function pickDefaultBulan(bulanList) {
+    const current = getCurrentMonthName();
+    if (bulanList.includes(current)) return current;
+    // fallback: bulan terakhir yang tersedia
+    if (bulanList.length > 0) return bulanList[bulanList.length - 1];
+    return '';
+}
 
 // ── STATE ─────────────────────────────────────────────────────
 let currentNilaiType = '';
@@ -170,7 +179,6 @@ function bulanUpperToTitle(b) {
 function progressBar(n, max) {
     const pct = max > 0 ? Math.min(100, (n / max) * 100) : 0;
     const color = progressColor(pct);
-    // Tambahkan goldShimmer untuk nilai excellent
     const shimmerClass = pct >= 90 ? ' tp-progress-shimmer' : '';
     return `<div class="tp-progress-wrap">
         <div class="tp-progress-track">
@@ -196,7 +204,6 @@ function getKategori(score) {
     return 'poor';
 }
 
-// ── Rank badge — biru gelap rank 1, silver rank 2, gold rank 3
 function rankBadge(i) {
     const n = i + 1;
     if (i === 0) return `<span class="rank-badge-1">${n}</span>`;
@@ -205,7 +212,6 @@ function rankBadge(i) {
     return `<span class="rank-badge-n">${n}</span>`;
 }
 
-// ── Kartu Top 3 ───────────────────────────────────────────────
 function topCard(rank, i, score, maxScore, subtitle) {
     const kls = nilaiClass(score, maxScore);
     const pct = maxScore > 0 ? (score / maxScore * 100).toFixed(1) : '0';
@@ -227,7 +233,6 @@ function topCard(rank, i, score, maxScore, subtitle) {
     </div>`;
 }
 
-// ── Chart header SERAGAM ──────────────────────────────────────
 function chartHeader(title, subtitle, selectId, bulanList, selectedBulan, onchangeFn) {
     return `<div class="chart-header">
         <div>
@@ -237,14 +242,12 @@ function chartHeader(title, subtitle, selectId, bulanList, selectedBulan, onchan
         <div class="month-selector">
             <label>Pilih Bulan:</label>
             <select id="${selectId}" onchange="${onchangeFn}(this.value)">
-                <option value="">Semua Bulan</option>
                 ${bulanList.map(b => `<option value="${b}" ${selectedBulan === b ? 'selected' : ''}>${b}</option>`).join('')}
             </select>
         </div>
     </div>`;
 }
 
-// ── Chart.js options SERAGAM — dengan tooltip mewah ──────────
 function baseChartOptions(maxY, stepY, ylabel, stacked) {
     return {
         responsive: true,
@@ -286,19 +289,14 @@ function baseChartOptions(maxY, stepY, ylabel, stacked) {
             duration: 700,
             easing: 'easeOutQuart',
         },
-        // borderSkipped: false supaya radius semua sudut
         datasets: {
             bar: { borderSkipped: false }
         }
     };
 }
 
-// ── Plugin: gradient renderer untuk bar chart ─────────────────
-// Dipanggil SEKALI setelah animasi awal selesai.
-// Guard: cek chart masih valid + canvas masih di DOM + satu kali saja.
 function applyGradientColors(chart, unitsList, scoresMap, maxScore, useUnitPalette) {
     try {
-        // Pastikan chart & canvas masih valid dan ada di DOM
         if (!chart || !chart.ctx || !chart.chartArea) return;
         const canvas = chart.canvas;
         if (!canvas || !document.body.contains(canvas)) return;
@@ -314,15 +312,12 @@ function applyGradientColors(chart, unitsList, scoresMap, maxScore, useUnitPalet
             });
         });
 
-        // update('none') tidak trigger animasi → tidak memicu onComplete lagi
         chart.update('none');
     } catch (e) {
-        // Diam-diam abaikan — chart mungkin sudah di-destroy
         console.warn('[gradient] skipped:', e.message);
     }
 }
 
-// ── showError ─────────────────────────────────────────────────
 function showError(message) {
     console.error('Transparansi Error:', message);
     const el = document.getElementById('nilai-content');
@@ -382,7 +377,6 @@ function loadNilaiData(type) {
     if (emptyEl) emptyEl.style.display = 'none';
     if (contentEl) contentEl.style.display = 'none';
 
-    // Destroy semua chart yang mungkin masih animasi sebelum ganti konten
     ['ruangChart', 'kunciChart', 'kebersihanChart', 'bbmChart', 'dokumenChart', 'spjChart', 'monevChart'].forEach(name => {
         if (window[name]) { try { window[name].destroy(); } catch (e) { } window[name] = null; }
     });
@@ -405,7 +399,7 @@ function renderSingleScorePage({ scores, units, maxScore, stepY,
     title, subtitle, chartId, chartWindow, selectId, onChangeFn, selectedBulan }) {
 
     const bulanList = URUTAN_BULAN.filter(b => scores.some(s => s.bulan === b));
-    const filtered = selectedBulan ? scores.filter(s => s.bulan === selectedBulan) : scores;
+    const filtered = scores.filter(s => s.bulan === selectedBulan);
 
     const unitScores = units.map(unit => {
         const ud = filtered.filter(s => s.unit === unit);
@@ -428,7 +422,7 @@ function renderSingleScorePage({ scores, units, maxScore, stepY,
     });
 
     const withData = ranked.filter(r => r.skor !== null);
-    const bulanLabel = selectedBulan || 'Semua Bulan';
+    const bulanLabel = selectedBulan;
 
     let html = chartHeader(title, subtitle, selectId, bulanList, selectedBulan, onChangeFn);
 
@@ -479,7 +473,6 @@ function renderSingleScorePage({ scores, units, maxScore, stepY,
     const ctx = document.getElementById(chartId);
     if (window[chartWindow]) window[chartWindow].destroy();
     if (ctx) {
-        // Buat data awal dengan flat color sebagai placeholder
         const chartData = units.map(u => {
             const r = unitScores.find(x => x.unit === u);
             return r && r.skor !== null ? r.skor : 0;
@@ -503,7 +496,7 @@ function renderSingleScorePage({ scores, units, maxScore, stepY,
                     duration: 700,
                     easing: 'easeOutQuart',
                     onComplete: function (ctx) {
-                        if (!ctx.initial) return; // hanya jalankan saat animasi pertama
+                        if (!ctx.initial) return;
                         applyGradientColors(this, units, unitScores, maxScore, true);
                     }
                 }
@@ -518,8 +511,15 @@ function renderSingleScorePage({ scores, units, maxScore, stepY,
 function loadRuangRapatScores() {
     jsonpFetch(ADMIN_GAS_URL, { action: 'getRoomScores' })
         .then(data => {
-            if (data && data.success) renderRuangRapatScores(normalizeScores(data.scores || []), '');
-            else showError('Gagal memuat data Ruang Rapat');
+            if (data && data.success) {
+                const scores = normalizeScores(data.scores || []);
+                // ── AUTO-SELECT bulan sekarang ──
+                const bulanList = URUTAN_BULAN.filter(b => scores.some(s => s.bulan === b));
+                const defaultBulan = pickDefaultBulan(bulanList);
+                renderRuangRapatScores(scores, defaultBulan);
+            } else {
+                showError('Gagal memuat data Ruang Rapat');
+            }
         })
         .catch(err => showError('Error Ruang Rapat: ' + err.message));
 }
@@ -549,9 +549,17 @@ function loadKendaraanScores() {
         jsonpFetch(ADMIN_GAS_URL, { action: 'getVehicleScores', jenis: 'KEBERSIHAN' })
     ])
         .then(([kD, keD]) => {
-            if (kD && kD.success && keD && keD.success)
-                renderKendaraanPage(normalizeScores(kD.scores || []), normalizeScores(keD.scores || []), '');
-            else showError('Gagal memuat data Kendaraan');
+            if (kD && kD.success && keD && keD.success) {
+                const kunci = normalizeScores(kD.scores || []);
+                const kebersihan = normalizeScores(keD.scores || []);
+                // ── AUTO-SELECT bulan sekarang ──
+                const allMonthsSet = new Set([...kunci.map(s => s.bulan), ...kebersihan.map(s => s.bulan)]);
+                const bulanList = URUTAN_BULAN.filter(b => allMonthsSet.has(b));
+                const defaultBulan = pickDefaultBulan(bulanList);
+                renderKendaraanPage(kunci, kebersihan, defaultBulan);
+            } else {
+                showError('Gagal memuat data Kendaraan');
+            }
         })
         .catch(err => showError('Error Kendaraan: ' + err.message));
 }
@@ -563,9 +571,9 @@ function renderKendaraanPage(kunci, kebersihan, selectedBulan) {
 
     currentNilaiData = { kunci, kebersihan, units: UNITS_DISPLAY, type: 'kendaraan' };
 
-    const kF = selectedBulan ? kunci.filter(s => s.bulan === selectedBulan) : kunci;
-    const keF = selectedBulan ? kebersihan.filter(s => s.bulan === selectedBulan) : kebersihan;
-    const bulanLabel = selectedBulan || 'Semua Bulan';
+    const kF = kunci.filter(s => s.bulan === selectedBulan);
+    const keF = kebersihan.filter(s => s.bulan === selectedBulan);
+    const bulanLabel = selectedBulan;
 
     function unitAvg(scores, unit) {
         const d = scores.filter(s => s.unit === unit);
@@ -674,8 +682,15 @@ function updateKendaraanMonth(bulan) {
 function loadBBMScores() {
     jsonpFetch(ADMIN_GAS_URL, { action: 'getBBMScores' })
         .then(data => {
-            if (data && data.success) renderBBMScores(normalizeScores(data.scores || []), '');
-            else showError('Gagal memuat data BBM');
+            if (data && data.success) {
+                const scores = normalizeScores(data.scores || []);
+                // ── AUTO-SELECT bulan sekarang ──
+                const bulanList = URUTAN_BULAN.filter(b => scores.some(s => s.bulan === b));
+                const defaultBulan = pickDefaultBulan(bulanList);
+                renderBBMScores(scores, defaultBulan);
+            } else {
+                showError('Gagal memuat data BBM');
+            }
         })
         .catch(err => showError('Error BBM: ' + err.message));
 }
@@ -704,8 +719,14 @@ function loadDokumenScores() {
         .then(data => {
             if (Array.isArray(data)) {
                 dokumenAllDocuments = normalizeDocs(data);
-                renderDokumenScores(dokumenAllDocuments, '');
-            } else showError('Gagal memuat data Dokumen');
+                // ── AUTO-SELECT bulan sekarang ──
+                const assessed = dokumenAllDocuments.filter(d => d.nilai && d.nilai !== '');
+                const bulanList = URUTAN_BULAN.filter(b => assessed.some(d => d.bulan === b));
+                const defaultBulan = pickDefaultBulan(bulanList);
+                renderDokumenScores(dokumenAllDocuments, defaultBulan);
+            } else {
+                showError('Gagal memuat data Dokumen');
+            }
         })
         .catch(err => showError('Error Dokumen: ' + err.message));
 }
@@ -720,8 +741,8 @@ function renderDokumenScores(documents, selectedBulan) {
     if (assessed.length === 0) { showError('Belum ada dokumen yang dinilai'); return; }
 
     const bulanList = URUTAN_BULAN.filter(b => assessed.some(d => d.bulan === b));
-    const filtered = selectedBulan ? assessed.filter(d => d.bulan === selectedBulan) : assessed;
-    const bulanLabel = selectedBulan || 'Semua Bulan';
+    const filtered = assessed.filter(d => d.bulan === selectedBulan);
+    const bulanLabel = selectedBulan;
 
     const scoresByUnit = {};
     UNITS_DISPLAY.forEach(unit => {
@@ -819,15 +840,18 @@ async function loadSPJKeuanganTransparansi() {
         if (!result.success) { showError('Gagal memuat data SPJ: ' + (result.message || '')); return; }
         spjAllData = (result.data || []).map(d => ({ ...d, bulan: normalizeMonth(d.bulan) }));
         if (spjAllData.length === 0) { showError('Belum ada data penilaian SPJ Keuangan'); return; }
-        renderSPJKeuanganPage('');
+        // ── AUTO-SELECT bulan sekarang ──
+        const bulanList = URUTAN_BULAN.filter(b => new Set(spjAllData.map(d => d.bulan)).has(b));
+        const defaultBulan = pickDefaultBulan(bulanList);
+        renderSPJKeuanganPage(defaultBulan);
     } catch (err) { showError('Gagal menghubungi server SPJ: ' + err.message); }
 }
 
 function renderSPJKeuanganPage(selectedBulan) {
     const MAKS = 35;
-    const data = selectedBulan ? spjAllData.filter(d => d.bulan === selectedBulan) : spjAllData;
+    const data = spjAllData.filter(d => d.bulan === selectedBulan);
     const bulanList = URUTAN_BULAN.filter(b => new Set(spjAllData.map(d => d.bulan)).has(b));
-    const bulanLabel = selectedBulan || 'Semua Bulan';
+    const bulanLabel = selectedBulan;
 
     const unitSummary = UNITS_LIST.map(unit => {
         const ud = data.filter(d => d.unit === unit);
@@ -922,7 +946,6 @@ function renderSPJKeuanganPage(selectedBulan) {
                     {
                         label: 'Komponen Lain',
                         data: UNITS_LIST.map(u => { const x = chartMap[u]; return x && x.totalNilai !== null ? Math.max(0, x.totalNilai - x.nilaiTepat) : 0; }),
-                        // Gold shimmer untuk layer atas stacked
                         backgroundColor: 'rgba(197,165,114,0.82)',
                         borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 }, stack: 's',
                         borderSkipped: false,
@@ -936,7 +959,6 @@ function renderSPJKeuanganPage(selectedBulan) {
                     easing: 'easeOutQuart',
                     onComplete: function (ctx) {
                         if (!ctx.initial) return;
-                        // Hanya apply gradient ke dataset pertama (bukan gold shimmer layer)
                         const chart = this;
                         const chartArea = chart.chartArea;
                         if (!chartArea) return;
@@ -945,7 +967,6 @@ function renderSPJKeuanganPage(selectedBulan) {
                             const g = UNIT_GRAD_PALETTE[i % UNIT_GRAD_PALETTE.length];
                             return makeGradient(chartCtx, chartArea, g.top, g.bottom);
                         });
-                        // Gold gradient untuk layer atas
                         const goldGrad = makeGradient(chartCtx, chartArea, '#c5a572', '#8a6030');
                         chart.data.datasets[1].backgroundColor = goldGrad;
                         chart.update('none');
@@ -960,7 +981,6 @@ function renderSPJKeuanganPage(selectedBulan) {
 // 6. MONEV
 // ============================================================
 async function loadMonevTransparansi() {
-    // Destroy chart yang mungkin masih animasi sebelum innerHTML diganti
     if (window.monevChart) { try { window.monevChart.destroy(); } catch (e) { } window.monevChart = null; }
 
     document.getElementById('nilai-content').innerHTML = `
@@ -981,6 +1001,7 @@ async function loadMonevTransparansi() {
         monevAllData = result.data || {};
         if (Object.keys(monevAllData).length === 0) { showError('Belum ada data Monev'); return; }
         const tersedia = URUTAN_BULAN_UPPER.filter(b => monevAllData[b] && Object.keys(monevAllData[b]).length > 0);
+        // Monev tetap pakai bulan terakhir tersedia (format UPPER), tidak perlu auto-select current month
         renderMonevPage(tersedia[tersedia.length - 1] || '');
     } catch (err) { showError('Gagal menghubungi server Monev: ' + err.message); }
 }
@@ -989,7 +1010,7 @@ function renderMonevPage(selectedBulan) {
     const MAKS = 40;
     const bulanList = URUTAN_BULAN_UPPER.filter(b => monevAllData[b] && Object.keys(monevAllData[b]).length > 0);
     const dataBulan = monevAllData[selectedBulan] || {};
-    const bulanLabel = selectedBulan ? bulanUpperToTitle(selectedBulan) : 'Semua Bulan';
+    const bulanLabel = bulanUpperToTitle(selectedBulan);
 
     const ranked = UNITS_LIST.map(unit => {
         const d = dataBulan[unit];
@@ -1014,7 +1035,6 @@ function renderMonevPage(selectedBulan) {
         <div class="month-selector">
             <label>Pilih Bulan:</label>
             <select id="month-select-monev" onchange="renderMonevPage(this.value)">
-                <option value="" ${!selectedBulan ? 'selected' : ''}>Semua Bulan</option>
                 ${bulanList.map(b => `<option value="${b}" ${selectedBulan === b ? 'selected' : ''}>${bulanUpperToTitle(b)}</option>`).join('')}
             </select>
         </div>
@@ -1131,32 +1151,25 @@ function calculateDocUnitAverage(docs, unit, month) {
     return a.reduce((s, d) => s + safeParseFloat(d.nilai), 0) / a.length;
 }
 
-// ── Helper: hitung rata-rata nilai SPJ per unit ───────────────
 function calculateSPJUnitAverage(spjData, unit, month) {
     const filtered = spjData.filter(d =>
         d.unit === unit && (!month || d.bulan === month)
     );
     if (filtered.length === 0) return 0;
-    // Ambil entri terbaru per bulan (jika multi-bulan ambil rata-rata totalNilai)
     const avg = filtered.reduce((s, d) => s + (parseFloat(d.totalNilai) || 0), 0) / filtered.length;
     return avg;
 }
 
-// ── Helper: hitung nilai Monev per unit ───────────────────────
-// monevAllData berformat { 'JANUARI': { 'Unit X': { total: n, ... }, ... }, ... }
 function calculateMonevUnitAverage(monevData, unit, month) {
     if (!monevData || Object.keys(monevData).length === 0) return 0;
 
-    // Jika ada filter bulan (format UPPER dari URUTAN_BULAN_UPPER)
     if (month) {
-        // month di sini bisa title case (dari filterMonth), konversi ke UPPER
         const monthUpper = month.toUpperCase();
         const dataBulan = monevData[monthUpper];
         if (!dataBulan || !dataBulan[unit]) return 0;
         return dataBulan[unit].total || 0;
     }
 
-    // Semua bulan: rata-rata total dari semua bulan yang ada data
     const bulanKeys = Object.keys(monevData);
     const values = bulanKeys
         .map(b => monevData[b][unit] ? (monevData[b][unit].total || 0) : null)
@@ -1191,12 +1204,10 @@ function loadHomeSummary() {
             };
             homeSummaryAllData = nd;
 
-            // Kumpulkan semua bulan dari semua sumber
             const allMonthsSet = new Set();
             [...nd.room.scores, ...nd.kunci.scores, ...nd.kebersihan.scores, ...nd.bbm.scores, ...nd.spj]
                 .forEach(s => { if (s.bulan) allMonthsSet.add(s.bulan); });
             nd.docs.forEach(d => { if (d.bulan) allMonthsSet.add(d.bulan); });
-            // Monev pakai kunci UPPER — konversi ke title case untuk filter
             Object.keys(nd.monev).forEach(b => {
                 const idx = URUTAN_BULAN_UPPER.indexOf(b);
                 if (idx >= 0) allMonthsSet.add(URUTAN_BULAN[idx]);
@@ -1230,19 +1241,17 @@ function loadHomeSummary() {
         });
 }
 
-
 function updateHomeSummaryByMonth(month) {
     if (!homeSummaryAllData) return;
     renderHomeSummary(homeSummaryAllData, month);
 }
 
 function renderHomeSummary(allData, filterMonth) {
-    // Konversi filterMonth (title case) ke format UPPER untuk Monev
     const filterMonthUpper = filterMonth
         ? URUTAN_BULAN_UPPER[URUTAN_BULAN.indexOf(filterMonth)] || filterMonth.toUpperCase()
         : '';
 
-    const MAX_TOTAL = 100; // 5+5+5+5+5+35+40
+    const MAX_TOTAL = 100;
 
     const rankings = UNITS_DISPLAY.map(unit => {
         const roomAvg = calculateUnitAverageByMonth(allData.room.scores || [], unit, filterMonth);
@@ -1260,7 +1269,6 @@ function renderHomeSummary(allData, filterMonth) {
     const tbody = document.getElementById('summary-table-body');
     if (tbody) {
         tbody.innerHTML = rankings.map((rank, i) => {
-            // Kategori berbasis persentase dari max 100
             const pct = rank.totalScore / MAX_TOTAL;
             const kategori = pct >= 0.9 ? 'excellent'
                 : pct >= 0.75 ? 'good'
@@ -1294,4 +1302,4 @@ if (document.readyState === 'loading') {
     setTimeout(loadHomeSummary, 500);
 }
 
-console.log('✅ transparansi-all.js (blue-gold unified + premium gradients) loaded');
+console.log('✅ transparansi-all.js (auto-select current month) loaded');
