@@ -437,25 +437,39 @@
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    window.rrQuickReject = async (id, btnEl) => {
-        if (!confirm('Tolak permintaan ini?')) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'updateRoomRequest', id, status: 'REJECTED' });
-            if (res.success) { if (window.showToast) showToast('Permintaan ditolak', 'success'); clearCache(); await loadRequests(true); }
-            else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
-        } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+    window.rrQuickReject = (id, btnEl) => {
+        showConfirmModal({
+            icon: '❌',
+            title: 'Tolak Permintaan?',
+            message: 'Permintaan ruang rapat ini akan ditolak.',
+            confirmText: 'Ya, Tolak',
+            confirmClass: 'btn-warning',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'updateRoomRequest', id, status: 'REJECTED' });
+                if (res.success) { if (window.showToast) showToast('Permintaan ditolak', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+        });
     };
 
-    window.rrMarkAsCompleted = async (id, btnEl) => {
-        if (!confirm('Tandai permintaan ini sebagai selesai?')) return;
-        const orig = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>';
-        try {
-            const res = await callAPI({ action: 'updateRoomRequest', id, status: 'COMPLETED' });
-            if (res.success) { if (window.showToast) showToast('Status diperbarui menjadi Selesai', 'success'); clearCache(); await loadRequests(true); }
-            else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
-        } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
+    window.rrMarkAsCompleted = (id, btnEl) => {
+        showConfirmModal({
+            icon: '✅',
+            title: 'Tandai Selesai?',
+            message: 'Permintaan ini akan ditandai sebagai <strong>Selesai</strong>.',
+            confirmText: 'Ya, Selesai',
+            confirmClass: 'btn-success',
+        }, async () => {
+            const orig = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>';
+            try {
+                const res = await callAPI({ action: 'updateRoomRequest', id, status: 'COMPLETED' });
+                if (res.success) { if (window.showToast) showToast('Status diperbarui menjadi Selesai', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
+            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
+        });
     };
 
     // FIX 1: Edit pengajuan — bisa update semua field
@@ -500,15 +514,22 @@
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    window.rrDeleteRequest = async (id, btnEl) => {
-        if (!confirm('Hapus permintaan ini? Tindakan tidak dapat dibatalkan.')) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'deleteRoomRequest', id });
-            if (res.success) { if (window.showToast) showToast('Permintaan berhasil dihapus', 'success'); clearCache(); await loadRequests(true); }
-            else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
-        } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+    window.rrDeleteRequest = (id, btnEl) => {
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Permintaan?',
+            message: 'Permintaan ruang rapat ini akan dihapus permanen. <span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>',
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'deleteRoomRequest', id });
+                if (res.success) { if (window.showToast) showToast('Permintaan berhasil dihapus', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+        });
     };
 
     // ═══ TAB 2: VIOLATIONS ═══════════════════════════════════
@@ -790,27 +811,34 @@
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    window.rrDeleteViol = async (safeV, btnEl) => {
+    window.rrDeleteViol = (safeV, btnEl) => {
         const v = resolveViol(safeV);
         if (!v) { if (window.showToast) showToast('Data tidak ditemukan', 'error'); return; }
-        if (!confirm(`Hapus catatan pelanggaran ini?\n\nUnit: ${v.unit}\nBulan: ${v.bulan}\nTanggal: ${normalizeDisplayDate(v.tanggal)}`)) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'deleteRoomViolation', id: v.id, bulan: v.bulan, unit: v.unit });
-            if (res.success) {
-                if (window.showToast) showToast('Catatan berhasil dihapus', 'success');
-                clearCache();
-                await loadViolations(true);
-                await loadScores(true);
-            } else {
-                if (window.showToast) showToast(res.message || 'Gagal', 'error');
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Catatan Pelanggaran?',
+            message: `Unit: <strong>${v.unit}</strong><br>Bulan: <strong>${v.bulan}</strong><br>Tanggal: <strong>${normalizeDisplayDate(v.tanggal)}</strong><br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'deleteRoomViolation', id: v.id, bulan: v.bulan, unit: v.unit });
+                if (res.success) {
+                    if (window.showToast) showToast('Catatan berhasil dihapus', 'success');
+                    clearCache();
+                    await loadViolations(true);
+                    await loadScores(true);
+                } else {
+                    if (window.showToast) showToast(res.message || 'Gagal', 'error');
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+                }
+            } catch (e) {
+                if (window.showToast) showToast('Gagal: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
             }
-        } catch (e) {
-            if (window.showToast) showToast('Gagal: ' + e.message, 'error');
-            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-        }
+        });
     };
 
     // ═══ TAB 3: SCORES ═══════════════════════════════════════

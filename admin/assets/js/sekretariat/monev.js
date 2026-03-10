@@ -688,23 +688,30 @@
     };
 
     // ─── DELETE ENTRY ─────────────────────────────────────────
-    window.mnvDeleteEntry = async function (unit, bulan) {
-        if (!confirm(`Hapus penilaian ${unit} bulan ${bulan}?\n\nData akan dihapus dari spreadsheet.`)) return;
-        const data = getLocalData();
-        if (data[bulan]) delete data[bulan][unit];
-        setLocalData(data);
-        window.mnvRenderInputTable(bulan);
-        window.mnvUpdateStats(bulan);
-        try {
-            const result = await callAPIPost({ action: 'deleteMonevData', bulan, unit });
-            if (result && result.status === 'success') {
-                if (window.showToast) showToast(`Data ${unit} bulan ${bulan} berhasil dihapus.`, 'success');
-            } else {
-                if (window.showToast) showToast('Hapus lokal berhasil, tapi gagal hapus di server', 'error');
+    window.mnvDeleteEntry = function (unit, bulan) {
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Penilaian Monev?',
+            message: `Unit: <strong>${unit}</strong><br>Bulan: <strong>${bulan}</strong><br><br>Data akan dihapus dari spreadsheet. <span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const data = getLocalData();
+            if (data[bulan]) delete data[bulan][unit];
+            setLocalData(data);
+            window.mnvRenderInputTable(bulan);
+            window.mnvUpdateStats(bulan);
+            try {
+                const result = await callAPIPost({ action: 'deleteMonevData', bulan, unit });
+                if (result && result.status === 'success') {
+                    if (window.showToast) showToast(`Data ${unit} bulan ${bulan} berhasil dihapus.`, 'success');
+                } else {
+                    if (window.showToast) showToast('Hapus lokal berhasil, tapi gagal hapus di server', 'error');
+                }
+            } catch (err) {
+                if (window.showToast) showToast('Hapus lokal berhasil, tapi gagal koneksi server', 'error');
             }
-        } catch (err) {
-            if (window.showToast) showToast('Hapus lokal berhasil, tapi gagal koneksi server', 'error');
-        }
+        });
     };
 
     // ─── REKAP ────────────────────────────────────────────────
@@ -789,10 +796,17 @@
     };
 
     window.mnvDeleteExistingBukti = function () {
-        if (!confirm('Hapus bukti yang tersimpan?')) return;
-        existingLinkBukti = ''; existingBuktiDeleted = true;
-        document.getElementById('mnv-existing-bukti-panel').style.display = 'none';
-        document.getElementById('mnv-new-file-upload-zone').style.display = 'block';
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Bukti Tersimpan?',
+            message: 'File bukti yang tersimpan akan dihapus.',
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, () => {
+            existingLinkBukti = ''; existingBuktiDeleted = true;
+            document.getElementById('mnv-existing-bukti-panel').style.display = 'none';
+            document.getElementById('mnv-new-file-upload-zone').style.display = 'block';
+        });
     };
 
     window.mnvCancelNewFile = function () {

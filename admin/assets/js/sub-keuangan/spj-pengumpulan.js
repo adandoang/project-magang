@@ -227,52 +227,66 @@
         document.getElementById('spjp-bulan-ini-label').textContent = `${currentMonthKey} ${currentYear}`;
     }
 
-    // ── Approve ───────────────────────────────────────────────
-    window.spjpApproveItem = async function (id) {
-        if (!confirm('Setujui pengumpulan SPJ ini?')) return;
-        const aBtn = document.getElementById(`spjp-btn-approve-${id}`);
-        const rBtn = document.getElementById(`spjp-btn-reject-${id}`);
-        if (aBtn) { aBtn.disabled = true; aBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        if (rBtn) rBtn.disabled = true;
-        try {
-            const result = await callAPI({ action: 'updateStatusSPJ', id, status: 'APPROVED' });
-            if (result && result.success) {
-                if (window.showToast) showToast('SPJ berhasil disetujui', 'success');
-                window.spjpClearCache(); await window.spjpLoadData(true);
-            } else {
-                if (window.showToast) showToast(result?.message || 'Gagal menyetujui SPJ', 'error');
+    // ── Approve ──────────────────────────────────────────────
+    window.spjpApproveItem = function (id) {
+        showConfirmModal({
+            icon: '✅',
+            title: 'Setujui Pengumpulan SPJ?',
+            message: 'Pengumpulan SPJ ini akan disetujui.',
+            confirmText: 'Ya, Setujui',
+            confirmClass: 'btn-success',
+        }, async () => {
+            const aBtn = document.getElementById(`spjp-btn-approve-${id}`);
+            const rBtn = document.getElementById(`spjp-btn-reject-${id}`);
+            if (aBtn) { aBtn.disabled = true; aBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            if (rBtn) rBtn.disabled = true;
+            try {
+                const result = await callAPI({ action: 'updateStatusSPJ', id, status: 'APPROVED' });
+                if (result && result.success) {
+                    if (window.showToast) showToast('SPJ berhasil disetujui', 'success');
+                    window.spjpClearCache(); await window.spjpLoadData(true);
+                } else {
+                    if (window.showToast) showToast(result?.message || 'Gagal menyetujui SPJ', 'error');
+                    if (aBtn) { aBtn.disabled = false; aBtn.innerHTML = ICONS.check; }
+                    if (rBtn) rBtn.disabled = false;
+                }
+            } catch {
+                if (window.showToast) showToast('Terjadi kesalahan', 'error');
                 if (aBtn) { aBtn.disabled = false; aBtn.innerHTML = ICONS.check; }
                 if (rBtn) rBtn.disabled = false;
             }
-        } catch {
-            if (window.showToast) showToast('Terjadi kesalahan', 'error');
-            if (aBtn) { aBtn.disabled = false; aBtn.innerHTML = ICONS.check; }
-            if (rBtn) rBtn.disabled = false;
-        }
+        });
     };
 
     // ── Reject ────────────────────────────────────────────────
-    window.spjpRejectItem = async function (id) {
-        if (!confirm('Tolak pengumpulan SPJ ini?')) return;
-        const aBtn = document.getElementById(`spjp-btn-approve-${id}`);
-        const rBtn = document.getElementById(`spjp-btn-reject-${id}`);
-        if (rBtn) { rBtn.disabled = true; rBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        if (aBtn) aBtn.disabled = true;
-        try {
-            const result = await callAPI({ action: 'updateStatusSPJ', id, status: 'REJECTED' });
-            if (result && result.success) {
-                if (window.showToast) showToast('SPJ berhasil ditolak', 'success');
-                window.spjpClearCache(); await window.spjpLoadData(true);
-            } else {
-                if (window.showToast) showToast(result?.message || 'Gagal menolak SPJ', 'error');
+    window.spjpRejectItem = function (id) {
+        showConfirmModal({
+            icon: '❌',
+            title: 'Tolak Pengumpulan SPJ?',
+            message: 'Pengumpulan SPJ ini akan ditolak.',
+            confirmText: 'Ya, Tolak',
+            confirmClass: 'btn-warning',
+        }, async () => {
+            const aBtn = document.getElementById(`spjp-btn-approve-${id}`);
+            const rBtn = document.getElementById(`spjp-btn-reject-${id}`);
+            if (rBtn) { rBtn.disabled = true; rBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            if (aBtn) aBtn.disabled = true;
+            try {
+                const result = await callAPI({ action: 'updateStatusSPJ', id, status: 'REJECTED' });
+                if (result && result.success) {
+                    if (window.showToast) showToast('SPJ berhasil ditolak', 'success');
+                    window.spjpClearCache(); await window.spjpLoadData(true);
+                } else {
+                    if (window.showToast) showToast(result?.message || 'Gagal menolak SPJ', 'error');
+                    if (rBtn) { rBtn.disabled = false; rBtn.innerHTML = ICONS.x; }
+                    if (aBtn) aBtn.disabled = false;
+                }
+            } catch {
+                if (window.showToast) showToast('Terjadi kesalahan', 'error');
                 if (rBtn) { rBtn.disabled = false; rBtn.innerHTML = ICONS.x; }
                 if (aBtn) aBtn.disabled = false;
             }
-        } catch {
-            if (window.showToast) showToast('Terjadi kesalahan', 'error');
-            if (rBtn) { rBtn.disabled = false; rBtn.innerHTML = ICONS.x; }
-            if (aBtn) aBtn.disabled = false;
-        }
+        });
     };
 
     // ── Edit Status Modal ─────────────────────────────────────
@@ -330,25 +344,32 @@
         }
     };
 
-    // ── Delete — pakai confirm() browser ─────────────────────
-    window.spjpOpenDeleteModal = async function (id) {
+    // ── Delete — pakai showConfirmModal ───────────────────────────
+    window.spjpOpenDeleteModal = function (id) {
         const item = allData.find(d => d.id === id);
         if (!item) return;
-        if (!confirm(`Hapus data SPJ ini?\n\n${item.nama || '-'} — ${item.unit || '-'}\nBulan: ${item.bulanSPJ || '-'} · Rp ${fmtNum(item.nominalSPJMasuk || 0)}`)) return;
-        try {
-            const result = await callAPI({ action: 'deletePenyampaianSPJ', id });
-            if (result && result.success) {
-                if (window.showToast) showToast('Data SPJ berhasil dihapus', 'success');
-                window.spjpClearCache(); await window.spjpLoadData(true);
-            } else {
-                allData = allData.filter(d => d.id !== id);
-                filteredData = filteredData.filter(d => d.id !== id);
-                setCachedData(allData); renderTable(); updateStats();
-                if (window.showToast) showToast('Dihapus lokal. Server: ' + (result?.message || ''), 'error');
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Data SPJ?',
+            message: `<strong>${item.nama || '-'}</strong> — ${item.unit || '-'}<br>Bulan: ${item.bulanSPJ || '-'} · Rp ${fmtNum(item.nominalSPJMasuk || 0)}<br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            try {
+                const result = await callAPI({ action: 'deletePenyampaianSPJ', id });
+                if (result && result.success) {
+                    if (window.showToast) showToast('Data SPJ berhasil dihapus', 'success');
+                    window.spjpClearCache(); await window.spjpLoadData(true);
+                } else {
+                    allData = allData.filter(d => d.id !== id);
+                    filteredData = filteredData.filter(d => d.id !== id);
+                    setCachedData(allData); renderTable(); updateStats();
+                    if (window.showToast) showToast('Dihapus lokal. Server: ' + (result?.message || ''), 'error');
+                }
+            } catch (err) {
+                if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
             }
-        } catch (err) {
-            if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
-        }
+        });
     };
 
     // ── View Detail ───────────────────────────────────────────

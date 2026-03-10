@@ -282,52 +282,66 @@
         });
     }
 
-    // ── Approve ───────────────────────────────────────────────
-    window.pdApproveItem = async function (id) {
-        if (!confirm('Setujui pengajuan dana ini?')) return;
-        const aBtn = document.getElementById(`pd-btn-approve-${id}`);
-        const rBtn = document.getElementById(`pd-btn-reject-${id}`);
-        if (aBtn) { aBtn.disabled = true; aBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        if (rBtn) rBtn.disabled = true;
-        try {
-            const res = await callAPI({ action: 'updateStatusPengajuanDana', id, status: 'APPROVED' });
-            if (res?.success) {
-                if (window.showToast) showToast('Pengajuan dana disetujui', 'success');
-                window.pdClearCache(); await window.pdLoadData(true);
-            } else {
-                if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+    // ── Approve ──────────────────────────────────────────────
+    window.pdApproveItem = function (id) {
+        showConfirmModal({
+            icon: '✅',
+            title: 'Setujui Pengajuan Dana?',
+            message: 'Pengajuan dana ini akan disetujui.',
+            confirmText: 'Ya, Setujui',
+            confirmClass: 'btn-success',
+        }, async () => {
+            const aBtn = document.getElementById(`pd-btn-approve-${id}`);
+            const rBtn = document.getElementById(`pd-btn-reject-${id}`);
+            if (aBtn) { aBtn.disabled = true; aBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            if (rBtn) rBtn.disabled = true;
+            try {
+                const res = await callAPI({ action: 'updateStatusPengajuanDana', id, status: 'APPROVED' });
+                if (res?.success) {
+                    if (window.showToast) showToast('Pengajuan dana disetujui', 'success');
+                    window.pdClearCache(); await window.pdLoadData(true);
+                } else {
+                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+                    if (aBtn) { aBtn.disabled = false; aBtn.innerHTML = ICONS.check; }
+                    if (rBtn) rBtn.disabled = false;
+                }
+            } catch (err) {
+                if (window.showToast) showToast('Error: ' + err.message, 'error');
                 if (aBtn) { aBtn.disabled = false; aBtn.innerHTML = ICONS.check; }
                 if (rBtn) rBtn.disabled = false;
             }
-        } catch (err) {
-            if (window.showToast) showToast('Error: ' + err.message, 'error');
-            if (aBtn) { aBtn.disabled = false; aBtn.innerHTML = ICONS.check; }
-            if (rBtn) rBtn.disabled = false;
-        }
+        });
     };
 
     // ── Reject ────────────────────────────────────────────────
-    window.pdRejectItem = async function (id) {
-        if (!confirm('Tolak pengajuan dana ini?')) return;
-        const aBtn = document.getElementById(`pd-btn-approve-${id}`);
-        const rBtn = document.getElementById(`pd-btn-reject-${id}`);
-        if (rBtn) { rBtn.disabled = true; rBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        if (aBtn) aBtn.disabled = true;
-        try {
-            const res = await callAPI({ action: 'updateStatusPengajuanDana', id, status: 'REJECTED' });
-            if (res?.success) {
-                if (window.showToast) showToast('Pengajuan dana ditolak', 'success');
-                window.pdClearCache(); await window.pdLoadData(true);
-            } else {
-                if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+    window.pdRejectItem = function (id) {
+        showConfirmModal({
+            icon: '❌',
+            title: 'Tolak Pengajuan Dana?',
+            message: 'Pengajuan dana ini akan ditolak.',
+            confirmText: 'Ya, Tolak',
+            confirmClass: 'btn-warning',
+        }, async () => {
+            const aBtn = document.getElementById(`pd-btn-approve-${id}`);
+            const rBtn = document.getElementById(`pd-btn-reject-${id}`);
+            if (rBtn) { rBtn.disabled = true; rBtn.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            if (aBtn) aBtn.disabled = true;
+            try {
+                const res = await callAPI({ action: 'updateStatusPengajuanDana', id, status: 'REJECTED' });
+                if (res?.success) {
+                    if (window.showToast) showToast('Pengajuan dana ditolak', 'success');
+                    window.pdClearCache(); await window.pdLoadData(true);
+                } else {
+                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+                    if (rBtn) { rBtn.disabled = false; rBtn.innerHTML = ICONS.x; }
+                    if (aBtn) aBtn.disabled = false;
+                }
+            } catch (err) {
+                if (window.showToast) showToast('Error: ' + err.message, 'error');
                 if (rBtn) { rBtn.disabled = false; rBtn.innerHTML = ICONS.x; }
                 if (aBtn) aBtn.disabled = false;
             }
-        } catch (err) {
-            if (window.showToast) showToast('Error: ' + err.message, 'error');
-            if (rBtn) { rBtn.disabled = false; rBtn.innerHTML = ICONS.x; }
-            if (aBtn) aBtn.disabled = false;
-        }
+        });
     };
 
     // ── Edit Status Modal ─────────────────────────────────────
@@ -380,30 +394,36 @@
             }
         } catch (err) {
             if (window.showToast) showToast('Gagal menghubungi server', 'error');
-        } finally {
             btn.disabled = false; btn.innerHTML = orig;
         }
     };
 
-    // ── Delete — pakai confirm() browser ─────────────────────
-    window.pdOpenDeleteModal = async function (id) {
+    // ── Delete — pakai showConfirmModal ───────────────────────────
+    window.pdOpenDeleteModal = function (id) {
         const item = allData.find(d => d.id === id);
         if (!item) return;
-        if (!confirm(`Hapus data pengajuan dana ini?\n\n${item.nama || '-'} — ${item.unit || '-'}\nBulan: ${item.bulanPengajuan || '-'} · Rp ${fmtNum(item.nominalPengajuan)}`)) return;
-        try {
-            const res = await callAPI({ action: 'deletePengajuanDana', id });
-            if (res?.success) {
-                if (window.showToast) showToast('Data pengajuan dana berhasil dihapus', 'success');
-                window.pdClearCache(); await window.pdLoadData(true);
-            } else {
-                allData = allData.filter(d => d.id !== id);
-                filteredData = filteredData.filter(d => d.id !== id);
-                setCachedData(allData); renderTable(); updateStats(); renderChart();
-                if (window.showToast) showToast('Dihapus lokal. Server: ' + (res?.message || ''), 'error');
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Pengajuan Dana?',
+            message: `<strong>${item.nama || '-'}</strong> — ${item.unit || '-'}<br>Bulan: ${item.bulanPengajuan || '-'} · Rp ${fmtNum(item.nominalPengajuan)}<br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            try {
+                const res = await callAPI({ action: 'deletePengajuanDana', id });
+                if (res?.success) {
+                    if (window.showToast) showToast('Data pengajuan dana berhasil dihapus', 'success');
+                    window.pdClearCache(); await window.pdLoadData(true);
+                } else {
+                    allData = allData.filter(d => d.id !== id);
+                    filteredData = filteredData.filter(d => d.id !== id);
+                    setCachedData(allData); renderTable(); updateStats(); renderChart();
+                    if (window.showToast) showToast('Dihapus lokal. Server: ' + (res?.message || ''), 'error');
+                }
+            } catch (err) {
+                if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
             }
-        } catch (err) {
-            if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
-        }
+        });
     };
 
     // ── View Detail ───────────────────────────────────────────

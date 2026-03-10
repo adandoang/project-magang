@@ -160,7 +160,7 @@ function showSection(sectionId) {
             && event.target.classList.contains('nav-tab')) {
             event.target.classList.add('active');
         }
-    } catch(e) { /* abaikan jika event tidak tersedia */ }
+    } catch (e) { /* abaikan jika event tidak tersedia */ }
 }
 
 function showLoading() {
@@ -261,11 +261,11 @@ function warnPastDate(inputEl) {
  */
 function validateTimeRange(formEl, startName, endName) {
     const startInput = formEl.querySelector(`[name="${startName}"]`);
-    const endInput   = formEl.querySelector(`[name="${endName}"]`);
+    const endInput = formEl.querySelector(`[name="${endName}"]`);
     if (!startInput || !endInput) return true;
 
     const startVal = startInput.value;
-    const endVal   = endInput.value;
+    const endVal = endInput.value;
 
     // Cari/buat elemen peringatan di bawah field waktu selesai
     let warn = endInput.parentNode.querySelector('.time-range-warning');
@@ -294,13 +294,13 @@ function validateTimeRange(formEl, startName, endName) {
             endInput.after(warn);
         }
         warn.textContent = '⛔ Waktu selesai harus lebih dari waktu mulai.';
-        endInput.style.borderColor   = '#dc2626';
+        endInput.style.borderColor = '#dc2626';
         startInput.style.borderColor = '#dc2626';
         endInput.focus();
         return false;
     } else {
         if (warn) warn.remove();
-        endInput.style.borderColor   = '';
+        endInput.style.borderColor = '';
         startInput.style.borderColor = '';
         return true;
     }
@@ -312,20 +312,20 @@ function validateTimeRange(formEl, startName, endName) {
 function initTimeValidationListeners() {
     [
         { formId: 'form-kendaraan' },
-        { formId: 'form-ruangan'   },
+        { formId: 'form-ruangan' },
     ].forEach(({ formId }) => {
         const form = document.getElementById(formId);
         if (!form) return;
         const startEl = form.querySelector('[name="waktu_mulai"]');
-        const endEl   = form.querySelector('[name="waktu_selesai"]');
+        const endEl = form.querySelector('[name="waktu_selesai"]');
         const revalidate = () => validateTimeRange(form, 'waktu_mulai', 'waktu_selesai');
         if (startEl) {
             startEl.addEventListener('change', revalidate);
-            startEl.addEventListener('blur',   revalidate);
+            startEl.addEventListener('blur', revalidate);
         }
         if (endEl) {
             endEl.addEventListener('change', revalidate);
-            endEl.addEventListener('blur',   revalidate);
+            endEl.addEventListener('blur', revalidate);
         }
     });
 }
@@ -635,11 +635,11 @@ function showVoucherStatus() {
 
 // ── Pagination state voucher ──
 let voucherCurrentPage = 1;
-let voucherPageSize    = 10;  // bisa diubah user via selector
+let voucherPageSize = 10;  // bisa diubah user via selector
 let voucherDisplayData = [];  // data yang sedang ditampilkan (sudah filter+sort)
 
 function changeVoucherPageSize(val) {
-    voucherPageSize    = parseInt(val) || 10;
+    voucherPageSize = parseInt(val) || 10;
     voucherCurrentPage = 1;
     renderVoucherTable(voucherDisplayData, 1);
 }
@@ -672,7 +672,7 @@ function loadVoucherData() {
 function getVoucherTimestamp(voucher) {
     // Coba semua kemungkinan nama field yang umum dari GAS
     const keys = ['Timestamp', 'timestamp', 'Tanggal', 'tanggal', 'Date', 'date',
-                  'TIMESTAMP', 'Waktu', 'waktu'];
+        'TIMESTAMP', 'Waktu', 'waktu'];
     for (const k of keys) {
         if (voucher[k]) return voucher[k];
     }
@@ -692,7 +692,7 @@ function parseVoucherDate(raw) {
     if (!isNaN(d)) return d;
     // Format DD/MM/YYYY atau DD/MM/YYYY HH:MM:SS (format Indonesia dari Sheets)
     const m = String(raw).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (m) return new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+    if (m) return new Date(`${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`);
     return new Date(0);
 }
 
@@ -706,8 +706,8 @@ function sortVouchersByDate(vouchers) {
 
 function renderVoucherTable(vouchers, page) {
     page = page || 1;
-    const tbody   = document.getElementById('voucher-table-body');
-    const total   = vouchers.length;
+    const tbody = document.getElementById('voucher-table-body');
+    const total = vouchers.length;
     const totalPages = Math.max(1, Math.ceil(total / voucherPageSize));
     page = Math.min(page, totalPages);
 
@@ -744,7 +744,7 @@ function renderVoucherPagination(total, page, totalPages) {
     if (total === 0) { container.innerHTML = ''; return; }
 
     const start = (page - 1) * voucherPageSize + 1;
-    const end   = Math.min(page * voucherPageSize, total);
+    const end = Math.min(page * voucherPageSize, total);
 
     // ── Selector "tampilkan X per halaman" ──
     const sizeOptions = [10, 25, 50, 100];
@@ -761,20 +761,20 @@ function renderVoucherPagination(total, page, totalPages) {
     html += `<div class="pagination-info">Menampilkan ${start}–${end} dari ${total} data</div>`;
     html += `<div class="pagination-controls">`;
 
-    html += `<button class="page-btn" onclick="goToVoucherPage(1)" ${page===1?'disabled':''}>««</button>`;
-    html += `<button class="page-btn" onclick="goToVoucherPage(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+    html += `<button class="page-btn" onclick="goToVoucherPage(1)" ${page === 1 ? 'disabled' : ''}>««</button>`;
+    html += `<button class="page-btn" onclick="goToVoucherPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>‹</button>`;
 
     const delta = 2;
-    const from  = Math.max(1, page - delta);
-    const to    = Math.min(totalPages, page + delta);
+    const from = Math.max(1, page - delta);
+    const to = Math.min(totalPages, page + delta);
     if (from > 1) html += `<span class="page-ellipsis">…</span>`;
     for (let i = from; i <= to; i++) {
-        html += `<button class="page-btn${i===page?' active':''}" onclick="goToVoucherPage(${i})">${i}</button>`;
+        html += `<button class="page-btn${i === page ? ' active' : ''}" onclick="goToVoucherPage(${i})">${i}</button>`;
     }
     if (to < totalPages) html += `<span class="page-ellipsis">…</span>`;
 
-    html += `<button class="page-btn" onclick="goToVoucherPage(${page+1})" ${page===totalPages?'disabled':''}>›</button>`;
-    html += `<button class="page-btn" onclick="goToVoucherPage(${totalPages})" ${page===totalPages?'disabled':''}>»»</button>`;
+    html += `<button class="page-btn" onclick="goToVoucherPage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>›</button>`;
+    html += `<button class="page-btn" onclick="goToVoucherPage(${totalPages})" ${page === totalPages ? 'disabled' : ''}>»»</button>`;
     html += `</div>`;
 
     container.innerHTML = html;
@@ -1198,16 +1198,10 @@ function updateDriveLinkRemoveButtons() {
 // ============================================
 // DOKUMEN ARSIP SUBMISSION (multi-file + drive)
 // ============================================
-// ============================================================
-// PATCH: submitDokumen — kirim semua file dalam 1 request
-// Ganti fungsi submitDokumen yang lama di main.js dengan ini
-// ============================================================
-
 async function submitDokumen(event) {
     event.preventDefault();
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-arsip');
-
     if (arsipUploadMode === 'file') {
         if (selectedFiles.length === 0) {
             alert('❌ Silakan pilih minimal satu file untuk diunggah!');
@@ -1220,11 +1214,9 @@ async function submitDokumen(event) {
             return;
         }
     }
-
     submitBtn.disabled = true;
     submitBtn.textContent = arsipUploadMode === 'file' ? 'Mengunggah...' : 'Mengirim...';
     setProgress('progress-arsip', 'loading-arsip', 15, 'Mempersiapkan data...');
-
     const baseFields = {
         action: 'uploadDokumen',
         nama: formElement.querySelector('[name="nama"]').value,
@@ -1235,89 +1227,52 @@ async function submitDokumen(event) {
         keterangan: formElement.querySelector('[name="keterangan"]').value,
         upload_mode: arsipUploadMode
     };
-
     try {
         if (arsipUploadMode === 'drive') {
-            // ── Mode Drive Link: tidak berubah ──────────────────────────
             const links = getDriveLinks().filter(l => l.trim() !== '');
             const fields = { ...baseFields, drive_links: JSON.stringify(links) };
             setProgress('progress-arsip', 'loading-arsip', 50, 'Mengirim link Drive...');
             submitViaIframeFields(fields, 'iframe-arsip');
-
         } else {
-            // ── Mode File: encode SEMUA file, kirim 1 request via fetch ─
-            setProgress('progress-arsip', 'loading-arsip', 25, 'Membaca file...');
-
-            // Encode semua file ke base64 paralel
-            const filesData = await Promise.all(
-                selectedFiles.map(async (file) => ({
+            const totalFiles = selectedFiles.length;
+            for (let i = 0; i < totalFiles; i++) {
+                const file = selectedFiles[i];
+                const pct = Math.round(15 + ((i / totalFiles) * 70));
+                setProgress('progress-arsip', 'loading-arsip', pct, `Mengunggah file ${i + 1}/${totalFiles}: ${file.name}`);
+                const base64Data = await fileToBase64(file);
+                const fields = {
+                    ...baseFields,
                     fileName: file.name,
+                    fileData: base64Data,
                     mimeType: file.type,
-                    fileData: await fileToBase64(file)
-                }))
-            );
-
-            setProgress('progress-arsip', 'loading-arsip', 55, 'Mengunggah ke Google Drive...');
-
-            const payload = {
-                ...baseFields,
-                filesData: filesData          // array semua file sekaligus
-            };
-
-            const response = await fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            setProgress('progress-arsip', 'loading-arsip', 85, 'Menyimpan data...');
-
-            let result;
-            try {
-                result = await response.json();
-            } catch (e) {
-                // GAS kadang redirect — anggap sukses jika HTTP 200/302
-                result = { status: 'success' };
-            }
-
-            if (result && result.status === 'error') {
-                throw new Error(result.message || 'Upload gagal');
+                    fileIndex: i + 1,
+                    totalFiles
+                };
+                submitViaIframeFields(fields, `iframe-arsip-${i}`);
+                if (i < totalFiles - 1) await new Promise(r => setTimeout(r, 800));
             }
         }
-
-        setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
-
+        setProgress('progress-arsip', 'loading-arsip', 95, 'Menyelesaikan...');
+        setTimeout(() => {
+            setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
+        }, 800);
         setTimeout(() => {
             hideProgress('progress-arsip', 'loading-arsip');
-
             const msg = arsipUploadMode === 'file'
                 ? `✓ ${selectedFiles.length} dokumen berhasil diunggah ke Google Drive!`
                 : '✓ Link Google Drive berhasil dikirim!';
-
             showAlert('alert-arsip', msg, 'success');
-
-            // Reset form
             formElement.reset();
             selectedFiles = [];
             renderFileList();
             driveLinksCounter = 1;
             const dlContainer = document.getElementById('drive-links-container');
             if (dlContainer) {
-                dlContainer.innerHTML = `
-                    <div class="drive-link-row" id="drive-row-1"
-                         style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                        <input type="url" class="form-control drive-link-input"
-                               placeholder="https://drive.google.com/file/d/... atau folder/..."
-                               style="flex:1;">
-                        <button type="button" class="btn btn-sm"
-                                onclick="removeDriveLink('drive-row-1')"
-                                style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button>
-                    </div>`;
+                dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex; gap: 8px; align-items: center; margin-bottom: 8px;"><input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;"><button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button></div>`;
             }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Dokumen';
-        }, 600);
-
+        }, 3200);
     } catch (error) {
         console.error('❌ Error:', error);
         hideProgress('progress-arsip', 'loading-arsip');
@@ -1388,7 +1343,7 @@ function sendToGoogleScript(formData, callback) {
 // MutationObserver di bawah).
 // ============================================
 function wrapTablesForMobile() {
-    document.querySelectorAll('.table-compact').forEach(function(container) {
+    document.querySelectorAll('.table-compact').forEach(function (container) {
         // Cegah double-wrap
         if (container.querySelector('.table-scroll-wrapper')) return;
         const table = container.querySelector('table');
@@ -1418,13 +1373,13 @@ function initTableScrollObserver() {
 
     if (!targets.length || typeof MutationObserver === 'undefined') return;
 
-    const observer = new MutationObserver(function() {
+    const observer = new MutationObserver(function () {
         // Debounce ringan
         clearTimeout(observer._timer);
         observer._timer = setTimeout(wrapTablesForMobile, 80);
     });
 
-    targets.forEach(function(t) {
+    targets.forEach(function (t) {
         observer.observe(t, { childList: true, subtree: true });
     });
 }

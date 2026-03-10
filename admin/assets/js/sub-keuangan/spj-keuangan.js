@@ -305,12 +305,19 @@
     };
 
     window.spjDeleteEntry = function (unit, bulan) {
-        if (!confirm(`Hapus penilaian ${unit} bulan ${bulan}?`)) return;
-        const data = getLocalData();
-        if (data[bulan]) delete data[bulan][unit];
-        setLocalData(data);
-        spjRenderInputTable();
-        if (window.showToast) showToast('Data berhasil dihapus', 'success');
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Penilaian SPJ?',
+            message: `Unit: <strong>${unit}</strong><br>Bulan: <strong>${bulan}</strong><br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, () => {
+            const data = getLocalData();
+            if (data[bulan]) delete data[bulan][unit];
+            setLocalData(data);
+            spjRenderInputTable();
+            if (window.showToast) showToast('Data berhasil dihapus', 'success');
+        });
     };
 
     // ── Tab 2: Rekapitulasi ───────────────────────────────────

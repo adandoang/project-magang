@@ -421,23 +421,30 @@
     };
 
     // ── Quick Reject ──────────────────────────────────────────
-    window.bbmQuickReject = async (id, btnEl) => {
-        if (!confirm('Tolak permintaan voucher BBM ini?')) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'updateVoucherRequest', id, status: 'REJECTED' });
-            if (res?.success) {
-                if (window.showToast) showToast('Permintaan ditolak', 'success');
-                clearCache(); await loadRequests(true);
-            } else {
-                if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+    window.bbmQuickReject = (id, btnEl) => {
+        showConfirmModal({
+            icon: '❌',
+            title: 'Tolak Permintaan Voucher BBM?',
+            message: 'Permintaan voucher BBM ini akan ditolak.',
+            confirmText: 'Ya, Tolak',
+            confirmClass: 'btn-warning',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'updateVoucherRequest', id, status: 'REJECTED' });
+                if (res?.success) {
+                    if (window.showToast) showToast('Permintaan ditolak', 'success');
+                    clearCache(); await loadRequests(true);
+                } else {
+                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+                }
+            } catch (e) {
+                if (window.showToast) showToast('Error: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
             }
-        } catch (e) {
-            if (window.showToast) showToast('Error: ' + e.message, 'error');
-            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-        }
+        });
     };
 
     // ── Edit Request (all fields editable) ────────────────────
@@ -479,23 +486,30 @@
     };
 
     // ── Delete Request ────────────────────────────────────────
-    window.bbmDeleteRequest = async (id, btnEl) => {
-        if (!confirm('Hapus permintaan ini? Tindakan tidak dapat dibatalkan.')) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'deleteVoucherRequest', id });
-            if (res?.success) {
-                if (window.showToast) showToast('Data berhasil dihapus', 'success');
-                clearCache(); await loadRequests(true);
-            } else {
-                if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+    window.bbmDeleteRequest = (id, btnEl) => {
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Permintaan?',
+            message: 'Permintaan voucher BBM ini akan dihapus permanen. <span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>',
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'deleteVoucherRequest', id });
+                if (res?.success) {
+                    if (window.showToast) showToast('Data berhasil dihapus', 'success');
+                    clearCache(); await loadRequests(true);
+                } else {
+                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+                }
+            } catch (e) {
+                if (window.showToast) showToast('Error: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
             }
-        } catch (e) {
-            if (window.showToast) showToast('Error: ' + e.message, 'error');
-            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-        }
+        });
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -806,42 +820,64 @@
     };
 
     // ── Delete Violation ──────────────────────────────────────
-    window.bbmDeleteViol = async (safeV, btnEl) => {
+    window.bbmDeleteViol = (safeV, btnEl) => {
         const v = resolveViol(safeV);
         if (!v) { if (window.showToast) showToast('Data tidak ditemukan', 'error'); return; }
-        if (!confirm(`Hapus catatan ini?\n\nUnit: ${v.unit}\nBulan: ${v.bulan}`)) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'deleteBBMViolation', id: v.id || '', bulan: v.bulan, unit: v.unit });
-            if (res?.success) {
-                if (window.showToast) showToast('Catatan berhasil dihapus', 'success');
-                clearCache(); await loadViolations(true); await loadScores(true);
-            } else {
-                if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Catatan Pelanggaran?',
+            message: `Unit: <strong>${v.unit}</strong><br>Bulan: <strong>${v.bulan}</strong><br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'deleteBBMViolation', id: v.id || '', bulan: v.bulan, unit: v.unit });
+                if (res?.success) {
+                    if (window.showToast) showToast('Catatan berhasil dihapus', 'success');
+                    clearCache(); await loadViolations(true); await loadScores(true);
+                } else {
+                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+                }
+            } catch (e) {
+                if (window.showToast) showToast('Error: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
             }
-        } catch (e) {
-            if (window.showToast) showToast('Error: ' + e.message, 'error');
-            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-        }
+        });
     };
 
     // ── Export ────────────────────────────────────────────────
-    window.bbmExportViol = async () => {
-        if (!confirm('Export catatan pelanggaran ke sheet baru?')) return;
-        if (window.showToast) showToast('Mengekspor...', 'success');
-        try {
-            const res = await callAPI({
-                action: 'exportBBMViolationsReport',
-                bulan: document.getElementById('bbm-filter-bulan-viol')?.value || '',
-                unit: document.getElementById('bbm-filter-unit-viol')?.value || ''
-            });
-            if (res?.success) {
-                if (window.showToast) showToast(`Berhasil export ${res.recordCount} catatan!`, 'success');
-                if (res.url && confirm('Buka spreadsheet?')) window.open(res.url, '_blank');
-            } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
-        } catch (e) { if (window.showToast) showToast('Gagal export: ' + e.message, 'error'); }
+    window.bbmExportViol = () => {
+        showConfirmModal({
+            icon: '📤',
+            title: 'Export Catatan Pelanggaran?',
+            message: 'Data catatan pelanggaran BBM akan diexport ke sheet baru di spreadsheet.',
+            confirmText: 'Ya, Export',
+            confirmClass: 'btn-primary',
+        }, async () => {
+            if (window.showToast) showToast('Mengekspor...', 'success');
+            try {
+                const res = await callAPI({
+                    action: 'exportBBMViolationsReport',
+                    bulan: document.getElementById('bbm-filter-bulan-viol')?.value || '',
+                    unit: document.getElementById('bbm-filter-unit-viol')?.value || ''
+                });
+                if (res?.success) {
+                    if (window.showToast) showToast(`Berhasil export ${res.recordCount} catatan!`, 'success');
+                    if (res.url) {
+                        showConfirmModal({
+                            icon: '🔗',
+                            title: 'Export Berhasil!',
+                            message: 'Spreadsheet berhasil dibuat. Buka sekarang?',
+                            confirmText: 'Buka Spreadsheet',
+                            confirmClass: 'btn-primary',
+                        }, () => window.open(res.url, '_blank'));
+                    }
+                } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+            } catch (e) { if (window.showToast) showToast('Gagal export: ' + e.message, 'error'); }
+        });
     };
 
     // ═══════════════════════════════════════════════════════════

@@ -51,6 +51,7 @@ const AUTH = (() => {
         'pengajuan-dana': 'pengajuan_dana',
         'monev': 'penilaian_monev',
         'manageacc': 'manajemen_akun',
+        'ganti-password': 'ganti_password',
     };
 
     /* ── Akses per role ──
@@ -70,19 +71,19 @@ const AUTH = (() => {
         superadmin: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat', 'kearsipan',
             'penilaian_spj', 'pengumpulan_spj', 'pengajuan_dana',
-            'penilaian_monev', 'manajemen_akun'
+            'penilaian_monev', 'manajemen_akun', 'ganti_password'
         ],
         subumum: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat',
-            'kearsipan'
+            'kearsipan', 'ganti_password'
         ],
         subkeuangan: [
-            'dashboard',          // ← DITAMBAHKAN (fix bug kedip)
-            'pengumpulan_spj', 'penilaian_spj', 'pengajuan_dana'
+            'dashboard',
+            'pengumpulan_spj', 'penilaian_spj', 'pengajuan_dana', 'ganti_password'
         ],
         sekretariat: [
-            'dashboard',          // ← DITAMBAHKAN (fix bug kedip)
-            'penilaian_monev'
+            'dashboard',
+            'penilaian_monev', 'ganti_password'
         ],
     };
 

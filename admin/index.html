@@ -13,6 +13,7 @@
     <script src="auth.js"></script>
     <script src="notifikasi.js"></script>
     <script src="assets/js/toast.js"></script>
+    <script src="assets/js/confirm-modal.js"></script>
     <style>
         .admin-section {
             display: none;
@@ -518,6 +519,14 @@
                 </svg>
                 Manajemen Akun
             </a>
+            <a href="#" class="nav-item" data-section="ganti-password"
+                onclick="showSection('ganti-password');return false;">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Ganti Password
+            </a>
         </nav>
         <div class="sidebar-footer">
             <div class="user-info">
@@ -834,6 +843,15 @@
                 <div class="spinner"></div><span>Memuat Manajemen Akun...</span>
             </div>
         </div>
+
+        <!-- ═══════════════════════════════════ -->
+        <!-- SECTION: GANTI PASSWORD             -->
+        <!-- ═══════════════════════════════════ -->
+        <div id="section-ganti-password" class="admin-section">
+            <div class="section-loader">
+                <div class="spinner"></div><span>Memuat Ganti Password...</span>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts: urutan penting — app.js (router) harus sebelum section JS -->
@@ -848,6 +866,7 @@
     <script src="assets/js/sub-keuangan/pengajuan-dana.js" defer></script>
     <script src="assets/js/sekretariat/monev.js" defer></script>
     <script src="assets/js/manageacc.js" defer></script>
+    <script src="assets/js/gantipassword.js" defer></script>
     <script>
         // Init auth check
         AUTH.init();

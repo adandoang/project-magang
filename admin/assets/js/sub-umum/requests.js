@@ -579,31 +579,45 @@
     };
 
     // FIX: reject dengan loading/buffering seperti delete
-    window.reqQuickReject = async (id, btnEl) => {
-        if (!confirm('Tolak pengajuan ini?')) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'updateRequest', id, status: 'rejected' });
-            if (res.success) { if (window.showToast) showToast('Pengajuan ditolak', 'success'); clearCache(); await loadRequests(true); }
-            else {
-                if (window.showToast) showToast(res.message || 'Gagal', 'error');
+    window.reqQuickReject = (id, btnEl) => {
+        showConfirmModal({
+            icon: '❌',
+            title: 'Tolak Pengajuan?',
+            message: 'Pengajuan ini akan ditolak dan pemohon tidak dapat menggunakan kendaraan.',
+            confirmText: 'Ya, Tolak',
+            confirmClass: 'btn-warning',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'updateRequest', id, status: 'rejected' });
+                if (res.success) { if (window.showToast) showToast('Pengajuan ditolak', 'success'); clearCache(); await loadRequests(true); }
+                else {
+                    if (window.showToast) showToast(res.message || 'Gagal', 'error');
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+                }
+            } catch (e) {
+                if (window.showToast) showToast('Gagal: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
             }
-        } catch (e) {
-            if (window.showToast) showToast('Gagal: ' + e.message, 'error');
-            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-        }
+        });
     };
 
-    window.reqMarkAsCompleted = async (id, btnEl) => {
-        if (!confirm('Tandai pengajuan ini sebagai selesai?')) return;
-        const orig = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>';
-        try {
-            const res = await callAPI({ action: 'updateRequest', id, status: 'completed' });
-            if (res.success) { if (window.showToast) showToast('Status diperbarui menjadi Selesai', 'success'); clearCache(); await loadRequests(true); }
-            else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
-        } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
+    window.reqMarkAsCompleted = (id, btnEl) => {
+        showConfirmModal({
+            icon: '✅',
+            title: 'Tandai Selesai?',
+            message: 'Pengajuan ini akan ditandai sebagai <strong>Selesai</strong>.',
+            confirmText: 'Ya, Selesai',
+            confirmClass: 'btn-success',
+        }, async () => {
+            const orig = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>';
+            try {
+                const res = await callAPI({ action: 'updateRequest', id, status: 'completed' });
+                if (res.success) { if (window.showToast) showToast('Status diperbarui menjadi Selesai', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
+            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
+        });
     };
 
     // FIX: Full edit — semua field bisa diedit
@@ -646,15 +660,22 @@
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    window.reqDeleteRequest = async (id, btnEl) => {
-        if (!confirm('Hapus pengajuan ini? Tindakan tidak dapat dibatalkan.')) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        try {
-            const res = await callAPI({ action: 'deleteRequest', id });
-            if (res.success) { if (window.showToast) showToast('Pengajuan berhasil dihapus', 'success'); clearCache(); await loadRequests(true); }
-            else { if (window.showToast) showToast(res.message || 'Gagal menghapus', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
-        } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+    window.reqDeleteRequest = (id, btnEl) => {
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Pengajuan?',
+            message: 'Pengajuan ini akan dihapus permanen. <span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>',
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const res = await callAPI({ action: 'deleteRequest', id });
+                if (res.success) { if (window.showToast) showToast('Pengajuan berhasil dihapus', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal menghapus', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+        });
     };
 
     // ═══ TAB 2: VIOLATIONS ═══════════════════════════════════
@@ -941,34 +962,58 @@
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    window.reqDeleteViol = async (safeId, btnEl) => {
+    window.reqDeleteViol = (safeId, btnEl) => {
         const v = resolveViol(safeId);
         if (!v) { if (window.showToast) showToast('Data tidak ditemukan', 'error'); return; }
-        if (!confirm(`Hapus catatan pelanggaran ini?\n\nUnit: ${v.unit}\nBulan: ${v.bulan}\nTanggal: ${normalizeDisplayDate(v.tanggal)}`)) return;
-        const orig = btnEl ? btnEl.innerHTML : null;
-        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
-        const jenisKode = (v.jenis === 'Kealpaan Membersihkan Mobil') ? 'KEBERSIHAN' : 'KUNCI';
-        try {
-            const res = await callAPI({ action: 'deleteVehicleViolation', id: v.id || '', jenis: jenisKode, bulan: v.bulan, unit: v.unit, tanggal: v.tanggal });
-            if (res.success) { if (window.showToast) showToast('Catatan berhasil dihapus', 'success'); clearCache(); await loadViolations(true); await loadScores(true); }
-            else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
-        } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Catatan Pelanggaran?',
+            message: `Unit: <strong>${v.unit}</strong><br>Bulan: <strong>${v.bulan}</strong><br>Tanggal: <strong>${normalizeDisplayDate(v.tanggal)}</strong><br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            const jenisKode = (v.jenis === 'Kealpaan Membersihkan Mobil') ? 'KEBERSIHAN' : 'KUNCI';
+            try {
+                const res = await callAPI({ action: 'deleteVehicleViolation', id: v.id || '', jenis: jenisKode, bulan: v.bulan, unit: v.unit, tanggal: v.tanggal });
+                if (res.success) { if (window.showToast) showToast('Catatan berhasil dihapus', 'success'); clearCache(); await loadViolations(true); await loadScores(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+        });
     };
 
-    window.reqExportViol = async () => {
+    window.reqExportViol = () => {
         const b = document.getElementById('req-filter-bulan')?.value || '';
         const u = document.getElementById('req-filter-unit')?.value || '';
         const j = document.getElementById('req-filter-jenis')?.value || '';
-        if (!confirm('Export catatan ke sheet baru di spreadsheet?')) return;
-        if (window.showToast) showToast('Mengekspor data...', 'success');
-        let jenisParam = '';
-        if (j === 'Kealpaan Pengembalian Kunci') jenisParam = 'KUNCI';
-        else if (j === 'Kealpaan Membersihkan Mobil') jenisParam = 'KEBERSIHAN';
-        try {
-            const res = await callAPI({ action: 'exportVehicleViolationsReport', bulan: b, unit: u, jenis: jenisParam });
-            if (res.success) { if (window.showToast) showToast(`Berhasil export ${res.recordCount} catatan!`, 'success'); if (res.url && confirm('Buka spreadsheet?')) window.open(res.url, '_blank'); }
-            else if (window.showToast) showToast(res.message || 'Gagal', 'error');
-        } catch (e) { if (window.showToast) showToast('Gagal export: ' + e, 'error'); }
+        showConfirmModal({
+            icon: '📤',
+            title: 'Export Catatan Pelanggaran?',
+            message: 'Data catatan pelanggaran akan diexport ke sheet baru di spreadsheet.',
+            confirmText: 'Ya, Export',
+            confirmClass: 'btn-primary',
+        }, async () => {
+            if (window.showToast) showToast('Mengekspor data...', 'success');
+            let jenisParam = '';
+            if (j === 'Kealpaan Pengembalian Kunci') jenisParam = 'KUNCI';
+            else if (j === 'Kealpaan Membersihkan Mobil') jenisParam = 'KEBERSIHAN';
+            try {
+                const res = await callAPI({ action: 'exportVehicleViolationsReport', bulan: b, unit: u, jenis: jenisParam });
+                if (res.success) {
+                    if (window.showToast) showToast(`Berhasil export ${res.recordCount} catatan!`, 'success');
+                    if (res.url) {
+                        showConfirmModal({
+                            icon: '🔗',
+                            title: 'Export Berhasil!',
+                            message: 'Spreadsheet berhasil dibuat. Buka sekarang?',
+                            confirmText: 'Buka Spreadsheet',
+                            confirmClass: 'btn-primary',
+                        }, () => window.open(res.url, '_blank'));
+                    }
+                } else if (window.showToast) showToast(res.message || 'Gagal', 'error');
+            } catch (e) { if (window.showToast) showToast('Gagal export: ' + e, 'error'); }
+        });
     };
 
     // ═══ TAB 3: SCORES ═══════════════════════════════════════
