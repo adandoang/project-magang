@@ -761,7 +761,8 @@
                             placeholder="Contoh: 5.000.000" autocomplete="off" inputmode="numeric" required
                             oninput="formatRupiah(this, 'nominal_pengajuan')">
                         <input type="hidden" name="nominal_pengajuan" id="nominal_pengajuan">
-                        <small style="color: #6b7280; display: block; margin-top: 8px;">Angka otomatis diformat dengan titik pemisah</small>
+                        <small style="color: #6b7280; display: block; margin-top: 8px;">Angka otomatis diformat dengan
+                            titik pemisah</small>
                     </div>
                     <div class="form-group">
                         <label>Upload File Laporan Pengajuan Dana (PDF) *</label>
@@ -939,7 +940,8 @@
                             placeholder="Contoh: 4.800.000" autocomplete="off" inputmode="numeric" required
                             oninput="formatRupiah(this, 'nominal_spj')">
                         <input type="hidden" name="nominal_spj" id="nominal_spj">
-                        <small style="color: #6b7280; display: block; margin-top: 8px;">Nominal yang sudah dipertanggungjawabkan</small>
+                        <small style="color: #6b7280; display: block; margin-top: 8px;">Nominal yang sudah
+                            dipertanggungjawabkan</small>
                     </div>
                     <div class="spj-deadline-info">
                         <p>ℹ️ <strong>Info Penting:</strong> SPJ dapat disubmit kapan saja sesuai jadwal pelaporan unit.
@@ -1120,35 +1122,35 @@
     </div>
 
     <script>
-    // ── Format Rupiah: titik pemisah ribuan ───────────────────
-    function formatRupiah(inputEl, hiddenId) {
-        // Ambil hanya angka
-        let raw = inputEl.value.replace(/\D/g, '');
-        // Simpan ke hidden input (nilai murni tanpa titik)
-        document.getElementById(hiddenId).value = raw;
-        // Format tampilan dengan titik ribuan
-        if (raw === '') { inputEl.value = ''; return; }
-        inputEl.value = parseInt(raw, 10).toLocaleString('id-ID');
-    }
-
-    // Validasi: pastikan hidden input terisi sebelum submit
-    document.getElementById('form-pengajuan-dana').addEventListener('submit', function(e) {
-        const raw = document.getElementById('nominal_pengajuan').value;
-        if (!raw || parseInt(raw) <= 0) {
-            e.preventDefault();
-            document.getElementById('display-nominal-pengajuan').focus();
-            alert('Nominal pengajuan harus diisi dengan angka yang valid.');
+        // ── Format Rupiah: titik pemisah ribuan ───────────────────
+        function formatRupiah(inputEl, hiddenId) {
+            // Ambil hanya angka
+            let raw = inputEl.value.replace(/\D/g, '');
+            // Simpan ke hidden input (nilai murni tanpa titik)
+            document.getElementById(hiddenId).value = raw;
+            // Format tampilan dengan titik ribuan
+            if (raw === '') { inputEl.value = ''; return; }
+            inputEl.value = parseInt(raw, 10).toLocaleString('id-ID');
         }
-    });
 
-    document.getElementById('form-spj').addEventListener('submit', function(e) {
-        const raw = document.getElementById('nominal_spj').value;
-        if (!raw || parseInt(raw) <= 0) {
-            e.preventDefault();
-            document.getElementById('display-nominal-spj').focus();
-            alert('Nominal SPJ harus diisi dengan angka yang valid.');
-        }
-    });
+        // Validasi: pastikan hidden input terisi sebelum submit
+        document.getElementById('form-pengajuan-dana').addEventListener('submit', function (e) {
+            const raw = document.getElementById('nominal_pengajuan').value;
+            if (!raw || parseInt(raw) <= 0) {
+                e.preventDefault();
+                document.getElementById('display-nominal-pengajuan').focus();
+                alert('Nominal pengajuan harus diisi dengan angka yang valid.');
+            }
+        });
+
+        document.getElementById('form-spj').addEventListener('submit', function (e) {
+            const raw = document.getElementById('nominal_spj').value;
+            if (!raw || parseInt(raw) <= 0) {
+                e.preventDefault();
+                document.getElementById('display-nominal-spj').focus();
+                alert('Nominal SPJ harus diisi dengan angka yang valid.');
+            }
+        });
     </script>
 
     <script src="assets/js/main.js"></script>
