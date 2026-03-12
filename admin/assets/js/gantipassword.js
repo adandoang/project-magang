@@ -12,29 +12,54 @@
 (function () {
     'use strict';
 
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwmSHwWWGpH5dCV7U2vWWs9ni-4-h_l_qDhK7ATalXCt5ZJAc5a_Szmo686tY8rkcys/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyfAJcjPDuKqwKk8A46z4quyaeV9trBLAuDtdqhQqX0CIZke6fgN1sptcnS0EURuF6ksg/exec';
     const STYLE_ID = 'ganti-password-styles';
 
-    // ── SHA-256 (Web Crypto API — sama dengan manageacc.js) ──
+    // ── SHA-256 (Web Crypto API) ─────────────────────────────
     async function sha256(str) {
         const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
         return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // ── GAS request helper (JSONP) ───────────────────────────
+    // ── GAS request helper (fetch — menggantikan JSONP) ──────
+    // Menggunakan fetch() agar tidak ada masalah CSP / script injection
+    // yang menyebabkan "Error: Network error" pada JSONP lama.
     function gasRequest(payload) {
-        return new Promise((resolve, reject) => {
+        const url = new URL(GAS_URL);
+        Object.entries(payload).forEach(([k, v]) => url.searchParams.set(k, v));
+
+        return fetch(url.toString(), {
+            method: 'GET',
+            redirect: 'follow',
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP error: ' + res.status);
+                return res.json();
+            })
+            .catch(function (err) {
+                // Jika fetch gagal total (misal CORS), fallback ke JSONP
+                console.warn('[gantipassword] fetch gagal, fallback ke JSONP:', err.message);
+                return gasRequestJSONP(payload);
+            });
+    }
+
+    // ── Fallback JSONP (jika fetch benar-benar tidak bisa) ───
+    function gasRequestJSONP(payload) {
+        return new Promise(function (resolve, reject) {
             const cb = '__gp_' + Date.now() + '_' + (Math.random() * 9999 | 0);
             const s = document.createElement('script');
             let done = false;
-            const clean = () => {
-                done = true; delete window[cb];
+            const clean = function () {
+                done = true;
+                delete window[cb];
                 if (s.parentNode) s.parentNode.removeChild(s);
             };
-            window[cb] = d => { clean(); resolve(d); };
-            s.onerror = () => { clean(); reject(new Error('Network error')); };
-            setTimeout(() => { if (!done) { clean(); reject(new Error('Request timeout')); } }, 20000);
-            const qs = new URLSearchParams({ ...payload, callback: cb }).toString();
+            window[cb] = function (d) { clean(); resolve(d); };
+            s.onerror = function () { clean(); reject(new Error('Network error (JSONP fallback juga gagal). Periksa deployment GAS Anda.')); };
+            setTimeout(function () {
+                if (!done) { clean(); reject(new Error('Request timeout')); }
+            }, 20000);
+            const qs = new URLSearchParams(Object.assign({}, payload, { callback: cb })).toString();
             s.src = GAS_URL + '?' + qs;
             document.head.appendChild(s);
         });
@@ -201,7 +226,7 @@
         document.head.appendChild(style);
     }
 
-    // ── Avatar helpers (sama dengan manageacc.js) ─────────────
+    // ── Avatar helpers ─────────────────────────────────────────
     const AV_COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#f59e0b', '#10b981', '#ec4899', '#0ea5e9', '#14b8a6', '#f97316'];
     function avColor(email) {
         let h = 0;
@@ -216,7 +241,7 @@
     const ROLE_CONFIG = {
         superadmin: { label: 'Super Admin', icon: '🛡️', color: '#1e293b', bg: '#f1f5f9', border: '#cbd5e1' },
         subumum: { label: 'Sub Bagian Umum', icon: '📋', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
-        subkeuangan: { label: 'Sub Bag. Keuangan', icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
+        subkeuangan: { label: 'Sub Bagian Keuangan', icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
         sekretariat: { label: 'Sekretariat', icon: '🏛️', color: '#7e22ce', bg: '#faf5ff', border: '#d8b4fe' },
     };
 

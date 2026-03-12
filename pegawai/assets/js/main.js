@@ -7,7 +7,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbyKHm8fROuNziK-6oe6vbit
 // GLOBAL VARIABLES
 // ============================================
 let selectedFile = null;
-let selectedFiles = [];
+let selectedArsipFile = null;   // ★ GANTI: hanya 1 file untuk arsip
 let arsipUploadMode = 'file';
 let driveLinksCounter = 1;
 let selectedPengajuanFile = null;
@@ -50,36 +50,24 @@ function hideProgress(progressId, loadingId) {
 }
 
 // ============================================
-// CORE: aktivasi section tanpa dependensi pada
-// global `event` — aman dipanggil dari mana saja.
+// CORE: aktivasi section
 // ============================================
 function activateSection(sectionId) {
-    // Sembunyikan semua section
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    // Tampilkan section yang diminta
     const target = document.getElementById(sectionId);
     if (target) target.classList.add('active');
-    // Sinkronkan mobile select
     const mobileSelect = document.getElementById('mobile-nav-select');
     if (mobileSelect) mobileSelect.value = sectionId;
-    // Sinkronkan desktop nav-tab (hapus semua active, tidak ada yang dipilih)
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
 }
 
 // ============================================
-// FIX 1: MOBILE NAVIGATION
-// handleMobileNav dipanggil dari onchange select.
-// Gunakan activateSection supaya tidak bergantung
-// pada global `event` object.
+// MOBILE NAVIGATION
 // ============================================
 function handleMobileNav(value) {
     if (!value) return;
-
-    // Tutup semua dropdown desktop jika terbuka
     document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
-
     switch (value) {
-        // ── Section langsung ───────────────────
         case 'home':
         case 'kendaraan':
         case 'ruangan':
@@ -90,8 +78,6 @@ function handleMobileNav(value) {
         case 'transparansi-nilai':
             activateSection(value);
             break;
-
-        // ── Transparansi sub-menu ──────────────
         case 'transparansi-ruang':
             activateSection('transparansi-nilai');
             setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('ruang-rapat'); }, 150);
@@ -116,8 +102,6 @@ function handleMobileNav(value) {
             activateSection('transparansi-nilai');
             setTimeout(() => { if (typeof loadNilaiData === 'function') loadNilaiData('monev'); }, 150);
             break;
-
-        // ── Status / kalender ──────────────────
         case 'status-kendaraan':
             showCalendar('KENDARAAN');
             break;
@@ -130,27 +114,18 @@ function handleMobileNav(value) {
         case 'status-dana':
             showDanaStatus();
             break;
-
         default:
             console.warn('handleMobileNav: nilai tidak dikenal →', value);
     }
-
-    // Kembalikan nilai select supaya bisa dipilih ulang item yang sama
     const mobileSelect = document.getElementById('mobile-nav-select');
     if (mobileSelect) setTimeout(() => { mobileSelect.value = value; }, 60);
 }
 
 // ============================================
 // NAVIGATION FUNCTIONS
-// showSection: dipanggil dari onclick desktop nav-tab.
-// Tidak bergantung pada global `event` object.
 // ============================================
 function showSection(sectionId) {
-    // Gunakan activateSection yang aman
     activateSection(sectionId);
-
-    // Tandai nav-tab yang diklik sebagai active
-    // event tersedia saat dipanggil via onclick inline
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     try {
         if (typeof event !== 'undefined' && event && event.currentTarget
@@ -160,7 +135,7 @@ function showSection(sectionId) {
             && event.target.classList.contains('nav-tab')) {
             event.target.classList.add('active');
         }
-    } catch (e) { /* abaikan jika event tidak tersedia */ }
+    } catch (e) { }
 }
 
 function showLoading() {
@@ -200,26 +175,12 @@ document.addEventListener('click', function (event) {
 });
 
 // ============================================
-// FIX 2 & 3: DATE/TIME VALIDATION HELPERS
-// - Tanggal tidak boleh lampau (warning, bukan block)
-// - Waktu selesai harus setelah waktu mulai
+// DATE/TIME VALIDATION HELPERS
 // ============================================
-
-/**
- * Set min date pada semua input[type=date] di form tertentu ke hari ini.
- * Dipanggil saat DOMContentLoaded.
- */
 function initDateValidation() {
-    const today = getTodayString();
     document.querySelectorAll('input[type="date"]').forEach(input => {
-        // Tidak paksa min agar data lama tetap bisa dilihat,
-        // tapi beri peringatan saat blur jika tanggal lampau.
-        input.addEventListener('change', function () {
-            warnPastDate(this);
-        });
-        input.addEventListener('blur', function () {
-            warnPastDate(this);
-        });
+        input.addEventListener('change', function () { warnPastDate(this); });
+        input.addEventListener('blur', function () { warnPastDate(this); });
     });
 }
 
@@ -235,7 +196,6 @@ function warnPastDate(inputEl) {
     const val = inputEl.value;
     if (!val) return;
     const today = getTodayString();
-    // Cari atau buat elemen warning
     let warn = inputEl.parentNode.querySelector('.date-past-warning');
     if (val < today) {
         if (!warn) {
@@ -252,40 +212,24 @@ function warnPastDate(inputEl) {
     }
 }
 
-/**
- * Validasi waktu selesai > waktu mulai pada form dengan kedua field waktu.
- * formEl    : HTMLFormElement
- * startName : name attribute field waktu mulai
- * endName   : name attribute field waktu selesai
- * Returns true jika valid, false jika tidak valid (dan menampilkan pesan).
- */
 function validateTimeRange(formEl, startName, endName) {
     const startInput = formEl.querySelector(`[name="${startName}"]`);
     const endInput = formEl.querySelector(`[name="${endName}"]`);
     if (!startInput || !endInput) return true;
-
     const startVal = startInput.value;
     const endVal = endInput.value;
-
-    // Cari/buat elemen peringatan di bawah field waktu selesai
     let warn = endInput.parentNode.querySelector('.time-range-warning');
-
-    // Jika salah satu belum diisi, hapus peringatan lama dan lewati
     if (!startVal || !endVal) {
         if (warn) warn.remove();
         endInput.style.borderColor = '';
         startInput.style.borderColor = '';
         return true;
     }
-
-    // Bandingkan sebagai menit-dari-tengah-malam agar akurat
     const toMinutes = t => {
         const [h, m] = t.split(':').map(Number);
         return h * 60 + m;
     };
-
     const invalid = toMinutes(endVal) <= toMinutes(startVal);
-
     if (invalid) {
         if (!warn) {
             warn = document.createElement('p');
@@ -306,27 +250,15 @@ function validateTimeRange(formEl, startName, endName) {
     }
 }
 
-// Listener realtime — terpasang di KEDUA field waktu
-// sehingga validasi berjalan baik saat user mengubah
-// waktu mulai SETELAH waktu selesai sudah terisi.
 function initTimeValidationListeners() {
-    [
-        { formId: 'form-kendaraan' },
-        { formId: 'form-ruangan' },
-    ].forEach(({ formId }) => {
+    [{ formId: 'form-kendaraan' }, { formId: 'form-ruangan' }].forEach(({ formId }) => {
         const form = document.getElementById(formId);
         if (!form) return;
         const startEl = form.querySelector('[name="waktu_mulai"]');
         const endEl = form.querySelector('[name="waktu_selesai"]');
         const revalidate = () => validateTimeRange(form, 'waktu_mulai', 'waktu_selesai');
-        if (startEl) {
-            startEl.addEventListener('change', revalidate);
-            startEl.addEventListener('blur', revalidate);
-        }
-        if (endEl) {
-            endEl.addEventListener('change', revalidate);
-            endEl.addEventListener('blur', revalidate);
-        }
+        if (startEl) { startEl.addEventListener('change', revalidate); startEl.addEventListener('blur', revalidate); }
+        if (endEl) { endEl.addEventListener('change', revalidate); endEl.addEventListener('blur', revalidate); }
     });
 }
 
@@ -414,9 +346,7 @@ function renderCalendar() {
             dayDiv.appendChild(label);
             dayDiv.style.cursor = 'pointer';
             dayDiv.setAttribute('data-date', dateStr);
-            dayDiv.addEventListener('click', function () {
-                showScheduleDetail(this.getAttribute('data-date'));
-            });
+            dayDiv.addEventListener('click', function () { showScheduleDetail(this.getAttribute('data-date')); });
         } else {
             dayDiv.style.cursor = 'default';
         }
@@ -535,25 +465,13 @@ function renderScheduleList(schedules) {
                         <span class="schedule-card-status ${statusRaw}">${schedule.Status}</span>
                     </div>
                     <div class="schedule-card-body">
-                        <div class="schedule-card-time">
-                            ${clockIcon}
-                            ${formatTimeRange(schedule['Jam Mulai'], schedule['Jam Selesai'])}
-                        </div>
+                        <div class="schedule-card-time">${clockIcon}${formatTimeRange(schedule['Jam Mulai'], schedule['Jam Selesai'])}</div>
                         <div class="schedule-card-info">
-                            <div class="schedule-card-row">
-                                <span class="schedule-card-label">Unit</span>
-                                <span class="schedule-card-value"><span class="schedule-unit-badge">${schedule.Unit}</span></span>
-                            </div>
+                            <div class="schedule-card-row"><span class="schedule-card-label">Unit</span><span class="schedule-card-value"><span class="schedule-unit-badge">${schedule.Unit}</span></span></div>
                             ${nomorKend}
                             <div class="schedule-card-divider"></div>
-                            <div class="schedule-card-row">
-                                <span class="schedule-card-label">Keperluan</span>
-                                <span class="schedule-card-value">${schedule.Keperluan}</span>
-                            </div>
-                            <div class="schedule-card-row">
-                                <span class="schedule-card-label">Tujuan</span>
-                                <span class="schedule-card-value">${schedule.Alamat}</span>
-                            </div>
+                            <div class="schedule-card-row"><span class="schedule-card-label">Keperluan</span><span class="schedule-card-value">${schedule.Keperluan}</span></div>
+                            <div class="schedule-card-row"><span class="schedule-card-label">Tujuan</span><span class="schedule-card-value">${schedule.Alamat}</span></div>
                         </div>
                     </div>
                 </div>`;
@@ -574,25 +492,13 @@ function renderScheduleList(schedules) {
                         <span class="schedule-card-status ${statusRaw}">${schedule.Status}</span>
                     </div>
                     <div class="schedule-card-body">
-                        <div class="schedule-card-time">
-                            ${clockIcon}
-                            ${formatTimeRange(schedule['Jam Mulai'], schedule['Jam Selesai'])}
-                        </div>
+                        <div class="schedule-card-time">${clockIcon}${formatTimeRange(schedule['Jam Mulai'], schedule['Jam Selesai'])}</div>
                         <div class="schedule-card-info">
-                            <div class="schedule-card-row">
-                                <span class="schedule-card-label">PJ</span>
-                                <span class="schedule-card-value">${schedule.Nama}</span>
-                            </div>
-                            <div class="schedule-card-row">
-                                <span class="schedule-card-label">Unit</span>
-                                <span class="schedule-card-value"><span class="schedule-unit-badge">${schedule.Unit}</span></span>
-                            </div>
+                            <div class="schedule-card-row"><span class="schedule-card-label">PJ</span><span class="schedule-card-value">${schedule.Nama}</span></div>
+                            <div class="schedule-card-row"><span class="schedule-card-label">Unit</span><span class="schedule-card-value"><span class="schedule-unit-badge">${schedule.Unit}</span></span></div>
                             ${namaRuang}
                             <div class="schedule-card-divider"></div>
-                            <div class="schedule-card-row">
-                                <span class="schedule-card-label">Peserta</span>
-                                <span class="schedule-card-value"><strong>${schedule.Peserta}</strong> orang</span>
-                            </div>
+                            <div class="schedule-card-row"><span class="schedule-card-label">Peserta</span><span class="schedule-card-value"><strong>${schedule.Peserta}</strong> orang</span></div>
                         </div>
                     </div>
                 </div>`;
@@ -633,10 +539,9 @@ function showVoucherStatus() {
     loadVoucherData();
 }
 
-// ── Pagination state voucher ──
 let voucherCurrentPage = 1;
-let voucherPageSize = 10;  // bisa diubah user via selector
-let voucherDisplayData = [];  // data yang sedang ditampilkan (sudah filter+sort)
+let voucherPageSize = 10;
+let voucherDisplayData = [];
 
 function changeVoucherPageSize(val) {
     voucherPageSize = parseInt(val) || 10;
@@ -664,19 +569,9 @@ function loadVoucherData() {
         });
 }
 
-// ============================================
-// SORT VOUCHER BY DATE (terbaru di atas)
-// Robust: coba semua kemungkinan nama field Timestamp
-// dari Google Apps Script (case-insensitive, spasi, dll)
-// ============================================
 function getVoucherTimestamp(voucher) {
-    // Coba semua kemungkinan nama field yang umum dari GAS
-    const keys = ['Timestamp', 'timestamp', 'Tanggal', 'tanggal', 'Date', 'date',
-        'TIMESTAMP', 'Waktu', 'waktu'];
-    for (const k of keys) {
-        if (voucher[k]) return voucher[k];
-    }
-    // Fallback: ambil field pertama yang isinya mirip tanggal
+    const keys = ['Timestamp', 'timestamp', 'Tanggal', 'tanggal', 'Date', 'date', 'TIMESTAMP', 'Waktu', 'waktu'];
+    for (const k of keys) { if (voucher[k]) return voucher[k]; }
     for (const val of Object.values(voucher)) {
         if (val && typeof val === 'string' && !isNaN(Date.parse(val))) return val;
     }
@@ -685,12 +580,9 @@ function getVoucherTimestamp(voucher) {
 
 function parseVoucherDate(raw) {
     if (!raw) return new Date(0);
-    // Kalau sudah Date object
     if (raw instanceof Date) return raw;
-    // Coba parse langsung
     const d = new Date(raw);
     if (!isNaN(d)) return d;
-    // Format DD/MM/YYYY atau DD/MM/YYYY HH:MM:SS (format Indonesia dari Sheets)
     const m = String(raw).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (m) return new Date(`${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`);
     return new Date(0);
@@ -700,7 +592,7 @@ function sortVouchersByDate(vouchers) {
     return [...vouchers].sort((a, b) => {
         const dateA = parseVoucherDate(getVoucherTimestamp(a));
         const dateB = parseVoucherDate(getVoucherTimestamp(b));
-        return dateB - dateA; // descending: terbaru di atas
+        return dateB - dateA;
     });
 }
 
@@ -710,16 +602,13 @@ function renderVoucherTable(vouchers, page) {
     const total = vouchers.length;
     const totalPages = Math.max(1, Math.ceil(total / voucherPageSize));
     page = Math.min(page, totalPages);
-
     if (total === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">Tidak ada data voucher BBM</td></tr>`;
         renderVoucherPagination(0, 1, 1);
         return;
     }
-
     const start = (page - 1) * voucherPageSize;
     const slice = vouchers.slice(start, start + voucherPageSize);
-
     tbody.innerHTML = slice.map(voucher => {
         const statusClass = (voucher.Status || '').toLowerCase();
         const rawTs = getVoucherTimestamp(voucher);
@@ -734,7 +623,6 @@ function renderVoucherTable(vouchers, page) {
             <td><span class="status-badge ${statusClass}">${voucher.Status || 'UNKNOWN'}</span></td>
         </tr>`;
     }).join('');
-
     renderVoucherPagination(total, page, totalPages);
 }
 
@@ -742,28 +630,14 @@ function renderVoucherPagination(total, page, totalPages) {
     const container = document.getElementById('voucher-pagination');
     if (!container) return;
     if (total === 0) { container.innerHTML = ''; return; }
-
     const start = (page - 1) * voucherPageSize + 1;
     const end = Math.min(page * voucherPageSize, total);
-
-    // ── Selector "tampilkan X per halaman" ──
     const sizeOptions = [10, 25, 50, 100];
-    let sizeHtml = `<div class="pagination-size">
-        <label>Tampilkan&nbsp;
-            <select class="page-size-select" onchange="changeVoucherPageSize(this.value)">
-                ${sizeOptions.map(n => `<option value="${n}"${n === voucherPageSize ? ' selected' : ''}>${n}</option>`).join('')}
-            </select>
-            &nbsp;data per halaman
-        </label>
-    </div>`;
-
-    let html = sizeHtml;
+    let html = `<div class="pagination-size"><label>Tampilkan&nbsp;<select class="page-size-select" onchange="changeVoucherPageSize(this.value)">${sizeOptions.map(n => `<option value="${n}"${n === voucherPageSize ? ' selected' : ''}>${n}</option>`).join('')}</select>&nbsp;data per halaman</label></div>`;
     html += `<div class="pagination-info">Menampilkan ${start}–${end} dari ${total} data</div>`;
     html += `<div class="pagination-controls">`;
-
     html += `<button class="page-btn" onclick="goToVoucherPage(1)" ${page === 1 ? 'disabled' : ''}>««</button>`;
     html += `<button class="page-btn" onclick="goToVoucherPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>‹</button>`;
-
     const delta = 2;
     const from = Math.max(1, page - delta);
     const to = Math.min(totalPages, page + delta);
@@ -772,18 +646,15 @@ function renderVoucherPagination(total, page, totalPages) {
         html += `<button class="page-btn${i === page ? ' active' : ''}" onclick="goToVoucherPage(${i})">${i}</button>`;
     }
     if (to < totalPages) html += `<span class="page-ellipsis">…</span>`;
-
     html += `<button class="page-btn" onclick="goToVoucherPage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>›</button>`;
     html += `<button class="page-btn" onclick="goToVoucherPage(${totalPages})" ${page === totalPages ? 'disabled' : ''}>»»</button>`;
     html += `</div>`;
-
     container.innerHTML = html;
 }
 
 function goToVoucherPage(page) {
     voucherCurrentPage = page;
     renderVoucherTable(voucherDisplayData, voucherCurrentPage);
-    // Scroll ke atas tabel
     const tbl = document.getElementById('status-voucher');
     if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -794,7 +665,6 @@ function filterVouchers() {
         const hay = ((v.Nama || '') + ' ' + (v['Nomor Polisi'] || '') + ' ' + (v.Unit || '')).toLowerCase();
         return hay.includes(searchTerm);
     });
-    // Terapkan filter status aktif
     const byStatus = currentVoucherFilter === 'ALL'
         ? filtered
         : filtered.filter(v => v.Status === currentVoucherFilter);
@@ -805,11 +675,9 @@ function filterVouchers() {
 
 function filterVoucherByStatus(status, clickedBtn) {
     currentVoucherFilter = status;
-    // Update tombol aktif — cari di section status-voucher agar tidak tabrakan
     document.querySelectorAll('#status-voucher .filter-btn').forEach(b => b.classList.remove('active'));
     const btn = clickedBtn || (typeof event !== 'undefined' && event && event.target);
     if (btn && btn.classList) btn.classList.add('active');
-
     const searchTerm = document.getElementById('search-voucher').value.toLowerCase();
     let filtered = allVouchers;
     if (status !== 'ALL') filtered = filtered.filter(v => v.Status === status);
@@ -825,7 +693,7 @@ function filterVoucherByStatus(status, clickedBtn) {
 }
 
 // ============================================
-// FILE HANDLING
+// FILE HANDLING (non-arsip)
 // ============================================
 function handleFileSelect(event) {
     const file = event.target.files[0];
@@ -847,6 +715,43 @@ function handlePengajuanFileSelect(event) {
     selectedPengajuanFile = file;
     fileInfo.innerHTML = `✅ ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
     fileInfo.classList.add('show');
+}
+
+// ============================================
+// ★ ARSIP: Single File Select Handler
+//   Menggantikan handleMultiFileSelect.
+//   selectedFiles dihapus, diganti selectedArsipFile.
+// ============================================
+function handleArsipFileSelect(event) {
+    const file = event.target.files[0];
+    const infoEl = document.getElementById('arsip-file-info');
+
+    // Reset dulu
+    selectedArsipFile = null;
+    if (infoEl) { infoEl.textContent = ''; infoEl.className = 'arsip-file-info'; }
+
+    if (!file) return;
+
+    // Validasi ukuran maks 10 MB
+    if (file.size > 10 * 1024 * 1024) {
+        alert('❌ Ukuran file melebihi batas 10 MB. Silakan pilih file yang lebih kecil.');
+        event.target.value = '';
+        return;
+    }
+
+    selectedArsipFile = file;
+
+    // Tampilkan info file yang dipilih
+    if (infoEl) {
+        infoEl.innerHTML = `✅ <strong>${file.name}</strong> &nbsp;(${formatFileSize(file.size)})`;
+        infoEl.className = 'arsip-file-info show';
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 function fileToBase64(file) {
@@ -892,15 +797,12 @@ function submitViaIframe(formData, iframeId, callback) {
 }
 
 // ============================================
-// KENDARAAN SUBMISSION — with time validation
+// KENDARAAN SUBMISSION
 // ============================================
 function submitKendaraan(event) {
     event.preventDefault();
     const form = event.target;
-
-    // FIX 2: Validasi waktu selesai
     if (!validateTimeRange(form, 'waktu_mulai', 'waktu_selesai')) return;
-
     const formData = new FormData(form);
     formData.append('type', 'KENDARAAN');
     const submitBtn = document.getElementById('submit-kendaraan');
@@ -911,12 +813,8 @@ function submitKendaraan(event) {
         setProgress('progress-kendaraan', 'loading-kendaraan', 100, 'Selesai!');
         setTimeout(() => {
             hideProgress('progress-kendaraan', 'loading-kendaraan');
-            if (success) {
-                showAlert('alert-kendaraan', '✓ Pengajuan kendaraan dinas berhasil dikirim!');
-                form.reset();
-            } else {
-                showAlert('alert-kendaraan', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
-            }
+            if (success) { showAlert('alert-kendaraan', '✓ Pengajuan kendaraan dinas berhasil dikirim!'); form.reset(); }
+            else { showAlert('alert-kendaraan', '✗ Terjadi kesalahan, silakan coba lagi', 'error'); }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Pengajuan';
         }, 500);
@@ -924,15 +822,12 @@ function submitKendaraan(event) {
 }
 
 // ============================================
-// RUANG RAPAT SUBMISSION — with time validation
+// RUANG RAPAT SUBMISSION
 // ============================================
 function submitRuang(event) {
     event.preventDefault();
     const form = event.target;
-
-    // FIX 2: Validasi waktu selesai
     if (!validateTimeRange(form, 'waktu_mulai', 'waktu_selesai')) return;
-
     const formData = new FormData(form);
     formData.append('type', 'RUANG_RAPAT');
     const submitBtn = document.getElementById('submit-ruangan');
@@ -943,12 +838,8 @@ function submitRuang(event) {
         setProgress('progress-ruangan', 'loading-ruangan', 100, 'Selesai!');
         setTimeout(() => {
             hideProgress('progress-ruangan', 'loading-ruangan');
-            if (success) {
-                showAlert('alert-ruangan', '✓ Pengajuan ruang rapat berhasil dikirim!');
-                form.reset();
-            } else {
-                showAlert('alert-ruangan', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
-            }
+            if (success) { showAlert('alert-ruangan', '✓ Pengajuan ruang rapat berhasil dikirim!'); form.reset(); }
+            else { showAlert('alert-ruangan', '✗ Terjadi kesalahan, silakan coba lagi', 'error'); }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Pengajuan';
         }, 500);
@@ -971,12 +862,8 @@ function submitVoucher(event) {
         setProgress('progress-voucher', 'loading-voucher', 100, 'Selesai!');
         setTimeout(() => {
             hideProgress('progress-voucher', 'loading-voucher');
-            if (success) {
-                showAlert('alert-voucher', '✓ Permintaan voucher BBM berhasil dikirim!');
-                form.reset();
-            } else {
-                showAlert('alert-voucher', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
-            }
+            if (success) { showAlert('alert-voucher', '✓ Permintaan voucher BBM berhasil dikirim!'); form.reset(); }
+            else { showAlert('alert-voucher', '✗ Terjadi kesalahan, silakan coba lagi', 'error'); }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Pengajuan';
         }, 500);
@@ -999,12 +886,8 @@ function submitSPJ(event) {
         setProgress('progress-spj', 'loading-spj', 100, 'Selesai!');
         setTimeout(() => {
             hideProgress('progress-spj', 'loading-spj');
-            if (success) {
-                showAlert('alert-spj', '✓ SPJ berhasil dikirim!');
-                form.reset();
-            } else {
-                showAlert('alert-spj', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
-            }
+            if (success) { showAlert('alert-spj', '✓ SPJ berhasil dikirim!'); form.reset(); }
+            else { showAlert('alert-spj', '✗ Terjadi kesalahan, silakan coba lagi', 'error'); }
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim SPJ';
         }, 500);
@@ -1012,7 +895,7 @@ function submitSPJ(event) {
 }
 
 // ============================================
-// PENGAJUAN DANA SUBMISSION (with file upload)
+// PENGAJUAN DANA SUBMISSION
 // ============================================
 async function submitPengajuanDana(event) {
     event.preventDefault();
@@ -1062,9 +945,7 @@ async function submitPengajuanDana(event) {
         document.body.appendChild(hiddenForm);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 75, 'Menyimpan file...');
         hiddenForm.submit();
-        setTimeout(() => {
-            setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!');
-        }, 1000);
+        setTimeout(() => { setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!'); }, 1000);
         setTimeout(() => {
             hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
             showAlert('alert-pengajuan-dana', '✓ Pengajuan dana berhasil dikirim! File tersimpan di sistem.');
@@ -1096,72 +977,6 @@ function setArsipUploadMode(mode) {
 }
 
 // ============================================
-// ARSIP: Multi-File Select Handler
-// ============================================
-function handleMultiFileSelect(event) {
-    const files = Array.from(event.target.files);
-    const maxSizeMB = 10;
-    const rejected = [];
-    const accepted = [];
-    files.forEach(f => {
-        if (f.size > maxSizeMB * 1024 * 1024) {
-            rejected.push(f.name);
-        } else {
-            accepted.push(f);
-        }
-    });
-    if (rejected.length > 0) {
-        alert(`⚠️ File berikut melebihi batas ${maxSizeMB}MB dan tidak akan diikutkan:\n${rejected.join('\n')}`);
-    }
-    selectedFiles = accepted;
-    renderFileList();
-}
-
-function getFileIcon(fileName) {
-    const ext = fileName.split('.').pop().toLowerCase();
-    const icons = { pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', jpg: '🖼️', jpeg: '🖼️', png: '🖼️' };
-    return icons[ext] || '📁';
-}
-
-function formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
-function renderFileList() {
-    const container = document.getElementById('file-list-container');
-    if (!container) return;
-    if (selectedFiles.length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-    container.style.display = 'flex';
-    const totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
-    container.innerHTML = `
-        <div class="file-list-header">📁 ${selectedFiles.length} file dipilih</div>
-        ${selectedFiles.map((f, i) => `
-            <div class="file-item">
-                <span class="file-item-icon">${getFileIcon(f.name)}</span>
-                <div class="file-item-info">
-                    <div class="file-item-name">${f.name}</div>
-                    <div class="file-item-size">${formatFileSize(f.size)}</div>
-                </div>
-                <button type="button" class="file-item-remove" onclick="removeSelectedFile(${i})">✕ Hapus</button>
-            </div>
-        `).join('')}
-        <div class="file-list-summary">Total: ${formatFileSize(totalSize)}</div>
-    `;
-}
-
-function removeSelectedFile(index) {
-    selectedFiles.splice(index, 1);
-    renderFileList();
-    const input = document.getElementById('file-input');
-    if (input) input.value = '';
-}
-
-// ============================================
 // ARSIP: Drive Link UI
 // ============================================
 function addDriveLink() {
@@ -1189,34 +1004,38 @@ function updateDriveLinkRemoveButtons() {
     const rows = document.querySelectorAll('#drive-links-container .drive-link-row');
     rows.forEach((row) => {
         const removeBtn = row.querySelector('button');
-        if (removeBtn) {
-            removeBtn.style.display = rows.length > 1 ? '' : 'none';
-        }
+        if (removeBtn) removeBtn.style.display = rows.length > 1 ? '' : 'none';
     });
 }
 
 // ============================================
-// DOKUMEN ARSIP SUBMISSION (multi-file + drive)
+// ★ DOKUMEN ARSIP SUBMISSION
+//   Mode 'file' : kirim 1 file saja
+//   Mode 'drive': kirim link Google Drive (boleh banyak)
 // ============================================
 async function submitDokumen(event) {
     event.preventDefault();
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-arsip');
+
+    // ── Validasi sesuai mode ──────────────────────────────
     if (arsipUploadMode === 'file') {
-        if (selectedFiles.length === 0) {
-            alert('❌ Silakan pilih minimal satu file untuk diunggah!');
+        if (!selectedArsipFile) {
+            alert('❌ Silakan pilih file terlebih dahulu!');
             return;
         }
     } else {
         const links = getDriveLinks();
-        if (links.length === 0 || links.every(l => !l)) {
+        if (links.length === 0) {
             alert('❌ Silakan isi minimal satu link Google Drive!');
             return;
         }
     }
+
     submitBtn.disabled = true;
     submitBtn.textContent = arsipUploadMode === 'file' ? 'Mengunggah...' : 'Mengirim...';
     setProgress('progress-arsip', 'loading-arsip', 15, 'Mempersiapkan data...');
+
     const baseFields = {
         action: 'uploadDokumen',
         nama: formElement.querySelector('[name="nama"]').value,
@@ -1227,52 +1046,63 @@ async function submitDokumen(event) {
         keterangan: formElement.querySelector('[name="keterangan"]').value,
         upload_mode: arsipUploadMode
     };
+
     try {
         if (arsipUploadMode === 'drive') {
-            const links = getDriveLinks().filter(l => l.trim() !== '');
+            // ── MODE DRIVE ──────────────────────────────────
+            const links = getDriveLinks();
             const fields = { ...baseFields, drive_links: JSON.stringify(links) };
             setProgress('progress-arsip', 'loading-arsip', 50, 'Mengirim link Drive...');
             submitViaIframeFields(fields, 'iframe-arsip');
+
         } else {
-            const totalFiles = selectedFiles.length;
-            for (let i = 0; i < totalFiles; i++) {
-                const file = selectedFiles[i];
-                const pct = Math.round(15 + ((i / totalFiles) * 70));
-                setProgress('progress-arsip', 'loading-arsip', pct, `Mengunggah file ${i + 1}/${totalFiles}: ${file.name}`);
-                const base64Data = await fileToBase64(file);
-                const fields = {
-                    ...baseFields,
-                    fileName: file.name,
-                    fileData: base64Data,
-                    mimeType: file.type,
-                    fileIndex: i + 1,
-                    totalFiles
-                };
-                submitViaIframeFields(fields, `iframe-arsip-${i}`);
-                if (i < totalFiles - 1) await new Promise(r => setTimeout(r, 800));
-            }
+            // ── MODE FILE (1 file) ──────────────────────────
+            setProgress('progress-arsip', 'loading-arsip', 30, `Membaca file: ${selectedArsipFile.name}`);
+            const base64Data = await fileToBase64(selectedArsipFile);
+            setProgress('progress-arsip', 'loading-arsip', 65, 'Mengunggah ke Google Drive...');
+
+            const fields = {
+                ...baseFields,
+                fileName: selectedArsipFile.name,
+                fileData: base64Data,
+                mimeType: selectedArsipFile.type || 'application/octet-stream',
+            };
+            submitViaIframeFields(fields, 'iframe-arsip');
         }
+
         setProgress('progress-arsip', 'loading-arsip', 95, 'Menyelesaikan...');
-        setTimeout(() => {
-            setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
-        }, 800);
+        setTimeout(() => { setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!'); }, 800);
+
         setTimeout(() => {
             hideProgress('progress-arsip', 'loading-arsip');
+
             const msg = arsipUploadMode === 'file'
-                ? `✓ ${selectedFiles.length} dokumen berhasil diunggah ke Google Drive!`
+                ? `✓ Dokumen berhasil diunggah ke Google Drive!`
                 : '✓ Link Google Drive berhasil dikirim!';
             showAlert('alert-arsip', msg, 'success');
+
+            // Reset form
             formElement.reset();
-            selectedFiles = [];
-            renderFileList();
+            selectedArsipFile = null;
+
+            // Reset info file
+            const infoEl = document.getElementById('arsip-file-info');
+            if (infoEl) { infoEl.textContent = ''; infoEl.className = 'arsip-file-info'; }
+
+            // Reset drive links
             driveLinksCounter = 1;
             const dlContainer = document.getElementById('drive-links-container');
             if (dlContainer) {
-                dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex; gap: 8px; align-items: center; margin-bottom: 8px;"><input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;"><button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button></div>`;
+                dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                    <input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;">
+                    <button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none;color:#dc2626;border-color:#fca5a5;flex-shrink:0;">✕</button>
+                </div>`;
             }
+
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Dokumen';
         }, 3200);
+
     } catch (error) {
         console.error('❌ Error:', error);
         hideProgress('progress-arsip', 'loading-arsip');
@@ -1333,65 +1163,40 @@ function sendToGoogleScript(formData, callback) {
 }
 
 // ============================================
-// DOMContentLoaded — inisialisasi semua fix
-// ============================================
-// ============================================
-// FIX: Wrap semua .table-compact > table dengan
-// div scroll agar bisa digeser horizontal di mobile.
-// Juga dijalankan ulang tiap kali konten transparansi
-// dirender (dipanggil dari transparansi-all.js via
-// MutationObserver di bawah).
+// TABLE SCROLL WRAPPER (mobile)
 // ============================================
 function wrapTablesForMobile() {
     document.querySelectorAll('.table-compact').forEach(function (container) {
-        // Cegah double-wrap
         if (container.querySelector('.table-scroll-wrapper')) return;
         const table = container.querySelector('table');
         if (!table) return;
         const wrapper = document.createElement('div');
         wrapper.className = 'table-scroll-wrapper';
-        wrapper.style.cssText = [
-            'overflow-x: auto',
-            '-webkit-overflow-scrolling: touch',
-            'width: 100%',
-            'border-radius: 0 0 12px 12px',
-        ].join(';');
+        wrapper.style.cssText = 'overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;border-radius:0 0 12px 12px;';
         table.parentNode.insertBefore(wrapper, table);
         wrapper.appendChild(table);
     });
 }
 
-// ============================================
-// Observer: jalankan wrapTablesForMobile setiap
-// kali konten dinamis (transparansi/summary) dirender
-// ============================================
 function initTableScrollObserver() {
     const targets = [
         document.getElementById('nilai-content'),
         document.getElementById('summary-container'),
     ].filter(Boolean);
-
     if (!targets.length || typeof MutationObserver === 'undefined') return;
-
     const observer = new MutationObserver(function () {
-        // Debounce ringan
         clearTimeout(observer._timer);
         observer._timer = setTimeout(wrapTablesForMobile, 80);
     });
-
-    targets.forEach(function (t) {
-        observer.observe(t, { childList: true, subtree: true });
-    });
+    targets.forEach(function (t) { observer.observe(t, { childList: true, subtree: true }); });
 }
 
+// ============================================
+// DOMContentLoaded
+// ============================================
 document.addEventListener('DOMContentLoaded', function () {
-    // FIX 2 & 3: Init validasi tanggal dan waktu
     initDateValidation();
     initTimeValidationListeners();
-
-    // FIX tabel scroll — wrap table yang sudah ada di DOM
     wrapTablesForMobile();
-
-    // Observer untuk tabel yang dirender secara dinamis
     initTableScrollObserver();
 });

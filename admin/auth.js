@@ -71,7 +71,7 @@ const AUTH = (() => {
         superadmin: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat', 'kearsipan',
             'penilaian_spj', 'pengumpulan_spj', 'pengajuan_dana',
-            'penilaian_monev', 'manajemen_akun', 'ganti_password'
+            'penilaian_monev', 'manajemen_akun'
         ],
         subumum: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat',

@@ -16,7 +16,7 @@
     const ROLES = {
         superadmin: { label: 'Super Admin', icon: '🛡️', color: '#1e293b', bg: '#f1f5f9', border: '#cbd5e1' },
         subumum: { label: 'Sub Bagian Umum', icon: '📋', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
-        subkeuangan: { label: 'Sub Bag. Keuangan', icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
+        subkeuangan: { label: 'Sub Bagian Keuangan', icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
         sekretariat: { label: 'Sekretariat', icon: '🏛️', color: '#7e22ce', bg: '#faf5ff', border: '#d8b4fe' },
     };
 
@@ -598,7 +598,7 @@
             <div class="stat-footer">Administrasi umum</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #22c55e;">
-            <div class="stat-label">Sub Bag. Keuangan</div>
+            <div class="stat-label">Sub Bagian Keuangan</div>
             <div class="stat-value" id="acc-stat-keuangan">0</div>
             <div class="stat-footer">Keuangan & SPJ</div>
         </div>
@@ -618,7 +618,7 @@
                     <option value="">Semua Role</option>
                     <option value="superadmin">Super Admin</option>
                     <option value="subumum">Sub Bagian Umum</option>
-                    <option value="subkeuangan">Sub Bag. Keuangan</option>
+                    <option value="subkeuangan">Sub Bagian Keuangan</option>
                     <option value="sekretariat">Sekretariat</option>
                 </select>
                 <input type="text" class="search-input" id="acc-searchQ" placeholder="Cari nama / email..." oninput="accApplyFilter()">
@@ -728,7 +728,7 @@
                         <input type="radio" name="acc-role" id="acc-r-subkeuangan" value="subkeuangan">
                         <label class="acc-role-opt-label" for="acc-r-subkeuangan">
                             <span class="acc-role-ico">💰</span>
-                            <div><div class="acc-role-nm">Sub Bag. Keuangan</div><div class="acc-role-ds">Keuangan & SPJ</div></div>
+                            <div><div class="acc-role-nm">Sub Bagian Keuangan</div><div class="acc-role-ds">Keuangan & SPJ</div></div>
                         </label>
                     </div>
                     <div class="acc-role-opt">
