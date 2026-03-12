@@ -16,6 +16,12 @@
     padding: 8px;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* Sembunyikan tombol hamburger saat sidebar terbuka */
+.mobile-menu-toggle.sidebar-open {
+    display: none;
 }
 
 .mobile-menu-toggle svg {
@@ -25,6 +31,34 @@
     fill: none;
     stroke-width: 2.5;
     display: block;
+}
+
+/* ---- Tombol Close di dalam Sidebar Header (mobile only) ---- */
+.sidebar-close-btn {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    color: #64748b;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.sidebar-close-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    display: block;
+}
+
+.sidebar-close-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
 }
 
 /* ---- Sidebar Overlay (mobile) ---- */
@@ -57,12 +91,17 @@
     padding: 20px 16px;
     border-bottom: 1px solid #e5e7eb;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .sidebar-header-content {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex: 1;
+    min-width: 0;
 }
 
 .sidebar-icon {
@@ -247,5 +286,12 @@
 
     .sidebar-overlay.active {
         display: block;
+    }
+
+    /* Tampilkan tombol ✕ di dalam sidebar header saat mobile */
+    .sidebar-close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
