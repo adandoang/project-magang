@@ -167,6 +167,27 @@
         return str;
     }
 
+    function getIdOrderValue(rawId) {
+        if (!rawId) return 0;
+        const text = String(rawId).trim();
+        if (!text) return 0;
+        const tail = text.includes('|') ? text.split('|').pop() : text;
+        const m = tail.match(/(\d+)(?!.*\d)/);
+        return m ? parseInt(m[1], 10) : 0;
+    }
+
+    function sortByNewestId(arr) {
+        return arr.slice().sort((a, b) => {
+            const numericDiff = getIdOrderValue(b.id) - getIdOrderValue(a.id);
+            if (numericDiff !== 0) return numericDiff;
+            const ida = String(a.id || '');
+            const idb = String(b.id || '');
+            if (idb > ida) return 1;
+            if (idb < ida) return -1;
+            return 0;
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────
     function createStatusBadge(status) {
         const s = (status || '').toUpperCase();
@@ -231,7 +252,7 @@
         if (!forceRefresh) {
             const cached = getFromCache(CACHE_KEYS.REQUESTS);
             if (cached) {
-                masterRequests = cached.slice().reverse();
+                masterRequests = sortByNewestId(cached);
                 allRequests = [...masterRequests];
                 requestsCurrentPage = 1;
                 renderPaginatedRequests();
@@ -244,7 +265,7 @@
             const res = await callAPI({ action: 'getVoucherRequests' });
             const rawData = Array.isArray(res) ? res : [];
             saveToCache(CACHE_KEYS.REQUESTS, rawData);
-            masterRequests = rawData.slice().reverse();
+            masterRequests = sortByNewestId(rawData);
             allRequests = [...masterRequests];
             requestsCurrentPage = 1;
             renderPaginatedRequests();
@@ -520,7 +541,7 @@
         if (!forceRefresh) {
             const cached = getFromCache(CACHE_KEYS.VIOLATIONS);
             if (cached) {
-                masterViolations = cached.slice().reverse();
+                masterViolations = sortByNewestId(cached);
                 window.bbmApplyViolFilter();
                 showCacheIndicator(); return;
             }
@@ -531,7 +552,7 @@
             const res = await callAPI({ action: 'getBBMViolations' });
             const rawData = Array.isArray(res) ? res : [];
             saveToCache(CACHE_KEYS.VIOLATIONS, rawData);
-            masterViolations = rawData.slice().reverse();
+            masterViolations = sortByNewestId(rawData);
             window.bbmApplyViolFilter();
         } catch (e) {
             if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="bbmLoadViolations(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
