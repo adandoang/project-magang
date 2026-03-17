@@ -2,11 +2,12 @@
 // kearsipan.js — Kearsipan Internal section (SPA)
 // Admin Panel — Dinas Koperasi UKM
 // PERBAIKAN: fetch() diganti JSONP agar tidak kena CORS redirect
+// UPDATE: tambah fungsi delete dokumen
 // ============================================================
 (function () {
     'use strict';
 
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYbUHgMtbcVrFk4H-j_Wfi___Ah4mLmBqF9ZvquFcZ9PSE8t4l-JDoTPRzvDJfgwX2Og/exec';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfAJcjPDuKqwKk8A46z4quyaeV9trBLAuDtdqhQqX0CIZke6fgN1sptcnS0EURuF6ksg/exec';
     const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
     let masterDocuments = [], allDocuments = [];
@@ -27,6 +28,7 @@
         building: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h6"/><path d="M3 15h6"/><path d="M15 9h3"/><path d="M15 15h3"/></svg>`,
         calendar: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
         fileText: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+        trash: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
     };
 
     // ══════════════════════════════════════════════════════════
@@ -37,9 +39,7 @@
     function jsonpFetch(baseUrl, params) {
         params = params || {};
         return new Promise(function (resolve, reject) {
-            // Nama callback unik agar tidak bentrok kalau dipanggil bersamaan
             var cbName = '_krsJsonp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-
             var script = document.createElement('script');
 
             var timer = setTimeout(function () {
@@ -58,7 +58,6 @@
                 resolve(data);
             };
 
-            // Bangun query string
             var qs = Object.keys(params).map(function (k) {
                 return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
             }).join('&');
@@ -117,16 +116,13 @@
         return `File ${index + 1}`;
     }
 
-    // Normalisasi status — nilai apapun selain ASSESSED dianggap PENDING
     function normalizeStatus(raw) {
         return String(raw || '').trim().toUpperCase() === 'ASSESSED' ? 'ASSESSED' : 'PENDING';
     }
 
-    // Konversi berbagai representasi boolean dari spreadsheet
     function toBool(val) {
         if (val === true || val === 'TRUE' || val === 'true' || val === 1 || val === '1') return true;
         if (val === false || val === 'FALSE' || val === 'false' || val === 0 || val === '0') return false;
-        // Kalau kosong (belum pernah dinilai), default true
         return val !== '';
     }
 
@@ -146,11 +142,8 @@
         </td></tr>`;
 
         try {
-            // ★ JSONP — bukan fetch()
             const result = await jsonpFetch(APPS_SCRIPT_URL, { action: 'getDocuments' });
 
-            // Code2.gs handleGetDocuments() mengembalikan array langsung
-            // tapi kita handle juga kalau server kirim format lain
             let documents = [];
             if (Array.isArray(result)) {
                 documents = result;
@@ -222,13 +215,16 @@
     // ── Render Table ──────────────────────────────────────────
     function renderPaginatedDocuments() {
         const tbody = document.getElementById('krs-docs-tbody');
+        const cards = document.getElementById('krs-docs-cards');
         const pgn = document.getElementById('krs-docs-pagination');
         if (!tbody) return;
 
         if (allDocuments.length === 0) {
-            tbody.innerHTML = masterDocuments.length === 0
-                ? `<tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen</td></tr>`
-                : `<tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Tidak ada dokumen yang sesuai filter</td></tr>`;
+            const emptyMsg = masterDocuments.length === 0
+                ? `Tidak ada dokumen`
+                : `Tidak ada dokumen yang sesuai filter`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">${emptyMsg}</td></tr>`;
+            if (cards) cards.innerHTML = `<div style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">${emptyMsg}</div>`;
             if (pgn) pgn.innerHTML = '';
             return;
         }
@@ -237,6 +233,7 @@
         const start = (documentsCurrentPage - 1) * itemsPerPage;
         const items = allDocuments.slice(start, start + itemsPerPage);
 
+        // ── Desktop table rows ────────────────────────────────
         tbody.innerHTML = items.map(doc => {
             const isPending = doc.status !== 'ASSESSED';
             const hasFiles = !!(doc.file_url && parseFileUrls(doc.file_url).length > 0);
@@ -273,13 +270,75 @@
                     <div class="action-buttons"><div class="btn-icon-group">
                         ${isPending
                     ? `${hasFiles ? `<button onclick="krsViewFiles('${doc.id}')" class="btn-icon btn-icon-file" title="Lihat File Lampiran">${ICONS.link}</button>` : ''}
-                               <button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.plus}</button>`
+                               <button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai Dokumen">${ICONS.plus}</button>
+                               <button onclick="krsConfirmDelete('${doc.id}',this)" class="btn-icon btn-icon-delete" title="Hapus Dokumen">${ICONS.trash}</button>`
                     : `<button onclick="krsViewAssess('${doc.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>
-                               <button onclick="krsEditAssess('${doc.id}')" class="btn-icon btn-icon-edit" title="Edit Penilaian">${ICONS.edit}</button>`
+                               <button onclick="krsEditAssess('${doc.id}')" class="btn-icon btn-icon-edit" title="Edit Penilaian">${ICONS.edit}</button>
+                               <button onclick="krsConfirmDelete('${doc.id}',this)" class="btn-icon btn-icon-delete" title="Hapus Dokumen">${ICONS.trash}</button>`
                 }
                     </div></div>
                 </td>
             </tr>`;
+        }).join('');
+
+        // ── Mobile cards ──────────────────────────────────────
+        if (cards) cards.innerHTML = items.map(doc => {
+            const isPending = doc.status !== 'ASSESSED';
+            const hasFiles = !!(doc.file_url && parseFileUrls(doc.file_url).length > 0);
+            const scoreColor = isPending ? '#94a3b8' : (parseFloat(doc.nilai) >= 4.5 ? '#10b981' : parseFloat(doc.nilai) >= 3 ? '#f59e0b' : '#ef4444');
+
+            return `<div class="krs-card">
+                <div class="krs-card-top">
+                    <div>
+                        <div class="krs-card-name">${doc.nama_pengirim || '-'}</div>
+                        <div class="krs-card-unit">${doc.unit || '-'}</div>
+                    </div>
+                    <span class="badge ${doc.status === 'ASSESSED' ? 'badge-assessed' : 'badge-pending'}">
+                        ${doc.status === 'ASSESSED' ? 'Sudah Dinilai' : 'Pending'}
+                    </span>
+                </div>
+                <div class="krs-card-body">
+                    <div>
+                        <div class="krs-card-label">Jenis Dokumen</div>
+                        <div class="krs-card-value">${doc.jenis_dokumen || '-'}</div>
+                    </div>
+                    <div>
+                        <div class="krs-card-label">Periode</div>
+                        <div class="krs-card-value">${doc.bulan || '-'} ${doc.tahun || ''}</div>
+                    </div>
+                    <div>
+                        <div class="krs-card-label">Tanggal</div>
+                        <div class="krs-card-value">${doc.timestamp || '-'}</div>
+                    </div>
+                    ${!isPending ? `<div>
+                        <div class="krs-card-label">Penilai</div>
+                        <div class="krs-card-value">${doc.penilai || 'Admin'}</div>
+                    </div>` : ''}
+                    ${!isPending && doc.catatan ? `<div style="grid-column:1/-1">
+                        <div class="krs-card-label">Catatan</div>
+                        <div class="krs-card-value">${doc.catatan.length > 60 ? doc.catatan.slice(0, 60) + '…' : doc.catatan}</div>
+                    </div>` : ''}
+                </div>
+                <div class="krs-card-footer">
+                    <div>
+                        ${isPending
+                    ? `<span style="font-size:12px;color:#94a3b8;">Belum dinilai</span>`
+                    : `<div class="krs-card-nilai" style="color:${scoreColor};">${doc.nilai}</div>
+                               <div class="krs-card-nilai-label">dari 5.0</div>`
+                }
+                    </div>
+                    <div class="btn-icon-group" style="margin:0;">
+                        ${isPending
+                    ? `${hasFiles ? `<button onclick="krsViewFiles('${doc.id}')" class="btn-icon btn-icon-file" title="Lihat File">${ICONS.link}</button>` : ''}
+                               <button onclick="krsOpenAssess('${doc.id}')" class="btn-icon btn-icon-approve" title="Nilai">${ICONS.plus}</button>
+                               <button onclick="krsConfirmDelete('${doc.id}',this)" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>`
+                    : `<button onclick="krsViewAssess('${doc.id}')" class="btn-icon btn-icon-view" title="Detail">${ICONS.eye}</button>
+                               <button onclick="krsEditAssess('${doc.id}')" class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
+                               <button onclick="krsConfirmDelete('${doc.id}',this)" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>`
+                }
+                    </div>
+                </div>
+            </div>`;
         }).join('');
 
         if (pgn) pgn.innerHTML = `
@@ -643,7 +702,6 @@
         btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
 
         try {
-            // ★ JSONP — bukan fetch()
             const result = await jsonpFetch(APPS_SCRIPT_URL, {
                 action: isEdit ? 'updateDocumentAssessment' : 'createDocumentAssessment',
                 doc_id: docId,
@@ -680,6 +738,43 @@
     };
 
     // ══════════════════════════════════════════════════════════
+    // DELETE DOCUMENT — pakai showConfirmModal (sama seperti menu lain)
+    // ══════════════════════════════════════════════════════════
+    window.krsConfirmDelete = (docId, btnEl) => {
+        const doc = allDocuments.find(d => d.id === docId) || masterDocuments.find(d => d.id === docId);
+        if (!doc) return;
+
+        showConfirmModal({
+            icon: '🗑️',
+            title: 'Hapus Dokumen Kearsipan?',
+            message: `Pengirim: <strong>${doc.nama_pengirim || '-'}</strong><br>Unit: <strong>${doc.unit || '-'}</strong><br>Jenis: <strong>${doc.jenis_dokumen || '-'}</strong> · ${doc.bulan || '-'} ${doc.tahun || ''}<br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
+            confirmText: 'Ya, Hapus',
+            confirmClass: 'btn-danger',
+        }, async () => {
+            const orig = btnEl ? btnEl.innerHTML : null;
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
+            try {
+                const result = await jsonpFetch(APPS_SCRIPT_URL, {
+                    action: 'deleteDocumentAssessment',
+                    doc_id: docId
+                });
+                if (result && result.success) {
+                    if (window.showToast) showToast('Dokumen berhasil dihapus', 'success');
+                    await loadDocuments();
+                } else {
+                    const msg = (result && result.message) ? result.message : 'Terjadi kesalahan';
+                    if (window.showToast) showToast('Gagal menghapus: ' + msg, 'error');
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+                }
+            } catch (error) {
+                console.error('[Kearsipan] deleteDoc error:', error);
+                if (window.showToast) showToast('Error: ' + error.message, 'error');
+                if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
+            }
+        });
+    };
+
+    // ══════════════════════════════════════════════════════════
     // REGISTER SECTION & INJECT HTML
     // ══════════════════════════════════════════════════════════
     window.sectionInits = window.sectionInits || {};
@@ -689,6 +784,7 @@
 
         section.innerHTML = `
 <style>
+/* ── Modal & Form ─────────────────────────────────────────── */
 .score-section { background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:16px; border-left:4px solid #3b82f6; }
 .score-section-title { font-weight:600; color:#1e293b; margin-bottom:12px; font-size:15px; }
 .score-preview { background:white; padding:20px; border-radius:8px; margin-bottom:16px; border:2px solid #e5e7eb; }
@@ -710,6 +806,8 @@
 .info-box { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:14px 16px; }
 .badge-assessed { background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
 .badge-pending  { background:#fef9c3; color:#a16207; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+
+/* ── Detail modal ────────────────────────────────────────── */
 .krs-detail-section { background:#f8fafc; border-radius:10px; padding:14px; border:1px solid #f1f5f9; display:flex; flex-direction:column; gap:8px; }
 .krs-detail-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
 .krs-detail-field-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -719,6 +817,8 @@
 .krs-score-row-detail { flex:1; display:flex; flex-direction:column; gap:4px; }
 .krs-score-sub-row { display:flex; align-items:center; justify-content:space-between; font-size:12.5px; color:#64748b; }
 .krs-score-chip { font-size:16px; font-weight:800; padding:6px 12px; border-radius:8px; flex-shrink:0; }
+
+/* ── File list ───────────────────────────────────────────── */
 .krs-file-list { display:flex; flex-direction:column; gap:6px; }
 .krs-file-item { display:flex; align-items:center; gap:10px; padding:10px 12px; background:white; border:1px solid #e2e8f0; border-radius:8px; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s; }
 .krs-file-item:hover { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.08); }
@@ -730,6 +830,28 @@
 .krs-file-item:hover .krs-file-arrow { color:#3b82f6; }
 .btn-icon-file { background:#eff6ff; color:#3b82f6; border:1px solid #bfdbfe; }
 .btn-icon-file:hover { background:#dbeafe; border-color:#93c5fd; }
+
+/* ── Mobile card view ────────────────────────────────────── */
+.krs-cards { display:none; padding:12px; }
+.krs-card { background:white; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.krs-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.krs-card-name { font-weight:700; font-size:14px; color:#1e293b; }
+.krs-card-unit { font-size:12px; color:#64748b; margin-top:2px; }
+.krs-card-body { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:12.5px; margin-bottom:12px; }
+.krs-card-label { color:#94a3b8; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:1px; }
+.krs-card-value { color:#374151; font-weight:500; }
+.krs-card-footer { display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #f1f5f9; }
+.krs-card-nilai { font-size:22px; font-weight:800; color:#10b981; }
+.krs-card-nilai-label { font-size:11px; color:#64748b; }
+@media (max-width: 768px) {
+    .krs-table-wrap { display:none !important; }
+    .krs-cards { display:block !important; }
+    .score-breakdown { grid-template-columns:1fr 1fr 1fr; }
+}
+@media (max-width: 420px) {
+    .score-breakdown { grid-template-columns:1fr; }
+    .krs-card-body { grid-template-columns:1fr; }
+}
 </style>
 
 <div class="container">
@@ -783,7 +905,9 @@
                 <button onclick="krsLoadDocuments()" class="btn btn-sm" title="Refresh Data">↺ Refresh</button>
             </div>
         </div>
-        <div class="table-container">
+
+        <!-- TABLE: desktop -->
+        <div class="table-container krs-table-wrap">
             <table>
                 <thead>
                     <tr>
@@ -806,6 +930,10 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- CARDS: mobile -->
+        <div class="krs-cards" id="krs-docs-cards"></div>
+
         <div class="pagination" id="krs-docs-pagination"></div>
     </div>
 </div>`;

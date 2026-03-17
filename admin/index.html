@@ -81,14 +81,6 @@
             margin-bottom: 20px;
         }
 
-        @media(max-width:768px) {
-
-            .grid-2,
-            .grid-3 {
-                grid-template-columns: 1fr;
-            }
-        }
-
         .chart-tabs {
             display: flex;
             gap: 8px;
@@ -363,11 +355,11 @@
 
         @keyframes sk {
             0% {
-                background-position: 200% 0
+                background-position: 200% 0;
             }
 
             100% {
-                background-position: -200% 0
+                background-position: -200% 0;
             }
         }
 
@@ -547,6 +539,7 @@
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
+
         <!-- ═══════════════════════════════════ -->
         <!-- SECTION: DASHBOARD                  -->
         <!-- ═══════════════════════════════════ -->
@@ -559,6 +552,8 @@
                 <div class="header-right" id="headerActions"></div>
             </div>
             <div class="container">
+
+                <!-- SPJ Status Bar -->
                 <div id="db-spjStatusBar" class="spj-status-bar" style="display:none">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10" />
@@ -568,6 +563,7 @@
                     <span id="db-spjStatusMsg"></span>
                 </div>
 
+                <!-- Banner -->
                 <div class="banner">
                     <div class="banner-left">
                         <div class="banner-title">Sistem Penilaian Kinerja — Total Maksimal 100 Poin</div>
@@ -596,6 +592,7 @@
                     </div>
                 </div>
 
+                <!-- Filter bar -->
                 <div
                     style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
                     <div class="month-selector">
@@ -626,6 +623,7 @@
                     </button>
                 </div>
 
+                <!-- Stats grid -->
                 <div class="stats-grid" id="db-statsGrid">
                     <div class="stat-card">
                         <div class="sk" style="height:72px"></div>
@@ -641,11 +639,13 @@
                     </div>
                 </div>
 
+                <!-- Chart section header -->
                 <div class="section-head">
                     <span class="section-title">Grafik Perbandingan Nilai</span>
                     <span class="section-note" id="db-sectionNote">—</span>
                 </div>
 
+                <!-- Chart tabs -->
                 <div class="chart-tabs">
                     <button class="chart-tab active" onclick="dbGoTab('total',this)">📊 Total per Divisi</button>
                     <button class="chart-tab" onclick="dbGoTab('trend',this)">📈 Tren Bulanan</button>
@@ -653,18 +653,23 @@
                     <button class="chart-tab" onclick="dbGoTab('profil',this)">🎯 Profil Divisi</button>
                 </div>
 
+                <!-- Panel: Total -->
                 <div id="db-pTotal" data-active="1">
                     <div class="grid-2">
                         <div class="card">
-                            <div class="card-header"><span class="card-title">Total Nilai per Divisi
-                                    (Stacked)</span><span class="card-note" id="db-stkNote">—</span></div>
+                            <div class="card-header">
+                                <span class="card-title">Total Nilai per Divisi (Stacked)</span>
+                                <span class="card-note" id="db-stkNote">—</span>
+                            </div>
                             <div class="card-content">
                                 <div class="chart-wrap h-380"><canvas id="db-cStacked"></canvas></div>
                             </div>
                         </div>
                         <div class="card">
-                            <div class="card-header"><span class="card-title">Distribusi Modul (Radar)</span><span
-                                    class="card-note">Rata-rata semua divisi %</span></div>
+                            <div class="card-header">
+                                <span class="card-title">Distribusi Modul (Radar)</span>
+                                <span class="card-note">Rata-rata semua divisi %</span>
+                            </div>
                             <div class="card-content">
                                 <div class="chart-wrap h-380"><canvas id="db-cRadarMain"></canvas></div>
                             </div>
@@ -672,50 +677,66 @@
                     </div>
                 </div>
 
+                <!-- Panel: Tren -->
                 <div id="db-pTrend" style="display:none">
                     <div class="card">
-                        <div class="card-header"><span class="card-title">Tren Total Nilai Lintas Bulan — per
-                                Divisi</span><span class="card-note">Semua 12 bulan, nilai /100</span></div>
+                        <div class="card-header">
+                            <span class="card-title">Tren Total Nilai Lintas Bulan — per Divisi</span>
+                            <span class="card-note">Semua 12 bulan, nilai /100</span>
+                        </div>
                         <div class="card-content">
                             <div class="chart-wrap h-380"><canvas id="db-cTrend"></canvas></div>
                         </div>
                     </div>
-                    <div class="section-head"><span class="section-title">Tren per Divisi — Detail Modul</span><span
-                            class="section-note">Semua modul stacked per bulan</span></div>
+                    <div class="section-head">
+                        <span class="section-title">Tren per Divisi — Detail Modul</span>
+                        <span class="section-note">Semua modul stacked per bulan</span>
+                    </div>
                     <div class="grid-3" id="db-trendSmall"></div>
                 </div>
 
+                <!-- Panel: Per Kategori -->
                 <div id="db-pCat" style="display:none">
-                    <div class="section-head" style="margin-bottom:10px"><span class="section-title">Pilih Kategori
-                            Penilaian:</span></div>
+                    <div class="section-head" style="margin-bottom:10px">
+                        <span class="section-title">Pilih Kategori Penilaian:</span>
+                    </div>
                     <div class="cat-row" id="db-catRow"></div>
                     <div class="card">
-                        <div class="card-header"><span class="card-title" id="db-catTitle">—</span><span
-                                class="card-note" id="db-catNote">—</span></div>
+                        <div class="card-header">
+                            <span class="card-title" id="db-catTitle">—</span>
+                            <span class="card-note" id="db-catNote">—</span>
+                        </div>
                         <div class="card-content">
                             <div class="chart-wrap h-380"><canvas id="db-cCat"></canvas></div>
                         </div>
                     </div>
                     <div class="card">
-                        <div class="card-header"><span class="card-title" id="db-catTitle2">—</span><span
-                                class="card-note">Lintas bulan tiap divisi</span></div>
+                        <div class="card-header">
+                            <span class="card-title" id="db-catTitle2">—</span>
+                            <span class="card-note">Lintas bulan tiap divisi</span>
+                        </div>
                         <div class="card-content">
                             <div class="chart-wrap h-300"><canvas id="db-cCat2"></canvas></div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Panel: Profil Divisi -->
                 <div id="db-pProfil" style="display:none">
                     <div class="grid-3" id="db-radarGrid"></div>
                 </div>
 
+                <!-- Rekap tabel -->
                 <div class="section-head">
                     <span class="section-title">Rekap Nilai Lengkap per Divisi</span>
                     <span class="section-note">Diurutkan berdasarkan total nilai tertinggi</span>
                 </div>
+
                 <div class="card" style="margin-bottom:32px">
-                    <div class="table-container">
-                        <table class="rekap">
+
+                    <!-- Tabel (desktop) -->
+                    <div class="table-container" id="db-rekapTableWrap">
+                        <table class="rekap" id="db-rekapTable">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -744,6 +765,11 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Cards mobile (pengganti tabel di HP) -->
+                    <div id="db-rekapCards"></div>
+
+                    <!-- Legend -->
                     <div class="table-legend">
                         <div class="leg-item">
                             <div class="leg-dot" style="background:#d1fae5"></div>Sangat Baik ≥80%
@@ -757,10 +783,12 @@
                         <div class="leg-item">
                             <div class="leg-dot" style="background:#fee2e2"></div>Kurang &lt;40%
                         </div>
-                        <div class="leg-item" style="margin-left:auto;color:#94a3b8;font-style:italic">Sumber SPJ: <span
-                                id="db-spjSourceLabel">—</span></div>
+                        <div class="leg-item" style="margin-left:auto;color:#94a3b8;font-style:italic">
+                            Sumber SPJ: <span id="db-spjSourceLabel">—</span>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </div>
 
@@ -853,7 +881,8 @@
                 <div class="spinner"></div><span>Memuat Ganti Password...</span>
             </div>
         </div>
-    </div>
+
+    </div><!-- end .main-content -->
 
     <!-- Scripts: urutan penting — app.js (router) harus sebelum section JS -->
     <script src="assets/js/app.js"></script>
@@ -869,7 +898,6 @@
     <script src="assets/js/manageacc.js" defer></script>
     <script src="assets/js/gantipassword.js" defer></script>
     <script>
-        // Init auth check
         AUTH.init();
     </script>
 </body>

@@ -21,13 +21,18 @@
 
 const AUTH = (() => {
 
-    // Sembunyikan navbar sebelum auth — cegah kedipan menu yang salah
+    // Sembunyikan seluruh body sebelum auth — cegah kedipan konten dashboard
     (function () {
+        // Jangan sembunyikan body di halaman login — renderSidebar() tidak dipanggil di sana
+        const currentFile = window.location.pathname.split('/').pop() || 'index.html';
+        if (currentFile === 'login.html') return;
+
         const s = document.createElement('style');
         s.setAttribute('data-auth-temp', '');
-        // Gunakan display:none!important agar menu hilang sepenuhnya dan tidak memakan ruang
-        // Sembunyikan juga sidebar-nav dengan opacity agar transisi lebih mulus
+        // Sembunyikan body agar tidak ada flash konten sebelum cek login selesai
+        // Gunakan visibility:hidden agar layout tidak bergeser (lebih halus dari display:none)
         s.textContent = `
+            body { visibility: hidden !important; }
             .sidebar-nav { opacity: 0; transition: opacity 0.1s ease-in; }
             .sidebar-nav .nav-item { display: none !important; }
         `;
@@ -314,6 +319,9 @@ const AUTH = (() => {
         const tempStyle = document.querySelector('style[data-auth-temp]');
         if (tempStyle) tempStyle.remove();
 
+        // Tampilkan kembali body setelah auth OK (mencegah flash of content saat belum login)
+        document.body.style.visibility = 'visible';
+
         // Kembalikan opacity wrapper sidebar agar muncul dengan mulus tanpa kedip
         const sidebarNav = document.querySelector('.sidebar-nav');
         if (sidebarNav) {
@@ -325,8 +333,23 @@ const AUTH = (() => {
     /* Logout                                      */
     /* ─────────────────────────────────────────── */
     function logout() {
-        localStorage.clear();
-        window.location.replace('login.html');
+        // Gunakan confirm modal jika tersedia, fallback langsung logout
+        if (typeof window.showConfirmModal === 'function') {
+            showConfirmModal({
+                icon: '🚪',
+                title: 'Keluar dari Sistem?',
+                message: 'Sesi Anda akan diakhiri dan Anda akan diarahkan ke halaman login.',
+                confirmText: 'Ya, Keluar',
+                loadingText: 'Keluar...',
+                confirmClass: 'btn-danger',
+            }, function () {
+                localStorage.clear();
+                window.location.replace('login.html');
+            });
+        } else {
+            localStorage.clear();
+            window.location.replace('login.html');
+        }
     }
 
     /* ─────────────────────────────────────────── */

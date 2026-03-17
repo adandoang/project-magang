@@ -46,9 +46,12 @@ function apiJsonGet(url, payload, callback) {
 
 // ── Logout ────────────────────────────────────────────────────
 function logout() {
-    try { AUTH.logout(); } catch (e) { }
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
+    if (typeof AUTH !== 'undefined') {
+        AUTH.logout();
+    } else {
+        localStorage.clear();
+        window.location.replace('login.html');
+    }
 }
 
 // ── SPA: Registry & Router ────────────────────────────────────
