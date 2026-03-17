@@ -115,16 +115,24 @@
         return str;
     }
 
-    // ── Parse timestamp dari ID atau field timestamp ──────────
+    function getIdOrderValue(rawId) {
+        if (!rawId) return 0;
+        const text = String(rawId).trim();
+        if (!text) return 0;
+        const tail = text.includes('|') ? text.split('|').pop() : text;
+        const m = tail.match(/(\d+)(?!.*\d)/);
+        return m ? parseInt(m[1], 10) : 0;
+    }
+
+    // ── Parse urutan terbaru dari ID ─────────────────────────
     function getRequestTimestamp(req) {
-        // Coba dari field timestamp
-        if (req.timestamp) {
-            const d = new Date(req.timestamp);
-            if (!isNaN(d.getTime())) return d.getTime();
-        }
-        // Fallback: parse dari ID REQ-{timestamp}
+        if (!req) return 0;
+        const byId = getIdOrderValue(req.id);
+        if (byId) return byId;
+
+        // Fallback kompatibilitas lama: parse REQ-{timestamp}
         if (req.id && String(req.id).startsWith('REQ-')) {
-            const ts = parseInt(String(req.id).replace('REQ-', ''));
+            const ts = parseInt(String(req.id).replace('REQ-', ''), 10);
             if (!isNaN(ts)) return ts;
         }
         return 0;
@@ -716,8 +724,19 @@
         return 0;
     }
     function sortViolationsNewestFirst(arr) {
-        // Reverse urutan array asli dari backend (data terakhir di sheet = index terbesar = terbaru)
-        return arr.slice().reverse();
+        return arr.slice().sort((a, b) => {
+            const rowDiff = getViolRowIdx(b) - getViolRowIdx(a);
+            if (rowDiff !== 0) return rowDiff;
+
+            const idDiff = getIdOrderValue(b.id) - getIdOrderValue(a.id);
+            if (idDiff !== 0) return idDiff;
+
+            const ida = String(a.id || '');
+            const idb = String(b.id || '');
+            if (idb > ida) return 1;
+            if (idb < ida) return -1;
+            return 0;
+        });
     }
 
     window.reqFilterViolations = () => {
