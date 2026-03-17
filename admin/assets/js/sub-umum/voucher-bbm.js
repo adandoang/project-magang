@@ -1076,13 +1076,13 @@
                         <option value="APPROVED">Disetujui</option>
                         <option value="REJECTED">Ditolak</option>
                     </select>
-                    <input type="text" class="search-input" id="bbm-search-req" placeholder="Cari nama penanggung jawab / unit..." oninput="bbmApplyFilter()">
+                    <input type="text" class="search-input" id="bbm-search-req" placeholder="Cari Nama / unit..." oninput="bbmApplyFilter()">
                     <button onclick="bbmLoadRequests(true)" class="btn btn-sm">${ICONS.refresh} Refresh</button>
                 </div>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr><th>Nama Penanggung Jawab</th><th>Unit / Bidang</th><th>No. Kendaraan</th><th>Waktu Pengajuan</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Nama</th><th>Unit / Bidang</th><th>No. Kendaraan</th><th>Waktu Pengajuan</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody id="bbm-requests-tbody">
                         <tr><td colspan="6" class="loading"><div class="spinner"></div><p style="margin-top:12px;">Memuat data...</p></td></tr>
                     </tbody>

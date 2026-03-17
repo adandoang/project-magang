@@ -14,6 +14,92 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+
+    <style>
+        /* ── Difabel Radio Group ─────────────────────────── */
+        .radio-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            background: #fff;
+            transition: all 0.18s ease;
+            user-select: none;
+        }
+
+        .radio-option:hover {
+            border-color: #c5a572;
+            background: #fdf8f0;
+            color: #92400e;
+        }
+
+        .radio-option input[type="radio"] {
+            accent-color: #c5a572;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .radio-option input[type="radio"]:checked+span {
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .radio-option:has(input[type="radio"]:checked) {
+            border-color: #c5a572;
+            background: #fdf8f0;
+            color: #92400e;
+        }
+
+        /* Fallback untuk browser yang tidak support :has() */
+        .radio-option.selected {
+            border-color: #c5a572;
+            background: #fdf8f0;
+            color: #92400e;
+        }
+
+        .radio-option .radio-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* ── Permintaan Khusus hint ──────────────────────── */
+        .field-hint {
+            font-size: 12.5px;
+            color: #6b7280;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .optional-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 1px 7px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+    </style>
 </head>
 
 <body>
@@ -299,7 +385,7 @@
                 <form id="form-kendaraan" onsubmit="submitKendaraan(event)">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Nama Penanggung Jawab *</label>
+                            <label>Nama *</label>
                             <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
                                 required>
                         </div>
@@ -362,9 +448,11 @@
                     <p>Isi formulir berikut untuk reservasi ruang rapat dan pertemuan</p>
                 </div>
                 <form id="form-ruangan" onsubmit="submitRuang(event)">
+
+                    <!-- Baris 1: Nama & Unit -->
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Nama Penanggung Jawab *</label>
+                            <label>Nama *</label>
                             <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
                                 required>
                         </div>
@@ -382,6 +470,8 @@
                             </select>
                         </div>
                     </div>
+
+                    <!-- Baris 2: Tanggal & Waktu -->
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Tanggal Penggunaan *</label>
@@ -396,6 +486,8 @@
                             <input type="time" class="form-control" name="waktu_selesai" required>
                         </div>
                     </div>
+
+                    <!-- Baris 3: Nama Kegiatan & Jumlah Peserta -->
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Nama Kegiatan *</label>
@@ -408,6 +500,45 @@
                                 placeholder="Jumlah peserta" required>
                         </div>
                     </div>
+
+                    <!-- ★ BARU: Apakah Ada Peserta Difabel? -->
+                    <div class="form-group">
+                        <label>
+                            Apakah Ada Peserta Difabel? *
+                        </label>
+                        <p class="field-hint">Informasi ini digunakan untuk mempersiapkan aksesibilitas ruangan.</p>
+                        <div class="radio-group" id="difabel-radio-group">
+                            <label class="radio-option" onclick="setRadioSelected(this)">
+                                <input type="radio" name="difabel" value="Ya" required>
+                                <span class="radio-icon">♿</span>
+                                <span>Ya</span>
+                            </label>
+                            <label class="radio-option" onclick="setRadioSelected(this)">
+                                <input type="radio" name="difabel" value="Tidak">
+                                <span class="radio-icon">✓</span>
+                                <span>Tidak</span>
+                            </label>
+                            <label class="radio-option" onclick="setRadioSelected(this)">
+                                <input type="radio" name="difabel" value="Tidak Tahu">
+                                <span class="radio-icon">?</span>
+                                <span>Tidak Tahu</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ★ BARU: Permintaan Khusus (Opsional) -->
+                    <div class="form-group">
+                        <label>
+                            Permintaan Khusus
+                            <span class="optional-badge">Opsional</span>
+                        </label>
+                        <textarea class="form-control" name="permintaan_khusus" rows="3"
+                            placeholder="Contoh: butuh proyektor, kursi roda, meja U-shape, dll. (kosongkan jika tidak ada)"></textarea>
+                        <p class="field-hint">
+                            💡 Sampaikan kebutuhan khusus terkait peralatan atau pengaturan ruangan.
+                        </p>
+                    </div>
+
                     <button type="submit" id="submit-ruangan" class="btn btn-primary btn-block">Kirim Pengajuan</button>
                     <div id="loading-ruangan" class="loading" style="margin-top: 16px;">Mengirim pengajuan</div>
                     <div id="progress-ruangan" class="progress-bar" style="margin-top: 12px;">
@@ -434,7 +565,7 @@
                 <form id="form-voucher" onsubmit="submitVoucher(event)">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Nama Penanggung Jawab *</label>
+                            <label>Nama *</label>
                             <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
                                 required>
                         </div>
@@ -482,7 +613,7 @@
                 <form id="form-arsip" onsubmit="submitDokumen(event)">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Nama Penanggung Jawab *</label>
+                            <label>Nama *</label>
                             <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
                                 required>
                         </div>
@@ -618,7 +749,7 @@
                 <form id="form-pengajuan-dana" onsubmit="submitPengajuanDana(event)">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Nama Penanggung Jawab *</label>
+                            <label>Nama *</label>
                             <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
                                 required>
                         </div>
@@ -797,7 +928,7 @@
                 <form id="form-spj" onsubmit="submitSPJ(event)">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Nama Penanggung Jawab *</label>
+                            <label>Nama *</label>
                             <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
                                 required>
                         </div>
@@ -1039,7 +1170,6 @@
                     </table>
                 </div>
             </div>
-            <!-- PAGINATION VOUCHER BBM -->
             <div id="voucher-pagination" class="pagination-wrapper"></div>
         </div>
     </div>
@@ -1087,7 +1217,6 @@
                     </table>
                 </div>
             </div>
-            <!-- PAGINATION PENGAJUAN DANA -->
             <div id="dana-pagination" class="pagination-wrapper"></div>
         </div>
     </div>
@@ -1125,11 +1254,8 @@
     <script>
         // ── Format Rupiah: titik pemisah ribuan ───────────────────
         function formatRupiah(inputEl, hiddenId) {
-            // Ambil hanya angka
             let raw = inputEl.value.replace(/\D/g, '');
-            // Simpan ke hidden input (nilai murni tanpa titik)
             document.getElementById(hiddenId).value = raw;
-            // Format tampilan dengan titik ribuan
             if (raw === '') { inputEl.value = ''; return; }
             inputEl.value = parseInt(raw, 10).toLocaleString('id-ID');
         }
@@ -1143,13 +1269,30 @@
                 const option = document.createElement('option');
                 option.value = i;
                 option.textContent = i;
-                // Set tahun sekarang sebagai default terpilih (opsional, hapus baris ini jika tidak mau)
                 if (i === tahunSekarang) option.selected = true;
                 tahunSelect.appendChild(option);
             }
         })();
 
-        // Validasi: pastikan hidden input terisi sebelum submit
+        // ── Radio button: highlight pilihan terpilih ─────────────
+        // Fallback untuk browser yang tidak mendukung CSS :has()
+        function setRadioSelected(labelEl) {
+            const group = labelEl.closest('.radio-group');
+            if (!group) return;
+            group.querySelectorAll('.radio-option').forEach(function (opt) {
+                opt.classList.remove('selected');
+            });
+            labelEl.classList.add('selected');
+        }
+
+        // Inisialisasi: jika ada radio yang sudah checked (misal setelah back)
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.radio-group input[type="radio"]:checked').forEach(function (radio) {
+                radio.closest('.radio-option').classList.add('selected');
+            });
+        });
+
+        // Validasi form pengajuan dana
         document.getElementById('form-pengajuan-dana').addEventListener('submit', function (e) {
             const raw = document.getElementById('nominal_pengajuan').value;
             if (!raw || parseInt(raw) <= 0) {
@@ -1159,6 +1302,7 @@
             }
         });
 
+        // Validasi form SPJ
         document.getElementById('form-spj').addEventListener('submit', function (e) {
             const raw = document.getElementById('nominal_spj').value;
             if (!raw || parseInt(raw) <= 0) {

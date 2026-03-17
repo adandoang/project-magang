@@ -459,7 +459,7 @@
                         <div class="pd-detail-grid-2">
                             <div class="pd-detail-field">
                                 <div class="pd-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.user}</div>
-                                <div><div class="pd-detail-field-label">Nama Penanggung Jawab</div><div class="pd-detail-field-value">${item.nama || '-'}</div></div>
+                                <div><div class="pd-detail-field-label">Nama</div><div class="pd-detail-field-value">${item.nama || '-'}</div></div>
                             </div>
                             <div class="pd-detail-field">
                                 <div class="pd-detail-field-icon" style="background:#f0fdf4;color:#10b981;">${ICONS.building}</div>
@@ -617,7 +617,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Timestamp</th><th>Nama Penanggung Jawab</th><th>Unit / Bidang</th>
+                        <th>Timestamp</th><th>Nama</th><th>Unit / Bidang</th>
                         <th>Sub Kegiatan</th><th>Bulan</th><th>Nominal</th><th>Status</th><th>Aksi</th>
                     </tr>
                 </thead>

@@ -405,7 +405,7 @@
                         <div class="spjp-detail-grid-2">
                             <div class="spjp-detail-field">
                                 <div class="spjp-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.user}</div>
-                                <div><div class="spjp-detail-field-label">Nama Penanggung Jawab</div><div class="spjp-detail-field-value">${item.nama || '-'}</div></div>
+                                <div><div class="spjp-detail-field-label">Nama</div><div class="spjp-detail-field-value">${item.nama || '-'}</div></div>
                             </div>
                             <div class="spjp-detail-field">
                                 <div class="spjp-detail-field-icon" style="background:#f0fdf4;color:#10b981;">${ICONS.building}</div>
@@ -553,7 +553,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Timestamp</th><th>Nama Penanggung Jawab</th><th>Unit / Bidang</th>
+                        <th>Timestamp</th><th>Nama</th><th>Unit / Bidang</th>
                         <th>Sub Kegiatan</th><th>Bulan SPJ</th><th>Nominal SPJ</th><th>Status</th><th>Aksi</th>
                     </tr>
                 </thead>

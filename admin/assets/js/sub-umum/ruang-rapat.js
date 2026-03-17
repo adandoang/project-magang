@@ -1,11 +1,7 @@
 // ============================================================
 // ruang-rapat.js — Ruang Rapat section (SPA)
 // Admin Panel — Dinas Koperasi UKM
-// Fixes:
-//   1. Edit pengajuan bisa update semua field
-//   2. ID pelanggaran pakai format bulan|unit|row agar konsisten dgn backend
-//   3. Auto-fill ruang rapat dari approved request diperbaiki
-//   4. Fungsi export dihapus
+// Update: tambah field Difabel [12] dan Permintaan Khusus [13]
 // ============================================================
 (function () {
     'use strict';
@@ -50,6 +46,9 @@
         clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
         users: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
         fileText: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+        // ★ BARU
+        wheelchair: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="1.5"/><path d="M9 8h3l2 6h4"/><path d="M9 8l-1 7"/><path d="M8 15a5 5 0 1 0 9.4 2.5"/></svg>`,
+        note: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="12" y1="17" x2="8" y2="17"/></svg>`,
     };
 
     const OPT_BULAN = `<option value="">Pilih Bulan</option>
@@ -76,6 +75,21 @@
         <option>Ruang Bokor Kencana</option><option>Ruang Pamiluto</option>
         <option>Ruang Wahyu Tumurun</option><option>Ruang Ratu Ratih</option>
         <option>Open Space</option><option>Coworking Space</option>`;
+
+    // ★ BARU: opsi difabel
+    const OPT_DIFABEL = `
+        <option value="">Pilih jawaban</option>
+        <option value="Ya">Ya</option>
+        <option value="Tidak">Tidak</option>
+        <option value="Tidak Tahu">Tidak Tahu</option>`;
+
+    // ── Helper: render badge difabel ──────────────────────────
+    function difabelBadge(val) {
+        const v = String(val || 'Tidak Tahu').trim();
+        if (v === 'Ya') return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ede9fe;color:#5b21b6;">♿ Ya</span>`;
+        if (v === 'Tidak') return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#f0fdf4;color:#15803d;">✓ Tidak</span>`;
+        return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#f1f5f9;color:#64748b;">? Tidak Tahu</span>`;
+    }
 
     // ── Cache ─────────────────────────────────────────────────
     function saveToCache(k, d) { try { localStorage.setItem(k, JSON.stringify({ data: d, timestamp: Date.now() })); } catch (e) { } }
@@ -201,7 +215,7 @@
             if (cached) { masterRequests = cached.slice().reverse(); allRequests = [...masterRequests]; requestsCurrentPage = 1; renderPaginatedRequests(); showCacheIndicator(); return; }
         }
         const tbody = document.getElementById('rr-requests-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
         try {
             const res = await callAPI({ action: 'getRoomRequests' });
             const rawData = Array.isArray(res) ? res : (res?.data || []);
@@ -210,7 +224,7 @@
             allRequests = [...masterRequests]; requestsCurrentPage = 1;
             renderPaginatedRequests();
         } catch (e) {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="rrLoadRequests(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="rrLoadRequests(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
             if (window.showToast) showToast('Gagal memuat data: ' + e.message, 'error');
         }
     }
@@ -225,7 +239,7 @@
         updateStats();
 
         if (!allRequests.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Tidak ada permintaan</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8;">Tidak ada permintaan</td></tr>';
             if (cards) cards.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;">Data tidak ditemukan</div>';
             if (pgn) pgn.innerHTML = ''; return;
         }
@@ -241,12 +255,18 @@
             const ruangan = (req.namaRuang && req.namaRuang !== '-')
                 ? `<span style="font-weight:500;">${req.namaRuang}</span>`
                 : `<span style="color:#94a3b8;font-size:12px;">Belum ditentukan</span>`;
+
+            // ★ BARU: tampilkan badge difabel
+            const difabel = req.difabel || 'Tidak Tahu';
+            const difabelHtml = difabelBadge(difabel);
+
             return `<tr>
                 <td style="font-weight:500;">${req.nama_pemohon || '—'}</td>
                 <td style="color:#64748b;font-size:13px;">${req.unit_eselon || '—'}</td>
                 <td>${tgl}</td>
                 <td>${req.waktu_mulai || '—'} – ${req.waktu_selesai || '—'}</td>
                 <td>${ruangan}</td>
+                <td style="text-align:center;">${difabelHtml}</td>
                 <td style="min-width:110px;">
                     <div style="display:flex;align-items:center;justify-content:center;">
                     ${isPending ? `<div class="btn-icon-group" style="margin:0;">
@@ -285,6 +305,10 @@
                     <div class="requests-card-row"><span class="requests-card-label">Waktu</span><span class="requests-card-value">${req.waktu_mulai || '—'} – ${req.waktu_selesai || '—'}</span></div>
                     <div class="requests-card-row"><span class="requests-card-label">Ruangan</span><span class="requests-card-value" style="font-weight:600;">${req.namaRuang || '-'}</span></div>
                     <div class="requests-card-row"><span class="requests-card-label">Keperluan</span><span class="requests-card-value">${req.kegiatan || req.keperluan || '—'}</span></div>
+                    <div class="requests-card-row"><span class="requests-card-label">Difabel</span><span class="requests-card-value">${difabelBadge(req.difabel)}</span></div>
+                    ${(req.permintaan_khusus && req.permintaan_khusus.trim())
+                    ? `<div class="requests-card-row"><span class="requests-card-label">Permintaan Khusus</span><span class="requests-card-value" style="font-style:italic;color:#64748b;">${req.permintaan_khusus}</span></div>`
+                    : ''}
                 </div>
                 <div class="requests-card-footer">
                     <div class="action-buttons" style="justify-content:flex-end;"><div class="btn-icon-group">
@@ -313,6 +337,11 @@
         const statusBg = statusS === 'approved' ? '#f0fdf4' : statusS === 'rejected' ? '#fff1f2' : statusS === 'completed' ? '#eff6ff' : '#fffbeb';
         const statusLabel = statusS === 'approved' ? 'Disetujui' : statusS === 'rejected' ? 'Ditolak' : statusS === 'completed' ? 'Selesai' : 'Menunggu';
         const ruangan = (req.namaRuang && req.namaRuang !== '-') ? req.namaRuang : 'Belum Ditentukan';
+
+        // ★ BARU: data difabel & permintaan khusus
+        const difabelVal = req.difabel || 'Tidak Tahu';
+        const permKhusus = (req.permintaan_khusus || '').trim();
+
         if (el) el.innerHTML = `
         <div class="req-detail-wrap">
             <div class="req-detail-status-banner" style="background:${statusBg};border-color:${statusColor};">
@@ -320,13 +349,15 @@
                 <span style="font-weight:700;color:${statusColor};font-size:14px;">${statusLabel}</span>
                 <span style="margin-left:auto;font-size:12px;color:#64748b;">${req.id || ''}</span>
             </div>
+
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Informasi Pemohon</div>
                 <div class="req-detail-grid-2">
-                    <div class="req-detail-field"><div class="req-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.user}</div><div><div class="req-detail-field-label">Nama Penanggung Jawab</div><div class="req-detail-field-value">${req.nama_pemohon || '-'}</div></div></div>
+                    <div class="req-detail-field"><div class="req-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.user}</div><div><div class="req-detail-field-label">Nama</div><div class="req-detail-field-value">${req.nama_pemohon || '-'}</div></div></div>
                     <div class="req-detail-field"><div class="req-detail-field-icon" style="background:#f0fdf4;color:#10b981;">${ICONS.building}</div><div><div class="req-detail-field-label">Unit Eselon</div><div class="req-detail-field-value">${req.unit_eselon || '-'}</div></div></div>
                 </div>
             </div>
+
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Jadwal Penggunaan</div>
                 <div class="req-detail-grid-3">
@@ -335,6 +366,7 @@
                     <div class="req-detail-field"><div class="req-detail-field-icon" style="background:#fff7ed;color:#f97316;">${ICONS.clock}</div><div><div class="req-detail-field-label">Waktu Selesai</div><div class="req-detail-field-value">${req.waktu_selesai || '-'}</div></div></div>
                 </div>
             </div>
+
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Ruang Rapat</div>
                 <div class="req-detail-vehicle-box" style="border-color:${ruangan !== 'Belum Ditentukan' ? '#10b981' : '#e2e8f0'};background:${ruangan !== 'Belum Ditentukan' ? '#f0fdf4' : '#f8fafc'};">
@@ -342,9 +374,33 @@
                 </div>
                 ${req.jumlah_peserta ? `<div class="req-detail-field" style="margin-top:10px;"><div class="req-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.users}</div><div><div class="req-detail-field-label">Jumlah Peserta</div><div class="req-detail-field-value">${req.jumlah_peserta} Orang</div></div></div>` : ''}
             </div>
+
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Detail Keperluan</div>
                 <div class="req-detail-field"><div class="req-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.fileText}</div><div style="flex:1;"><div class="req-detail-field-label">Agenda / Kegiatan</div><div class="req-detail-field-value">${req.kegiatan || req.keperluan || '-'}</div></div></div>
+            </div>
+
+            <!-- ★ BARU: Informasi Aksesibilitas -->
+            <div class="req-detail-section">
+                <div class="req-detail-section-title">Informasi Aksesibilitas</div>
+                <div class="req-detail-grid-2">
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#ede9fe;color:#7c3aed;">${ICONS.wheelchair}</div>
+                        <div>
+                            <div class="req-detail-field-label">Peserta Difabel</div>
+                            <div class="req-detail-field-value" style="margin-top:4px;">${difabelBadge(difabelVal)}</div>
+                        </div>
+                    </div>
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#fef9c3;color:#a16207;">${ICONS.note}</div>
+                        <div style="flex:1;">
+                            <div class="req-detail-field-label">Permintaan Khusus</div>
+                            <div class="req-detail-field-value" style="margin-top:2px;">${permKhusus
+                ? `<span style="font-style:italic;color:#374151;">${permKhusus}</span>`
+                : `<span style="color:#94a3b8;font-size:13px;">Tidak ada</span>`}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>`;
         openModal('rr-detailModal');
@@ -390,6 +446,8 @@
                     <div style="flex:1;min-width:140px;"><div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Pemohon</div><div style="font-weight:600;color:#1e293b;">${req.nama_pemohon || '-'}</div><div style="color:#64748b;font-size:12px;">${req.unit_eselon || '-'}</div></div>
                     <div style="flex:1;min-width:140px;"><div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Jadwal</div><div style="font-weight:600;color:#1e293b;">${normalizeDisplayDate(req.tanggal)}</div><div style="color:#64748b;font-size:12px;">${req.waktu_mulai || '—'} – ${req.waktu_selesai || '—'}</div></div>
                     ${req.jumlah_peserta ? `<div style="flex:1;min-width:100px;"><div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Peserta</div><div style="font-weight:600;color:#1e293b;">${req.jumlah_peserta} Orang</div></div>` : ''}
+                    <div style="flex:1;min-width:120px;"><div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Difabel</div>${difabelBadge(req.difabel)}</div>
+                    ${(req.permintaan_khusus && req.permintaan_khusus.trim()) ? `<div style="flex:2;min-width:200px;"><div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Permintaan Khusus</div><div style="font-size:12px;color:#374151;font-style:italic;">${req.permintaan_khusus}</div></div>` : ''}
                 </div>`;
         }
         const availability = getRoomAvailability(id);
@@ -472,11 +530,10 @@
         });
     };
 
-    // FIX 1: Edit pengajuan — bisa update semua field
+    // ── Edit pengajuan — termasuk difabel & permintaan_khusus ─
     window.rrOpenEdit = (id) => {
         const req = masterRequests.find(r => String(r.id) === String(id)); if (!req) return;
         currentEditId = id;
-        // Isi semua field yang bisa diedit
         const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val || ''; };
         setVal('rr-edit-nama', req.nama_pemohon);
         setVal('rr-edit-unit', req.unit_eselon);
@@ -487,6 +544,9 @@
         setVal('rr-edit-peserta', req.jumlah_peserta);
         setVal('rr-edit-room', req.namaRuang);
         setVal('rr-edit-status', (req.status || 'PENDING').toUpperCase());
+        // ★ BARU
+        setVal('rr-edit-difabel', req.difabel || 'Tidak Tahu');
+        setVal('rr-edit-permintaan-khusus', req.permintaan_khusus || '');
         openModal('rr-editModal');
     };
 
@@ -506,7 +566,10 @@
                 keperluan: document.getElementById('rr-edit-keperluan')?.value || '',
                 jumlah_peserta: document.getElementById('rr-edit-peserta')?.value || '',
                 namaRuang: document.getElementById('rr-edit-room')?.value || '',
-                status: document.getElementById('rr-edit-status')?.value || 'PENDING'
+                status: document.getElementById('rr-edit-status')?.value || 'PENDING',
+                // ★ BARU
+                difabel: document.getElementById('rr-edit-difabel')?.value || 'Tidak Tahu',
+                permintaan_khusus: document.getElementById('rr-edit-permintaan-khusus')?.value || ''
             });
             if (res.success) { if (window.showToast) showToast('Permintaan berhasil diperbarui', 'success'); closeModal('rr-editModal'); clearCache(); await loadRequests(true); }
             else if (window.showToast) showToast(res.message || 'Gagal', 'error');
@@ -561,7 +624,6 @@
         violationsCurrentPage = 1; renderPaginatedViolations();
     };
 
-    // FIX 2: resolveViol pakai format id baru (bulan|unit|row)
     function resolveViol(safeId) {
         try {
             const key = JSON.parse(decodeURIComponent(safeId));
@@ -666,14 +728,10 @@
     }
     window.rrFilterApprovedReqs = () => renderApprovedReqList(document.getElementById('rr-approved-search')?.value || '');
 
-    // FIX 3: Auto-fill ruang rapat - pakai namaRuang dari data req secara langsung,
-    // bukan dari elemen DOM yang mungkin belum ter-render.
     window.rrSelectApproved = (id) => {
         selectedApprovedReq = masterRequests.find(r => String(r.id) === String(id));
         renderApprovedReqList(document.getElementById('rr-approved-search')?.value || '');
-
         if (!selectedApprovedReq) return;
-
         const info = document.getElementById('rr-selected-req-info');
         const detail = document.getElementById('rr-selected-req-detail');
         if (info) info.style.display = 'block';
@@ -683,30 +741,18 @@
                 : '<span style="color:#94a3b8;font-size:12px;">Belum ada ruangan</span>';
             detail.innerHTML = `<strong>${selectedApprovedReq.nama_pemohon}</strong> — ${selectedApprovedReq.unit_eselon} — ${ruangLabel}`;
         }
-
-        // Set tanggal dari request yang dipilih
         const tglInput = document.getElementById('rr-viol-tanggal');
         if (tglInput) tglInput.value = storageToInputDate(selectedApprovedReq.tanggal);
-
-        // FIX: Langsung set nilai dropdown ruang dari data objek, bukan dari DOM
         const ruangSel = document.getElementById('rr-viol-ruang');
         if (ruangSel) {
             const namaRuang = (selectedApprovedReq.namaRuang || '').trim();
             if (namaRuang) {
-                // Cari option yang cocok (case-insensitive)
                 let matched = false;
                 for (let i = 0; i < ruangSel.options.length; i++) {
-                    if (ruangSel.options[i].value.toLowerCase() === namaRuang.toLowerCase()) {
-                        ruangSel.selectedIndex = i;
-                        matched = true;
-                        break;
-                    }
+                    if (ruangSel.options[i].value.toLowerCase() === namaRuang.toLowerCase()) { ruangSel.selectedIndex = i; matched = true; break; }
                 }
-                // Jika tidak cocok exact, set value langsung (akan tampil blank jika tidak ada di list)
                 if (!matched) ruangSel.value = '';
-            } else {
-                ruangSel.value = '';
-            }
+            } else { ruangSel.value = ''; }
         }
     };
 
@@ -715,11 +761,9 @@
         const tglInput = document.getElementById('rr-viol-tanggal')?.value || '';
         const laporan = document.getElementById('rr-viol-laporan')?.value.trim() || '';
         const namaRuang = document.getElementById('rr-viol-ruang')?.value || '';
-
         if (!namaRuang) { if (window.showToast) showToast('Nama ruang harus dipilih', 'error'); return; }
         if (!tglInput) { if (window.showToast) showToast('Tanggal harus diisi', 'error'); return; }
         if (!laporan) { if (window.showToast) showToast('Laporan harus diisi', 'error'); return; }
-
         let bulan, unit;
         if (violSource === 'approved') {
             if (!selectedApprovedReq) { if (window.showToast) showToast('Pilih pengajuan yang disetujui', 'error'); return; }
@@ -730,19 +774,11 @@
             unit = document.getElementById('rr-viol-unit')?.value || '';
             if (!bulan || !unit) { if (window.showToast) showToast('Bulan dan unit harus diisi', 'error'); return; }
         }
-
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
         try {
             const res = await callAPI({ action: 'createRoomViolation', bulan, unit, tanggal: inputDateToStorage(tglInput), namaRuang, laporan });
-            if (res.success) {
-                if (window.showToast) showToast('Catatan berhasil ditambahkan!', 'success');
-                closeModal('rr-addViolModal');
-                clearCache();
-                await loadViolations(true);
-                await loadScores(true);
-            } else {
-                if (window.showToast) showToast(res.message || 'Gagal menyimpan', 'error');
-            }
+            if (res.success) { if (window.showToast) showToast('Catatan berhasil ditambahkan!', 'success'); closeModal('rr-addViolModal'); clearCache(); await loadViolations(true); await loadScores(true); }
+            else { if (window.showToast) showToast(res.message || 'Gagal menyimpan', 'error'); }
         } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); }
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
@@ -759,13 +795,10 @@
         document.getElementById('rr-ev-tanggal').value = storageToInputDate(v.tanggal || '');
         document.getElementById('rr-ev-ruang').value = v.namaRuang || '';
         document.getElementById('rr-ev-laporan').value = v.laporan || '';
-        // simpan nilai asli untuk deteksi pindah
         if (bulanEl) bulanEl.dataset.original = v.bulan || '';
         if (unitEl) unitEl.dataset.original = v.unit || '';
-
         openModal('rr-editViolModal');
     };
-
 
     window.rrSubmitEditViol = async () => {
         if (!currentEditViol) { if (window.showToast) showToast('Tidak ada data yang diedit', 'error'); return; }
@@ -777,19 +810,16 @@
         if (!bulanBaru || !unitBaru) { if (window.showToast) showToast('Bulan dan unit harus diisi', 'error'); return; }
         if (!tanggalInput) { if (window.showToast) showToast('Tanggal harus diisi', 'error'); return; }
         if (!laporan) { if (window.showToast) showToast('Laporan harus diisi', 'error'); return; }
-
-        // Deteksi apakah bulan/unit berubah → mode pindah
         const bulanLama = document.getElementById('rr-ev-bulan')?.dataset.original || currentEditViol.bulan;
         const unitLama = document.getElementById('rr-ev-unit')?.dataset.original || currentEditViol.unit;
         const isPindah = bulanBaru !== bulanLama || unitBaru !== unitLama;
-
         const btn = document.getElementById('rr-submit-ev-btn'), orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
         try {
             const res = await callAPI({
                 action: 'updateRoomViolation',
                 id: currentEditViol.id,
-                bulan: bulanLama,              // bulan/unit LAMA untuk menemukan baris
+                bulan: bulanLama,
                 unit: unitLama,
                 tanggal: inputDateToStorage(tanggalInput),
                 namaRuang,
@@ -799,14 +829,8 @@
                 bulan_baru: isPindah ? bulanBaru : undefined,
                 unit_baru: isPindah ? unitBaru : undefined
             });
-            if (res.success) {
-                if (window.showToast) showToast(res.message || 'Catatan berhasil diperbarui!', 'success');
-                closeModal('rr-editViolModal');
-                currentEditViol = null;
-                clearCache();
-                await loadViolations(true);
-                await loadScores(true);
-            } else if (window.showToast) showToast(res.message || 'Gagal', 'error');
+            if (res.success) { if (window.showToast) showToast(res.message || 'Catatan berhasil diperbarui!', 'success'); closeModal('rr-editViolModal'); currentEditViol = null; clearCache(); await loadViolations(true); await loadScores(true); }
+            else if (window.showToast) showToast(res.message || 'Gagal', 'error');
         } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); }
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
@@ -825,15 +849,8 @@
             if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
             try {
                 const res = await callAPI({ action: 'deleteRoomViolation', id: v.id, bulan: v.bulan, unit: v.unit });
-                if (res.success) {
-                    if (window.showToast) showToast('Catatan berhasil dihapus', 'success');
-                    clearCache();
-                    await loadViolations(true);
-                    await loadScores(true);
-                } else {
-                    if (window.showToast) showToast(res.message || 'Gagal', 'error');
-                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-                }
+                if (res.success) { if (window.showToast) showToast('Catatan berhasil dihapus', 'success'); clearCache(); await loadViolations(true); await loadScores(true); }
+                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
             } catch (e) {
                 if (window.showToast) showToast('Gagal: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
@@ -925,7 +942,7 @@
 .req-pick-item.selected .req-pick-check { background:#10b981; border-color:#10b981; color:white; }
 .req-pick-name { font-weight:600; font-size:13.5px; color:#1e293b; }
 .req-pick-meta { font-size:12px; color:#64748b; margin-top:2px; }
-#rr-requests-tbody tr td:nth-child(6), #section-ruang-rapat table thead tr th:nth-child(6) { text-align:center; vertical-align:middle; }
+#rr-requests-tbody tr td:nth-child(7), #section-ruang-rapat table thead tr th:nth-child(7) { text-align:center; vertical-align:middle; }
 #rr-requests-tbody tr { vertical-align:middle; }
 .req-detail-wrap { display:flex; flex-direction:column; gap:14px; }
 .req-detail-status-banner { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; border:1.5px solid; }
@@ -988,14 +1005,24 @@
                         <option value="APPROVED">Disetujui</option>
                         <option value="COMPLETED">Selesai</option>
                     </select>
-                    <input type="text" class="search-input" placeholder="Cari nama penanggung jawab..." id="rr-search-requests" oninput="rrApplyFilter()">
+                    <input type="text" class="search-input" placeholder="Cari Nama..." id="rr-search-requests" oninput="rrApplyFilter()">
                     <button onclick="rrLoadRequests(true)" class="btn btn-sm">${ICONS.refresh} Refresh</button>
                 </div>
             </div>
             <div class="table-container">
+                <!-- ★ DIPERBARUI: tambah kolom Difabel -->
                 <table>
-                    <thead><tr><th>Nama Penanggung Jawab</th><th>Unit / Bidang</th><th>Tanggal</th><th>Waktu</th><th>Ruangan</th><th>Status</th><th>Aksi</th></tr></thead>
-                    <tbody id="rr-requests-tbody"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
+                    <thead><tr>
+                        <th>Nama</th>
+                        <th>Unit / Bidang</th>
+                        <th>Tanggal</th>
+                        <th>Waktu</th>
+                        <th>Ruangan</th>
+                        <th style="text-align:center;">Difabel</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr></thead>
+                    <tbody id="rr-requests-tbody"><tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr></tbody>
                 </table>
             </div>
             <div id="rr-requests-cards"></div>
@@ -1071,7 +1098,7 @@
 
 <!-- DETAIL -->
 <div id="rr-detailModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal" style="max-width:580px;">
         <div class="modal-header"><h2 class="modal-title">Detail Permintaan Ruang Rapat</h2></div>
         <div class="modal-content" id="rr-detail-body"></div>
         <div class="modal-footer"><button onclick="document.getElementById('rr-detailModal').style.display='none'" class="btn" style="flex:1;">Tutup</button></div>
@@ -1080,8 +1107,8 @@
 
 <!-- APPROVE — Smart Room Picker -->
 <div id="rr-approveModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
-    <div class="modal" style="max-width:540px;">
-        <div class="modal-header"><h2 class="modal-title" style="display:flex;align-items:center;gap:8px;">${ICONS.door} Setujui & Pilih Ruang Rapat</h2></div>
+    <div class="modal" style="max-width:560px;">
+        <div class="modal-header"><h2 class="modal-title" style="display:flex;align-items:center;gap:8px;">${ICONS.door} Setujui &amp; Pilih Ruang Rapat</h2></div>
         <div class="modal-content" style="padding:20px;">
             <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:14px;margin-bottom:18px;" id="rr-approve-req-info"></div>
             <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">Pilih Ruang Rapat <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;margin-left:6px;">— merah = tidak tersedia</span></div>
@@ -1100,14 +1127,14 @@
     </div>
 </div>
 
-<!-- FIX 1: EDIT REQUEST — sekarang semua field bisa diedit -->
+<!-- EDIT REQUEST — ★ DIPERBARUI: tambah Difabel & Permintaan Khusus -->
 <div id="rr-editModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal" style="max-width:600px;">
         <div class="modal-header"><h2 class="modal-title">Edit Permintaan Ruang Rapat</h2></div>
         <div class="modal-content">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div class="form-group" style="grid-column:1/-1;"><label class="input-label">Nama Penanggung Jawab <span style="color:#ef4444;">*</span></label><input type="text" class="form-input" id="rr-edit-nama" placeholder="Nama penanggung jawab"></div>
-                <div class="form-group" style="grid-column:1/-1;"><label class="input-label">Unit / Bidang<span style="color:#ef4444;">*</span></label>
+                <div class="form-group" style="grid-column:1/-1;"><label class="input-label">Nama <span style="color:#ef4444;">*</span></label><input type="text" class="form-input" id="rr-edit-nama" placeholder="Nama"></div>
+                <div class="form-group" style="grid-column:1/-1;"><label class="input-label">Unit / Bidang <span style="color:#ef4444;">*</span></label>
                     <select class="form-input" id="rr-edit-unit">${OPT_UNIT}</select>
                 </div>
                 <div class="form-group"><label class="input-label">Tanggal <span style="color:#ef4444;">*</span></label><input type="date" class="form-input" id="rr-edit-tanggal"></div>
@@ -1123,6 +1150,21 @@
                         <option value="COMPLETED">Selesai</option>
                         <option value="REJECTED">Ditolak</option>
                     </select>
+                </div>
+                <!-- ★ BARU: Difabel & Permintaan Khusus di form edit -->
+                <div class="form-group">
+                    <label class="input-label">
+                        ♿ Peserta Difabel
+                        <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:4px;">(opsional)</span>
+                    </label>
+                    <select class="form-input" id="rr-edit-difabel">${OPT_DIFABEL}</select>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label class="input-label">
+                        📌 Permintaan Khusus
+                        <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:4px;">(opsional)</span>
+                    </label>
+                    <textarea class="form-textarea" id="rr-edit-permintaan-khusus" rows="2" placeholder="Contoh: butuh proyektor, kursi roda, meja U-shape, dll."></textarea>
                 </div>
             </div>
         </div>
@@ -1171,7 +1213,6 @@
 </div>
 
 <!-- EDIT VIOLATION -->
-
 <div id="rr-editViolModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal">
         <div class="modal-header"><h2 class="modal-title">Edit Catatan Ketidakrapian</h2></div>

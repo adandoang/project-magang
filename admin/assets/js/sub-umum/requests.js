@@ -1191,13 +1191,13 @@
                         <option value="REJECTED">Ditolak</option>
                         <option value="COMPLETED">Selesai</option>
                     </select>
-                    <input type="text" class="search-input" placeholder="Cari nama penanggung jawab atau unit/bidang..." id="req-search-input" oninput="reqApplyFilter()">
+                    <input type="text" class="search-input" placeholder="Cari Nama atau unit/bidang..." id="req-search-input" oninput="reqApplyFilter()">
                     <button onclick="reqLoadRequests(true)" class="btn btn-sm btn-action-view">${ICONS.refresh} Refresh</button>
                 </div>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr><th>Nama Penanggung Jawab</th><th>Unit / Bidang</th><th>Tanggal</th><th>Waktu</th><th>Kendaraan</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Nama</th><th>Unit / Bidang</th><th>Tanggal</th><th>Waktu</th><th>Kendaraan</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody id="req-requests-tbody"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
                 </table>
             </div>
@@ -1348,7 +1348,7 @@
         <div class="modal-content">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="form-group">
-                    <label class="input-label">Nama Penanggung Jawab <span style="color:#ef4444;">*</span></label>
+                    <label class="input-label">Nama <span style="color:#ef4444;">*</span></label>
                     <input type="text" class="form-input" id="req-edit-nama" placeholder="Nama pegawai">
                 </div>
                 <div class="form-group">
