@@ -57,6 +57,7 @@ const AUTH = (() => {
         'monev': 'penilaian_monev',
         'manageacc': 'manajemen_akun',
         'ganti-password': 'ganti_password',
+        'diklat': 'diklat',
     };
 
     /* ── Akses per role ──
@@ -76,11 +77,11 @@ const AUTH = (() => {
         superadmin: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat', 'kearsipan',
             'penilaian_spj', 'pengumpulan_spj', 'pengajuan_dana',
-            'penilaian_monev', 'manajemen_akun'
+            'penilaian_monev', 'manajemen_akun', 'diklat'
         ],
         subumum: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat',
-            'kearsipan', 'ganti_password'
+            'kearsipan', 'ganti_password', 'diklat'
         ],
         subkeuangan: [
             'dashboard',

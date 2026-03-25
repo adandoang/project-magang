@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="assets/css/admin-global.css">
     <link rel="stylesheet" href="assets/css/admin-sidebar.css">
     <script src="auth.js"></script>
-    <script src="notifikasi.js"></script>
     <script src="assets/js/toast.js"></script>
     <script src="assets/js/confirm-modal.js"></script>
     <script src="assets/js/sidebar.js"></script>
@@ -462,6 +461,12 @@
                 </svg>
                 Voucher BBM
             </a>
+            <a href="#" class="nav-item" data-section="diklat" onclick="showSection('diklat');return false;">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M22 10v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h10m6-2h6v6m-6-6L12 12"/>
+                </svg>
+                Diklat
+            </a>
             <a href="#" class="nav-item" data-section="kearsipan" onclick="showSection('kearsipan');return false;">
                 <svg class="nav-icon" viewBox="0 0 24 24">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -820,6 +825,15 @@
         </div>
 
         <!-- ═══════════════════════════════════ -->
+        <!-- SECTION: DIKLAT                     -->
+        <!-- ═══════════════════════════════════ -->
+        <div id="section-diklat" class="admin-section">
+            <div class="section-loader">
+                <div class="spinner"></div><span>Memuat Diklat...</span>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════ -->
         <!-- SECTION: KEARSIPAN                  -->
         <!-- ═══════════════════════════════════ -->
         <div id="section-kearsipan" class="admin-section">
@@ -890,6 +904,7 @@
     <script src="assets/js/sub-umum/requests.js" defer></script>
     <script src="assets/js/sub-umum/ruang-rapat.js" defer></script>
     <script src="assets/js/sub-umum/voucher-bbm.js" defer></script>
+    <script src="assets/js/sub-umum/diklat.js" defer></script>
     <script src="assets/js/sub-umum/kearsipan.js" defer></script>
     <script src="assets/js/sub-keuangan/spj-keuangan.js" defer></script>
     <script src="assets/js/sub-keuangan/spj-pengumpulan.js" defer></script>
