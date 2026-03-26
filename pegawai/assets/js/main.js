@@ -1,7 +1,7 @@
 // ============================================
 // GOOGLE APPS SCRIPT CONFIGURATION
 // ============================================
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyKHm8fROuNziK-6oe6vbit2dHO0tb0giugbdmTJ-wWQc1r_qCejp5iY2GTeQYqki3b/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyHLaM0b5HH3O5Uagscvo41Z5dpOx9i-pWIehfFaWwxP5dWBN8sfEeUJ8erlYW6Qe05/exec";
 
 // ============================================
 // GLOBAL VARIABLES
@@ -899,34 +899,56 @@ function submitSPJ(event) {
 // ============================================
 async function submitPengajuanDana(event) {
     event.preventDefault();
+
+    // ★ FIX: Sync hidden field sebelum validasi
+    const displayEl = document.getElementById('display-nominal-pengajuan');
+    const hiddenEl  = document.getElementById('nominal_pengajuan');
+    if (displayEl && hiddenEl) {
+        let raw = displayEl.value.replace(/\D/g, '');
+        if (raw) hiddenEl.value = raw;
+    }
+
+    // ★ FIX: Validasi nominal dipindah ke sini (tidak di event listener terpisah)
+    const nominalRaw = hiddenEl ? hiddenEl.value : '';
+    if (!nominalRaw || parseInt(nominalRaw) <= 0) {
+        alert('❌ Nominal pengajuan harus diisi dengan angka yang valid.');
+        if (displayEl) displayEl.focus();
+        return;
+    }
+
     if (!selectedPengajuanFile) {
         alert('❌ Silakan pilih file pengajuan dana PDF terlebih dahulu!');
         return;
     }
+
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-pengajuan-dana');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengunggah Pengajuan...';
     setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 20, 'Membaca file...');
+
     try {
         const base64Data = await fileToBase64(selectedPengajuanFile);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 50, 'Mengunggah ke sistem...');
+
         const hiddenForm = document.createElement('form');
         hiddenForm.method = 'POST';
         hiddenForm.action = GAS_URL;
         hiddenForm.target = 'iframe-pengajuan-dana';
         hiddenForm.style.display = 'none';
+
         const fields = {
             action: 'uploadPengajuanDana',
             nama: formElement.querySelector('[name="nama"]').value,
             unit: formElement.querySelector('[name="unit"]').value,
             sub_kegiatan: formElement.querySelector('[name="sub_kegiatan"]').value,
             bulan_pengajuan: formElement.querySelector('[name="bulan_pengajuan"]').value,
-            nominal_pengajuan: formElement.querySelector('[name="nominal_pengajuan"]').value,
+            nominal_pengajuan: nominalRaw,   // ★ Pakai nilai yang sudah divalidasi
             fileName: selectedPengajuanFile.name,
             fileData: base64Data,
             mimeType: selectedPengajuanFile.type
         };
+
         for (let [key, value] of Object.entries(fields)) {
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -934,6 +956,7 @@ async function submitPengajuanDana(event) {
             input.value = value;
             hiddenForm.appendChild(input);
         }
+
         let iframe = document.getElementById('iframe-pengajuan-dana');
         if (!iframe) {
             iframe = document.createElement('iframe');
@@ -942,10 +965,15 @@ async function submitPengajuanDana(event) {
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
         }
+
         document.body.appendChild(hiddenForm);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 75, 'Menyimpan file...');
         hiddenForm.submit();
-        setTimeout(() => { setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!'); }, 1000);
+
+        setTimeout(() => {
+            setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!');
+        }, 1000);
+
         setTimeout(() => {
             hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
             showAlert('alert-pengajuan-dana', '✓ Pengajuan dana berhasil dikirim! File tersimpan di sistem.');
@@ -956,6 +984,7 @@ async function submitPengajuanDana(event) {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Kirim Pengajuan Dana';
         }, 3000);
+
     } catch (error) {
         console.error('Error:', error);
         hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');

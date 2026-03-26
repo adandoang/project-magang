@@ -1292,16 +1292,6 @@
             });
         });
 
-        // Validasi form pengajuan dana
-        document.getElementById('form-pengajuan-dana').addEventListener('submit', function (e) {
-            const raw = document.getElementById('nominal_pengajuan').value;
-            if (!raw || parseInt(raw) <= 0) {
-                e.preventDefault();
-                document.getElementById('display-nominal-pengajuan').focus();
-                alert('Nominal pengajuan harus diisi dengan angka yang valid.');
-            }
-        });
-
         // Validasi form SPJ
         document.getElementById('form-spj').addEventListener('submit', function (e) {
             const raw = document.getElementById('nominal_spj').value;
