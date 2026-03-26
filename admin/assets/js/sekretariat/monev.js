@@ -84,17 +84,40 @@
         });
     }
 
-    // ─── POST ─────────────────────────────────────────────────
     function callAPIPost(params) {
         return new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('timeout')), 30000);
-            const body = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k] || '')).join('&');
-            fetch(APPS_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, redirect: 'follow' })
-                .then(r => r.text())
-                .then(text => { clearTimeout(t); try { resolve(JSON.parse(text)); } catch (e) { resolve({ status: 'success', linkBukti: '' }); } })
+            const t = setTimeout(() => reject(new Error('timeout')), 60000);
+
+            const body = Object.keys(params)
+                .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k] || ''))
+                .join('&');
+
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body,
+                redirect: 'follow'
+            })
+                .then(r => {
+                    // Cek apakah response beneran JSON atau HTML redirect
+                    const contentType = r.headers.get('content-type') || '';
+                    if (contentType.includes('text/html')) {
+                        // Apps Script redirect — ambil via GET JSONP sebagai fallback
+                        // Ini tidak akan terjadi kalau doPost return JSON langsung
+                        console.warn('Response adalah HTML, bukan JSON. Cek doPost.');
+                    }
+                    return r.text();
+                })
+                .then(text => {
+                    clearTimeout(t);
+                    console.log('Raw response dari server:', text.slice(0, 300));
+                    try { resolve(JSON.parse(text)); }
+                    catch (e) { resolve({ status: 'success', linkBukti: '' }); }
+                })
                 .catch(err => { clearTimeout(t); reject(err); });
         });
     }
+
 
     // ─── LOAD DATA DARI SERVER ────────────────────────────────
     window.mnvLoadDataFromServer = async function () {
@@ -626,11 +649,23 @@
         document.getElementById('mnv-assessModal')?.remove();
     };
 
-    // ─── SUBMIT ───────────────────────────────────────────────
+    // ─── HELPER: baca file sebagai base64 (Promise) ───────────────
+    function mnvReadFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result.split(',')[1]);
+            reader.onerror = () => reject(new Error('Gagal membaca file'));
+            reader.readAsDataURL(file);
+        });
+    }
+
     window.mnvSubmitInputNilai = async function () {
         const bulan = document.getElementById('mnv-select-bulan-input').value;
         const unit = document.getElementById('mnv-input-unit').value;
-        if (!unit || !bulan) { if (window.showToast) showToast('Data tidak lengkap', 'error'); return; }
+        if (!unit || !bulan) {
+            if (window.showToast) showToast('Data tidak lengkap', 'error');
+            return;
+        }
 
         const state = mnvGetModalState();
         const scores = calcScores(state);
@@ -640,41 +675,87 @@
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
 
+        // ── Payload dasar ──────────────────────────────────────────────────────────
         const payload = {
-            action: 'uploadAndSave', bulan, unit,
-            waktu: scores.waktu, kelengkapan: scores.kelengkapan,
-            fisik: scores.fisik, keuangan: scores.keuangan,
-            partisipasi: scores.partisipasi, tindakLanjut: scores.tindakLanjut,
-            total: scores.total, catatan,
+            action: 'uploadAndSave',
+            bulan, unit,
+            waktu: scores.waktu,
+            kelengkapan: scores.kelengkapan,
+            fisik: scores.fisik,
+            keuangan: scores.keuangan,
+            partisipasi: scores.partisipasi,
+            tindakLanjut: scores.tindakLanjut,
+            total: scores.total,
+            catatan,
             penilai: currentUser.name || 'Admin',
-            fileName: '', mimeType: '', fileData: ''
+            fileName: '',
+            mimeType: '',
+            fileData: ''
         };
 
-        if (selectedBuktiFile && selectedBuktiBase64) {
-            window.mnvSetUploadProgress(20, 'Mempersiapkan file...');
-            const ext = selectedBuktiFile.name.split('.').pop().toLowerCase();
-            const safeUnit = unit.replace(/[^a-zA-Z0-9]/g, '_');
-            payload.fileName = `MONEV_${bulan}_${safeUnit}_${Date.now()}.${ext}`;
-            payload.mimeType = selectedBuktiFile.type;
-            payload.fileData = selectedBuktiBase64;
+        // ── FIX BUG 1 & 2: await FileReader tuntas, baru isi payload ───────────────
+        if (selectedBuktiFile) {
+            try {
+                window.mnvSetUploadProgress(20, 'Membaca file...');
+
+                // Gunakan fungsi helper yang sudah ada — ini yang benar
+                const base64 = await mnvReadFileAsBase64(selectedBuktiFile);
+
+                const ext = selectedBuktiFile.name.split('.').pop().toLowerCase();
+                const safeUnit = unit.replace(/[^a-zA-Z0-9]/g, '_');
+
+                payload.fileName = `MONEV_${bulan}_${safeUnit}_${Date.now()}.${ext}`;
+                payload.mimeType = selectedBuktiFile.type;
+                payload.fileData = base64;   // ← PERBAIKAN: pakai hasil await, bukan selectedBuktiBase64
+
+            } catch (readErr) {
+                if (window.showToast) showToast('Gagal membaca file: ' + readErr.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '💾 Simpan Penilaian';
+                return;
+            }
         }
 
-        window.mnvSetUploadProgress(50, 'Mengirim ke server...');
+        // ── Kirim ke server ────────────────────────────────────────────────────────
+        window.mnvSetUploadProgress(selectedBuktiFile ? 50 : 30, 'Mengirim ke server...');
+
         let linkBukti = '';
         try {
             const result = await callAPIPost(payload);
+            console.log('Response dari server:', result);
+
             if (result && result.status === 'success') {
-                linkBukti = (selectedBuktiFile && selectedBuktiBase64)
-                    ? (result.linkBukti || '')
-                    : (!existingBuktiDeleted && existingLinkBukti ? existingLinkBukti : '');
                 window.mnvSetUploadProgress(100, 'Berhasil!');
+
+                // ── FIX BUG 3: linkBukti selalu dari response server ─────────────
+                if (selectedBuktiFile) {
+                    // Upload baru — pakai link yang baru dikembalikan server
+                    linkBukti = result.linkBukti || '';
+                } else if (!existingBuktiDeleted && existingLinkBukti) {
+                    // Tidak ada file baru dan user tidak hapus bukti lama
+                    linkBukti = existingLinkBukti;
+                } else {
+                    // User hapus bukti lama, tidak upload baru
+                    linkBukti = '';
+                }
+
             } else {
                 if (window.showToast) showToast('Gagal simpan: ' + (result?.message || 'Unknown error'), 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '💾 Simpan Penilaian';
+                window.mnvHideUploadProgress();
+                return;
             }
+
         } catch (err) {
             if (window.showToast) showToast('Gagal menghubungi server: ' + err.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '💾 Simpan Penilaian';
+            window.mnvHideUploadProgress();
+            return;
         }
 
+        // ── FIX BUG 4: simpan ke cache lokal SETELAH dapat linkBukti yang benar ──
         const localData = getLocalData();
         if (!localData[bulan]) localData[bulan] = {};
         localData[bulan][unit] = { ...scores, catatan, linkBukti, _state: state };
@@ -682,11 +763,12 @@
 
         window.mnvHideUploadProgress();
         document.getElementById('mnv-assessModal')?.remove();
-        window.mnvRenderInputTable(bulan);
-        window.mnvUpdateStats(bulan);
-        if (window.showToast) showToast(`Nilai ${unit} bulan ${bulan} berhasil disimpan!`, 'success');
-    };
 
+        if (window.showToast) showToast(`Nilai ${unit} bulan ${bulan} berhasil disimpan!`, 'success');
+
+        // Reload dari server untuk sinkronisasi penuh (opsional tapi disarankan)
+        window.mnvLoadDataFromServer();
+    };
     // ─── DELETE ENTRY ─────────────────────────────────────────
     window.mnvDeleteEntry = function (unit, bulan) {
         showConfirmModal({

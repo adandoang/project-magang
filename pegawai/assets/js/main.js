@@ -1,8 +1,7 @@
 // ============================================
 // GOOGLE APPS SCRIPT CONFIGURATION
 // ============================================
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyKHm8fROuNziK-6oe6vbit2dHO0tb0giugbdmTJ-wWQc1r_qCejp5iY2GTeQYqki3b/exec";
-
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz2cFiTZIq71hfqJNefTuzPhCO6guO5gl1W7k-hvMUu7m39TgnBjzh375UaOuQR85nP/exec";
 // ============================================
 // GLOBAL VARIABLES
 // ============================================
