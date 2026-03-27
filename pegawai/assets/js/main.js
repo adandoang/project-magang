@@ -902,7 +902,7 @@ async function submitPengajuanDana(event) {
 
     // ★ FIX: Sync hidden field sebelum validasi
     const displayEl = document.getElementById('display-nominal-pengajuan');
-    const hiddenEl  = document.getElementById('nominal_pengajuan');
+    const hiddenEl = document.getElementById('nominal_pengajuan');
     if (displayEl && hiddenEl) {
         let raw = displayEl.value.replace(/\D/g, '');
         if (raw) hiddenEl.value = raw;

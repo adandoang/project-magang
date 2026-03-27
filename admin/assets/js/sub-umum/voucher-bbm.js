@@ -1,17 +1,11 @@
 // ============================================================
 // voucher-bbm.js — Voucher BBM section (SPA)
 // Admin Panel — Dinas Koperasi UKM
-// Refactored to mirror ruang-rapat.js patterns:
-//   1. Full CRUD with loading states on every button
-//   2. Detail modal matching ruang-rapat style
-//   3. Move between bulan/unit (pindah) on edit violation
-//   4. Sorted newest-first (reverse from API)
-//   5. Consistent modal & card UI
 // ============================================================
 (function () {
     'use strict';
 
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyfAJcjPDuKqwKk8A46z4quyaeV9trBLAuDtdqhQqX0CIZke6fgN1sptcnS0EURuF6ksg/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycby57ETxcwllJcTNCptwnZKW7EJ8PVrbqewUhxaUHGDYP3SO8TuvNofGeHfciXddvbhaVg/exec';
     const CACHE_DURATION = 5 * 60 * 1000;
     const CACHE_KEYS = {
         REQUESTS: 'bbm_voucher_requests',
@@ -25,17 +19,21 @@
     let requestsCurrentPage = 1, violationsCurrentPage = 1;
     const itemsPerPage = 10;
 
-    // ── State ─────────────────────────────────────────────────
     let currentApproveId = null;
     let currentEditId = null;
+    let currentCompleteId = null;
     let currentEditViol = null;
     let selectedApprovedReq = null;
     let violationSource = 'approved';
 
+    // ── State upload foto (sama persis seperti monev) ──────────
+    let selectedBuktiFotoFile = null;
+    let selectedBuktiFotoBase64 = null;
+
     const MONTHS_ID = ['', 'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
         'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
 
-    // ── SVG Icons (identical set to ruang-rapat) ──────────────
+    // ── SVG Icons ─────────────────────────────────────────────
     const ICONS = {
         refresh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`,
         export: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
@@ -44,7 +42,7 @@
         checkCircle: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
         x: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
         eye: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-        edit: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+        edit: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
         trash: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
         car: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14l4 4v4a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/><path d="M5 9l2-4h8l2 4"/></svg>`,
         user: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
@@ -52,7 +50,19 @@
         calendar: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
         clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
         fileText: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+        upload: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+        fuel: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6h2a2 2 0 0 1 2 2v8"/><path d="M3 10h10"/><path d="M17 8h1a2 2 0 0 1 2 2v3a1 1 0 0 0 1 1 1 1 0 0 0 1-1V9l-3-3"/></svg>`,
+        mapPin: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+        money: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
+        tag: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
     };
+
+    // ── Helpers ───────────────────────────────────────────────
+    function formatRupiah(val) {
+        const num = parseInt(String(val || '0').replace(/\D/g, '')) || 0;
+        if (!num) return '-';
+        return 'Rp ' + num.toLocaleString('id-ID');
+    }
 
     // ── Template options ──────────────────────────────────────
     const OPT_BULAN_ALL = `<option value="">Semua Bulan</option>
@@ -107,14 +117,23 @@
         <option value="AB 1147 UH">AB 1147 UH</option>
         <option value="AB 1340 UH">AB 1340 UH</option>
         <option value="AB 1530 UH">AB 1530 UH</option>
-        <option value="AB 1067 IA">AB 1067 IA</option>`;
+        <option value="AB 1067 IA">AB 1067 IA</option>
+        <option value="AB 8018 AI">AB 8018 AI</option>
+        <option value="AB 67">AB 67</option>
+        <option value="AB 2695 UH">AB 2695 UH (Motor)</option>
+        <option value="AB 2174 IH">AB 2174 IH (Motor)</option>
+        <option value="AB 2198 IH">AB 2198 IH (Motor)</option>
+        <option value="AB 2177 IH">AB 2177 IH (Motor)</option>
+        <option value="AB 2176 IH">AB 2176 IH (Motor)</option>
+        <option value="AB 2175 IH">AB 2175 IH (Motor)</option>
+        <option value="AB 2179 IH">AB 2179 IH (Motor)</option>
+        <option value="AB 2114 IH">AB 2114 IH (Motor)</option>`;
 
     // ── Cache ─────────────────────────────────────────────────
     function saveToCache(k, d) { try { localStorage.setItem(k, JSON.stringify({ data: d, timestamp: Date.now() })); } catch (e) { } }
     function getFromCache(k) {
         try {
-            const c = localStorage.getItem(k);
-            if (!c) return null;
+            const c = localStorage.getItem(k); if (!c) return null;
             const p = JSON.parse(c);
             if (Date.now() - p.timestamp < CACHE_DURATION) return p.data;
             localStorage.removeItem(k); return null;
@@ -126,7 +145,7 @@
         if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2000); }
     }
 
-    // ── API (JSONP) ───────────────────────────────────────────
+    // ── API JSONP (GET) ───────────────────────────────────────
     function callAPI(params) {
         return new Promise((resolve, reject) => {
             const cb = 'bbm_cb_' + Math.round(1e6 * Math.random());
@@ -140,8 +159,45 @@
         });
     }
 
+    // ── API POST — sama persis seperti monev ──────────────────
+    // Kunci: redirect: 'follow' dan parse text() bukan json()
+    function callAPIPost(params) {
+        return new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error('timeout')), 60000);
+
+            const body = Object.keys(params)
+                .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k] || ''))
+                .join('&');
+
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body,
+                redirect: 'follow'
+            })
+                .then(r => r.text())
+                .then(text => {
+                    clearTimeout(t);
+                    console.log('[BBM] Raw POST response:', text.slice(0, 300));
+                    try { resolve(JSON.parse(text)); }
+                    catch (e) { resolve({ success: false, message: 'Respons tidak valid: ' + text.slice(0, 100) }); }
+                })
+                .catch(err => { clearTimeout(t); reject(err); });
+        });
+    }
+
+    // ── Helper: baca file sebagai base64 (Promise) ─────────────
+    // Sama persis dengan mnvReadFileAsBase64 di monev.js
+    function bbmReadFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result.split(',')[1]);
+            reader.onerror = () => reject(new Error('Gagal membaca file'));
+            reader.readAsDataURL(file);
+        });
+    }
+
     // ── Date helpers ──────────────────────────────────────────
-    // DD-MM-YYYY ↔ YYYY-MM-DD
     function normalizeDisplayDate(val) {
         if (!val || val === '-') return '-';
         const s = String(val).trim();
@@ -170,32 +226,28 @@
     function getIdOrderValue(rawId) {
         if (!rawId) return 0;
         const text = String(rawId).trim();
-        if (!text) return 0;
         const tail = text.includes('|') ? text.split('|').pop() : text;
         const m = tail.match(/(\d+)(?!.*\d)/);
         return m ? parseInt(m[1], 10) : 0;
     }
-
     function sortByNewestId(arr) {
         return arr.slice().sort((a, b) => {
-            const numericDiff = getIdOrderValue(b.id) - getIdOrderValue(a.id);
-            if (numericDiff !== 0) return numericDiff;
-            const ida = String(a.id || '');
-            const idb = String(b.id || '');
-            if (idb > ida) return 1;
-            if (idb < ida) return -1;
-            return 0;
+            const d = getIdOrderValue(b.id) - getIdOrderValue(a.id);
+            if (d !== 0) return d;
+            return String(b.id || '') > String(a.id || '') ? 1 : -1;
         });
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    // ── Status badge ──────────────────────────────────────────
     function createStatusBadge(status) {
         const s = (status || '').toUpperCase();
-        const base = 'display:inline-flex;align-items:center;justify-content:center;min-width:80px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap;';
+        const base = 'display:inline-flex;align-items:center;justify-content:center;min-width:84px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap;';
         if (s === 'APPROVED') return `<span style="${base}background:#dcfce7;color:#15803d;">Disetujui</span>`;
+        if (s === 'COMPLETED') return `<span style="${base}background:#dbeafe;color:#1d4ed8;">Selesai</span>`;
         if (s === 'REJECTED') return `<span style="${base}background:#fee2e2;color:#b91c1c;">Ditolak</span>`;
         return `<span style="${base}background:#fef9c3;color:#a16207;">Menunggu</span>`;
     }
+
     function openModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
     function closeModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
     function setCurrentMonth(elId) {
@@ -226,11 +278,13 @@
         const t = document.getElementById('bbm-stat-total');
         const a = document.getElementById('bbm-stat-approved');
         const p = document.getElementById('bbm-stat-pending');
+        const c = document.getElementById('bbm-stat-completed');
         const r = document.getElementById('bbm-stat-rejected');
         if (t) t.textContent = masterRequests.length;
-        if (a) a.textContent = masterRequests.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length;
-        if (p) p.textContent = masterRequests.filter(r => (r.status || '').toUpperCase() === 'PENDING').length;
-        if (r) r.textContent = masterRequests.filter(r => (r.status || '').toUpperCase() === 'REJECTED').length;
+        if (a) a.textContent = masterRequests.filter(x => (x.status || '').toUpperCase() === 'APPROVED').length;
+        if (p) p.textContent = masterRequests.filter(x => (x.status || '').toUpperCase() === 'PENDING').length;
+        if (c) c.textContent = masterRequests.filter(x => (x.status || '').toUpperCase() === 'COMPLETED').length;
+        if (r) r.textContent = masterRequests.filter(x => (x.status || '').toUpperCase() === 'REJECTED').length;
     }
 
     function bbmApplyFilter() {
@@ -238,8 +292,10 @@
         const term = (document.getElementById('bbm-search-req')?.value || '').toLowerCase();
         allRequests = masterRequests.filter(r => {
             if (status && (r.status || '').toUpperCase() !== status) return false;
-            return !term || (r.nama_pegawai || '').toLowerCase().includes(term)
-                || (r.unit_eselon || '').toLowerCase().includes(term);
+            return !term
+                || (r.nama_pegawai || '').toLowerCase().includes(term)
+                || (r.unit_eselon || '').toLowerCase().includes(term)
+                || (r.nomor_kendaraan || '').toLowerCase().includes(term);
         });
         requestsCurrentPage = 1; renderPaginatedRequests();
     }
@@ -254,23 +310,21 @@
             if (cached) {
                 masterRequests = sortByNewestId(cached);
                 allRequests = [...masterRequests];
-                requestsCurrentPage = 1;
-                renderPaginatedRequests();
+                requestsCurrentPage = 1; renderPaginatedRequests();
                 showCacheIndicator(); return;
             }
         }
         const tbody = document.getElementById('bbm-requests-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
         try {
             const res = await callAPI({ action: 'getVoucherRequests' });
             const rawData = Array.isArray(res) ? res : [];
             saveToCache(CACHE_KEYS.REQUESTS, rawData);
             masterRequests = sortByNewestId(rawData);
             allRequests = [...masterRequests];
-            requestsCurrentPage = 1;
-            renderPaginatedRequests();
+            requestsCurrentPage = 1; renderPaginatedRequests();
         } catch (e) {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="bbmLoadRequests(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="bbmLoadRequests(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
             if (window.showToast) showToast('Gagal memuat permintaan: ' + e.message, 'error');
         }
     }
@@ -284,7 +338,7 @@
         updateStats();
 
         if (!allRequests.length) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Tidak ada data permintaan</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8;">Tidak ada data permintaan</td></tr>';
             if (cards) cards.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;">Data tidak ditemukan</div>';
             if (pgn) pgn.innerHTML = ''; return;
         }
@@ -293,47 +347,69 @@
         const items = allRequests.slice(start, start + itemsPerPage);
 
         tbody.innerHTML = items.map(req => {
-            const isPending = (req.status || '').toUpperCase() === 'PENDING';
+            const s = (req.status || '').toUpperCase();
+            const isPending = s === 'PENDING';
+            const isApproved = s === 'APPROVED';
+            const jenisBadge = req.jenis_voucher
+                ? `<span style="font-size:11px;background:#ede9fe;color:#5b21b6;padding:1px 7px;border-radius:20px;font-weight:600;">${req.jenis_voucher}</span>`
+                : '';
             return `<tr>
-                <td style="font-weight:500;">${req.nama_pegawai || '—'}</td>
-                <td style="color:#64748b;font-size:13px;">${req.unit_eselon || '—'}</td>
-                <td style="font-family:monospace;font-weight:500;">${req.nomor_kendaraan || '—'}</td>
-                <td style="color:#64748b;font-size:13px;">${req.timestamp || '—'}</td>
-                <td style="min-width:110px;">
-                    <div style="display:flex;align-items:center;justify-content:center;">
-                    ${isPending ? `<div class="btn-icon-group" style="margin:0;">
-                        <button onclick="bbmOpenApprove('${req.id}')" class="btn-icon btn-icon-approve" title="Setujui">${ICONS.check}</button>
-                        <button onclick="bbmQuickReject('${req.id}', this)" class="btn-icon btn-icon-reject" title="Tolak">${ICONS.x}</button>
-                    </div>` : createStatusBadge(req.status)}
-                    </div>
+                <td>
+                    <div style="font-weight:600;">${req.nama_pegawai || '—'}</div>
+                    <div style="font-size:12px;color:#64748b;">${req.unit_eselon || '—'}</div>
                 </td>
-                <td><div class="action-buttons"><div class="btn-icon-group">
-                    <button onclick="bbmViewDetail('${req.id}')" class="btn-icon btn-icon-view" title="Detail">${ICONS.eye}</button>
-                    <button onclick="bbmOpenEdit('${req.id}')" class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
-                    <button onclick="bbmDeleteRequest('${req.id}', this)" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
-                </div></div></td>
+                <td style="font-family:monospace;font-weight:600;">${req.nomor_kendaraan || '—'}</td>
+                <td>${jenisBadge}</td>
+                <td style="font-size:13px;">${formatRupiah(req.nominal_diajukan)}</td>
+                <td style="font-size:12px;color:#64748b;">${req.tgl_pengambilan || '—'}</td>
+                <td style="min-width:110px;text-align:center;">
+                    ${isPending
+                    ? `<div class="btn-icon-group" style="margin:0;">
+                            <button onclick="bbmOpenApprove('${req.id}')" class="btn-icon btn-icon-approve" title="Setujui">${ICONS.check}</button>
+                            <button onclick="bbmQuickReject('${req.id}', this)" class="btn-icon btn-icon-reject" title="Tolak">${ICONS.x}</button>
+                          </div>`
+                    : createStatusBadge(req.status)}
+                </td>
+                <td>
+                    <div class="action-buttons"><div class="btn-icon-group">
+                        ${isApproved
+                    ? `<button onclick="bbmOpenComplete('${req.id}')" class="btn-icon btn-icon-complete" title="Selesaikan">${ICONS.checkCircle}</button>`
+                    : ''}
+                        <button onclick="bbmViewDetail('${req.id}')" class="btn-icon btn-icon-view" title="Detail">${ICONS.eye}</button>
+                        <button onclick="bbmOpenEdit('${req.id}')" class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
+                        <button onclick="bbmDeleteRequest('${req.id}', this)" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
+                    </div></div>
+                </td>
             </tr>`;
         }).join('');
 
         if (cards) cards.innerHTML = items.map(req => {
-            const isPending = (req.status || '').toUpperCase() === 'PENDING';
+            const s = (req.status || '').toUpperCase();
+            const isPending = s === 'PENDING';
+            const isApproved = s === 'APPROVED';
             return `<div class="requests-card">
                 <div class="requests-card-header">
                     <div style="flex:1;">
                         <div class="requests-card-title">${req.nama_pegawai || '—'}</div>
                         <div class="requests-card-subtitle">${req.unit_eselon || '—'}</div>
                     </div>
-                    ${isPending ? `<div class="btn-icon-group" style="margin:0;">
-                        <button onclick="bbmOpenApprove('${req.id}')" class="btn-icon btn-icon-approve">${ICONS.check}</button>
-                        <button onclick="bbmQuickReject('${req.id}', this)" class="btn-icon btn-icon-reject">${ICONS.x}</button>
-                    </div>` : createStatusBadge(req.status)}
+                    ${isPending
+                    ? `<div class="btn-icon-group" style="margin:0;">
+                            <button onclick="bbmOpenApprove('${req.id}')" class="btn-icon btn-icon-approve">${ICONS.check}</button>
+                            <button onclick="bbmQuickReject('${req.id}', this)" class="btn-icon btn-icon-reject">${ICONS.x}</button>
+                          </div>`
+                    : createStatusBadge(req.status)}
                 </div>
                 <div class="requests-card-body">
                     <div class="requests-card-row"><span class="requests-card-label">No. Kendaraan</span><span class="requests-card-value" style="font-family:monospace;">${req.nomor_kendaraan || '—'}</span></div>
-                    <div class="requests-card-row"><span class="requests-card-label">Waktu Pengajuan</span><span class="requests-card-value">${req.timestamp || '—'}</span></div>
+                    <div class="requests-card-row"><span class="requests-card-label">Jenis Voucher</span><span class="requests-card-value">${req.jenis_voucher || '—'}</span></div>
+                    <div class="requests-card-row"><span class="requests-card-label">Nominal Diajukan</span><span class="requests-card-value">${formatRupiah(req.nominal_diajukan)}</span></div>
+                    ${req.tgl_pengambilan ? `<div class="requests-card-row"><span class="requests-card-label">Tgl Pengambilan</span><span class="requests-card-value">${req.tgl_pengambilan}</span></div>` : ''}
+                    ${req.tgl_pengembalian ? `<div class="requests-card-row"><span class="requests-card-label">Tgl Pengembalian</span><span class="requests-card-value">${req.tgl_pengembalian}</span></div>` : ''}
                 </div>
                 <div class="requests-card-footer">
                     <div class="action-buttons" style="justify-content:flex-end;"><div class="btn-icon-group">
+                        ${isApproved ? `<button onclick="bbmOpenComplete('${req.id}')" class="btn-icon btn-icon-complete">${ICONS.checkCircle}</button>` : ''}
                         <button onclick="bbmViewDetail('${req.id}')" class="btn-icon btn-icon-view">${ICONS.eye}</button>
                         <button onclick="bbmOpenEdit('${req.id}')" class="btn-icon btn-icon-edit">${ICONS.edit}</button>
                         <button onclick="bbmDeleteRequest('${req.id}', this)" class="btn-icon btn-icon-delete">${ICONS.trash}</button>
@@ -353,15 +429,15 @@
         requestsCurrentPage = page; renderPaginatedRequests();
     };
 
-    // ── Detail Modal (styled like ruang-rapat) ─────────────────
+    // ── Detail Modal ──────────────────────────────────────────
     window.bbmViewDetail = (id) => {
         const req = masterRequests.find(r => String(r.id) === String(id));
         if (!req) return;
         const el = document.getElementById('bbm-detail-body');
-        const s = (req.status || 'pending').toUpperCase();
-        const statusColor = s === 'APPROVED' ? '#10b981' : s === 'REJECTED' ? '#ef4444' : '#f59e0b';
-        const statusBg = s === 'APPROVED' ? '#f0fdf4' : s === 'REJECTED' ? '#fff1f2' : '#fffbeb';
-        const statusLabel = s === 'APPROVED' ? 'Disetujui' : s === 'REJECTED' ? 'Ditolak' : 'Menunggu';
+        const s = (req.status || 'PENDING').toUpperCase();
+        const statusColor = s === 'APPROVED' ? '#10b981' : s === 'COMPLETED' ? '#3b82f6' : s === 'REJECTED' ? '#ef4444' : '#f59e0b';
+        const statusBg = s === 'APPROVED' ? '#f0fdf4' : s === 'COMPLETED' ? '#eff6ff' : s === 'REJECTED' ? '#fff1f2' : '#fffbeb';
+        const statusLabel = s === 'APPROVED' ? 'Disetujui' : s === 'COMPLETED' ? 'Selesai' : s === 'REJECTED' ? 'Ditolak' : 'Menunggu';
 
         if (el) el.innerHTML = `
         <div class="req-detail-wrap">
@@ -375,7 +451,7 @@
                 <div class="req-detail-grid-2">
                     <div class="req-detail-field">
                         <div class="req-detail-field-icon" style="background:#eff6ff;color:#3b82f6;">${ICONS.user}</div>
-                        <div><div class="req-detail-field-label">Nama Pegawai</div><div class="req-detail-field-value">${req.nama_pegawai || '-'}</div></div>
+                        <div><div class="req-detail-field-label">Nama</div><div class="req-detail-field-value">${req.nama_pegawai || '-'}</div></div>
                     </div>
                     <div class="req-detail-field">
                         <div class="req-detail-field-icon" style="background:#f0fdf4;color:#10b981;">${ICONS.building}</div>
@@ -384,12 +460,66 @@
                 </div>
             </div>
             <div class="req-detail-section">
-                <div class="req-detail-section-title">Detail Permintaan</div>
-                <div class="req-detail-field">
-                    <div class="req-detail-field-icon" style="background:#fefce8;color:#ca8a04;">${ICONS.car}</div>
-                    <div><div class="req-detail-field-label">Nomor Kendaraan</div><div class="req-detail-field-value" style="font-family:monospace;">${req.nomor_kendaraan || '-'}</div></div>
+                <div class="req-detail-section-title">Detail Voucher</div>
+                <div class="req-detail-grid-2">
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#fefce8;color:#ca8a04;">${ICONS.car}</div>
+                        <div><div class="req-detail-field-label">Nomor Kendaraan</div><div class="req-detail-field-value" style="font-family:monospace;">${req.nomor_kendaraan || '-'}</div></div>
+                    </div>
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#fdf4ff;color:#a855f7;">${ICONS.fuel}</div>
+                        <div><div class="req-detail-field-label">Jenis Voucher</div><div class="req-detail-field-value">${req.jenis_voucher || '-'}</div></div>
+                    </div>
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#fff7ed;color:#f97316;">${ICONS.money}</div>
+                        <div><div class="req-detail-field-label">Nominal Diajukan</div><div class="req-detail-field-value">${formatRupiah(req.nominal_diajukan)}</div></div>
+                    </div>
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#f0fdf4;color:#16a34a;">${ICONS.money}</div>
+                        <div><div class="req-detail-field-label">Nominal Disetujui</div><div class="req-detail-field-value">${req.nominal_disetujui ? formatRupiah(req.nominal_disetujui) : '<span style="color:#94a3b8;font-size:13px;">Belum diisi</span>'}</div></div>
+                    </div>
                 </div>
+                ${(req.alamat_tujuan && req.alamat_tujuan.trim())
+                ? `<div class="req-detail-field" style="margin-top:12px;">
+                        <div class="req-detail-field-icon" style="background:#fef9c3;color:#a16207;">${ICONS.mapPin}</div>
+                        <div style="flex:1;"><div class="req-detail-field-label">Alamat Tujuan</div><div class="req-detail-field-value">${req.alamat_tujuan}</div></div>
+                       </div>`
+                : ''}
             </div>
+            ${(s === 'APPROVED' || s === 'COMPLETED') ? `
+            <div class="req-detail-section">
+                <div class="req-detail-section-title">Informasi Voucher</div>
+                <div class="req-detail-grid-2">
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#ede9fe;color:#7c3aed;">${ICONS.tag}</div>
+                        <div><div class="req-detail-field-label">Kode Voucher</div>
+                            <div class="req-detail-field-value" style="font-family:monospace;letter-spacing:0.1em;">${req.kode_voucher || '<span style="color:#94a3b8;">—</span>'}</div>
+                        </div>
+                    </div>
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#fef3c7;color:#d97706;">${ICONS.calendar}</div>
+                        <div><div class="req-detail-field-label">Tgl Pengambilan</div><div class="req-detail-field-value">${req.tgl_pengambilan || '—'}</div></div>
+                    </div>
+                </div>
+            </div>` : ''}
+            ${s === 'COMPLETED' ? `
+            <div class="req-detail-section" style="border-color:#dbeafe;">
+                <div class="req-detail-section-title" style="color:#1d4ed8;">Pengembalian Bukti</div>
+                <div class="req-detail-grid-2">
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#dbeafe;color:#1d4ed8;">${ICONS.calendar}</div>
+                        <div><div class="req-detail-field-label">Tgl Pengembalian</div><div class="req-detail-field-value">${req.tgl_pengembalian || '—'}</div></div>
+                    </div>
+                    <div class="req-detail-field">
+                        <div class="req-detail-field-icon" style="background:#dbeafe;color:#1d4ed8;">${ICONS.upload}</div>
+                        <div><div class="req-detail-field-label">Foto Bukti</div>
+                            <div class="req-detail-field-value">${req.link_foto_bukti
+                    ? `<a href="${req.link_foto_bukti}" target="_blank" style="color:#2563eb;text-decoration:underline;font-size:13px;">Lihat Foto ↗</a>`
+                    : '<span style="color:#94a3b8;font-size:13px;">Tidak ada foto</span>'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>` : ''}
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Waktu Pengajuan</div>
                 <div class="req-detail-field">
@@ -417,26 +547,45 @@
                     <div style="flex:1;min-width:140px;">
                         <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Kendaraan</div>
                         <div style="font-weight:700;color:#1e293b;font-family:monospace;">${req.nomor_kendaraan || '-'}</div>
+                        <div style="color:#64748b;font-size:12px;">${req.jenis_voucher || ''}</div>
                     </div>
                     <div style="flex:1;min-width:140px;">
-                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Waktu Pengajuan</div>
-                        <div style="color:#64748b;font-size:12px;">${req.timestamp || '-'}</div>
+                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Nominal Diajukan</div>
+                        <div style="font-weight:700;color:#1e293b;">${formatRupiah(req.nominal_diajukan)}</div>
                     </div>
+                    ${req.alamat_tujuan ? `<div style="flex:2;min-width:220px;">
+                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Alamat Tujuan</div>
+                        <div style="color:#475569;font-size:12px;">${req.alamat_tujuan}</div>
+                    </div>` : ''}
                 </div>`;
         }
+        const kodeEl = document.getElementById('bbm-approve-kode');
+        const nominalEl = document.getElementById('bbm-approve-nominal-display');
+        const nominalHidden = document.getElementById('bbm-approve-nominal');
+        if (kodeEl) kodeEl.value = '';
+        if (nominalEl) nominalEl.value = '';
+        if (nominalHidden) nominalHidden.value = '';
         openModal('bbm-approveModal');
     };
 
+    window.bbmFormatApproveNominal = (el) => {
+        const raw = el.value.replace(/\D/g, '');
+        document.getElementById('bbm-approve-nominal').value = raw;
+        el.value = raw ? parseInt(raw).toLocaleString('id-ID') : '';
+    };
+
     window.bbmConfirmApprove = async () => {
+        const kode = (document.getElementById('bbm-approve-kode')?.value || '').trim();
+        const nominal = document.getElementById('bbm-approve-nominal')?.value || '';
+        if (!kode) { if (window.showToast) showToast('Kode voucher harus diisi', 'error'); return; }
+        if (!nominal) { if (window.showToast) showToast('Nominal yang disetujui harus diisi', 'error'); return; }
         const btn = document.getElementById('bbm-confirm-approve-btn');
         const orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyetujui...';
         try {
-            const res = await callAPI({ action: 'updateVoucherRequest', id: currentApproveId, status: 'APPROVED' });
-            if (res?.success) {
-                if (window.showToast) showToast('Permintaan disetujui', 'success');
-                closeModal('bbm-approveModal'); clearCache(); await loadRequests(true);
-            } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+            const res = await callAPI({ action: 'updateVoucherRequest', id: currentApproveId, status: 'APPROVED', kode_voucher: kode, nominal_disetujui: nominal });
+            if (res?.success) { if (window.showToast) showToast('Permintaan disetujui!', 'success'); closeModal('bbm-approveModal'); clearCache(); await loadRequests(true); }
+            else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
         } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); }
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
@@ -444,43 +593,262 @@
     // ── Quick Reject ──────────────────────────────────────────
     window.bbmQuickReject = (id, btnEl) => {
         showConfirmModal({
-            icon: '❌',
-            title: 'Tolak Permintaan Voucher BBM?',
+            icon: '❌', title: 'Tolak Permintaan Voucher BBM?',
             message: 'Permintaan voucher BBM ini akan ditolak.',
-            confirmText: 'Ya, Tolak',
-            confirmClass: 'btn-warning',
+            confirmText: 'Ya, Tolak', confirmClass: 'btn-warning',
         }, async () => {
             const orig = btnEl ? btnEl.innerHTML : null;
             if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
             try {
                 const res = await callAPI({ action: 'updateVoucherRequest', id, status: 'REJECTED' });
-                if (res?.success) {
-                    if (window.showToast) showToast('Permintaan ditolak', 'success');
-                    clearCache(); await loadRequests(true);
-                } else {
-                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
-                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-                }
-            } catch (e) {
-                if (window.showToast) showToast('Error: ' + e.message, 'error');
-                if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-            }
+                if (res?.success) { if (window.showToast) showToast('Permintaan ditolak', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res?.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+            } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
         });
     };
 
-    // ── Edit Request (all fields editable) ────────────────────
+    // ── Complete Modal ────────────────────────────────────────
+    window.bbmOpenComplete = (id) => {
+        currentCompleteId = id;
+        // Reset state foto
+        selectedBuktiFotoFile = null;
+        selectedBuktiFotoBase64 = null;
+
+        const req = masterRequests.find(r => String(r.id) === String(id));
+        const infoEl = document.getElementById('bbm-complete-req-info');
+        if (infoEl && req) {
+            infoEl.innerHTML = `
+                <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:13px;">
+                    <div style="flex:1;min-width:140px;">
+                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Pegawai</div>
+                        <div style="font-weight:600;color:#1e293b;">${req.nama_pegawai || '-'}</div>
+                        <div style="color:#64748b;font-size:12px;">${req.unit_eselon || '-'}</div>
+                    </div>
+                    <div style="flex:1;min-width:140px;">
+                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Kendaraan</div>
+                        <div style="font-weight:700;color:#1e293b;font-family:monospace;">${req.nomor_kendaraan || '-'}</div>
+                    </div>
+                    <div style="flex:1;min-width:140px;">
+                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Kode Voucher</div>
+                        <div style="font-weight:700;color:#1e293b;font-family:monospace;letter-spacing:0.1em;">${req.kode_voucher || '—'}</div>
+                    </div>
+                    <div style="flex:1;min-width:140px;">
+                        <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Nominal Disetujui</div>
+                        <div style="font-weight:700;color:#1e293b;">${formatRupiah(req.nominal_disetujui)}</div>
+                    </div>
+                </div>`;
+        }
+
+        // Reset UI file
+        const fileInput = document.getElementById('bbm-complete-foto');
+        const preview = document.getElementById('bbm-complete-foto-preview');
+        const fileInfo = document.getElementById('bbm-complete-foto-info');
+        const fileError = document.getElementById('bbm-complete-foto-error');
+        const progressBar = document.getElementById('bbm-complete-progress');
+        if (fileInput) fileInput.value = '';
+        if (preview) { preview.style.display = 'none'; document.getElementById('bbm-complete-foto-img').src = ''; }
+        if (fileInfo) fileInfo.textContent = '';
+        if (fileError) { fileError.style.display = 'none'; fileError.textContent = ''; }
+        if (progressBar) progressBar.style.display = 'none';
+
+        openModal('bbm-completeModal');
+    };
+
+    // ── Handle file pilih — sama persis seperti monev ─────────
+    window.bbmHandleCompleteFile = async (input) => {
+        const file = input.files[0];
+        const info = document.getElementById('bbm-complete-foto-info');
+        const errEl = document.getElementById('bbm-complete-foto-error');
+        const preview = document.getElementById('bbm-complete-foto-preview');
+        const previewImg = document.getElementById('bbm-complete-foto-img');
+
+        // Reset state sebelumnya
+        selectedBuktiFotoFile = null;
+        selectedBuktiFotoBase64 = null;
+        if (info) info.textContent = '';
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+        if (preview) preview.style.display = 'none';
+
+        if (!file) return;
+
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+        if (!allowed.includes(file.type)) {
+            if (errEl) { errEl.textContent = '❌ Format tidak didukung. Gunakan JPG, PNG, WEBP, atau PDF.'; errEl.style.display = 'block'; }
+            input.value = ''; return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            if (errEl) { errEl.textContent = `❌ Ukuran terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maks 10 MB.`; errEl.style.display = 'block'; }
+            input.value = ''; return;
+        }
+
+        // Tampilkan preview gambar
+        if (preview && previewImg && file.type.startsWith('image/')) {
+            previewImg.src = URL.createObjectURL(file);
+            preview.style.display = 'block';
+        }
+
+        if (info) info.textContent = 'Membaca file...';
+
+        try {
+            // ── KUNCI: await FileReader tuntas dulu baru simpan ke state ──
+            // Sama persis dengan mnvReadFileAsBase64 di monev.js
+            const base64 = await bbmReadFileAsBase64(file);
+            selectedBuktiFotoFile = file;
+            selectedBuktiFotoBase64 = base64; // ← hasil await yang benar
+            const sizeKB = Math.round((base64.length * 3 / 4) / 1024);
+            if (info) info.textContent = `✅ ${file.name} (±${sizeKB} KB siap upload)`;
+        } catch (e) {
+            if (errEl) { errEl.textContent = '❌ Gagal membaca file: ' + e.message; errEl.style.display = 'block'; }
+            selectedBuktiFotoFile = null;
+            selectedBuktiFotoBase64 = null;
+        }
+    };
+
+    // ── Batalkan file yang dipilih ─────────────────────────────
+    window.bbmCancelFotoFile = () => {
+        selectedBuktiFotoFile = null;
+        selectedBuktiFotoBase64 = null;
+        const fileInput = document.getElementById('bbm-complete-foto');
+        const preview = document.getElementById('bbm-complete-foto-preview');
+        const info = document.getElementById('bbm-complete-foto-info');
+        const errEl = document.getElementById('bbm-complete-foto-error');
+        if (fileInput) fileInput.value = '';
+        if (preview) { preview.style.display = 'none'; document.getElementById('bbm-complete-foto-img').src = ''; }
+        if (info) info.textContent = '';
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    };
+
+    // ── Set progress bar ───────────────────────────────────────
+    function bbmSetProgress(pct, label) {
+        const wrap = document.getElementById('bbm-complete-progress');
+        const fill = document.getElementById('bbm-complete-progress-fill');
+        const lbl = document.getElementById('bbm-complete-progress-label');
+        if (wrap) wrap.style.display = 'block';
+        if (fill) fill.style.width = pct + '%';
+        if (lbl) lbl.textContent = label;
+    }
+    function bbmHideProgress() {
+        const wrap = document.getElementById('bbm-complete-progress');
+        const fill = document.getElementById('bbm-complete-progress-fill');
+        if (wrap) wrap.style.display = 'none';
+        if (fill) fill.style.width = '0%';
+    }
+
+    // ── Confirm Complete — SAMA PERSIS seperti mnvSubmitInputNilai ──
+    window.bbmConfirmComplete = async () => {
+        const btn = document.getElementById('bbm-confirm-complete-btn');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
+
+        try {
+            let fotoUrl = '';
+
+            if (selectedBuktiFotoFile) {
+                // ── Step 1: Pastikan base64 sudah tersedia (dari bbmHandleCompleteFile) ──
+                // Kalau somehow kosong (edge case), baca ulang
+                let base64ToSend = selectedBuktiFotoBase64;
+                if (!base64ToSend) {
+                    btn.innerHTML = '<span class="spinner spinner-sm"></span> Membaca file...';
+                    bbmSetProgress(10, 'Membaca file...');
+                    base64ToSend = await bbmReadFileAsBase64(selectedBuktiFotoFile);
+                }
+
+                btn.innerHTML = '<span class="spinner spinner-sm"></span> Mengupload foto...';
+                bbmSetProgress(30, 'Mengupload foto ke Drive...');
+
+                // Ambil data kendaraan dan bulan dari request
+                const req = masterRequests.find(r => String(r.id) === String(currentCompleteId));
+                const nomorKendaraan = req?.nomor_kendaraan || '';
+
+                // Ambil bulan dari tgl_pengambilan
+                let bulanReq = MONTHS_ID[new Date().getMonth() + 1];
+                if (req?.tgl_pengambilan) {
+                    const parts = req.tgl_pengambilan.split('-');
+                    if (parts.length === 3) {
+                        const bulanIdx = parseInt(parts[0].length === 4 ? parts[1] : parts[1]);
+                        if (bulanIdx >= 1 && bulanIdx <= 12) bulanReq = MONTHS_ID[bulanIdx];
+                    }
+                }
+
+                const ext = selectedBuktiFotoFile.name.split('.').pop().toLowerCase() || 'jpg';
+                const fileName = `BUKTI_BBM_${currentCompleteId}_${Date.now()}.${ext}`;
+
+                // ── Step 2: POST ke doPost via callAPIPost — sama seperti monev ──
+                try {
+                    const uploadRes = await callAPIPost({
+                        action: 'uploadVoucherPhoto',
+                        fileData: base64ToSend,          // ← base64 dari await, bukan state lama
+                        fileName: fileName,
+                        mimeType: selectedBuktiFotoFile.type,
+                        nomor_kendaraan: nomorKendaraan,
+                        bulan: bulanReq
+                    });
+
+                    console.log('[BBM Complete] Upload response:', uploadRes);
+                    bbmSetProgress(80, 'Foto berhasil diupload...');
+
+                    if (uploadRes && uploadRes.success && uploadRes.fileUrl) {
+                        fotoUrl = uploadRes.fileUrl;
+                    } else {
+                        console.warn('[BBM Upload] Gagal:', uploadRes?.message);
+                        if (window.showToast) showToast('Upload foto gagal (' + (uploadRes?.message || 'tidak ada response') + '). Data tetap disimpan tanpa foto.', 'error');
+                    }
+                } catch (uploadErr) {
+                    console.warn('[BBM Upload] Error:', uploadErr.message);
+                    if (window.showToast) showToast('Upload foto error: ' + uploadErr.message + '. Data disimpan tanpa foto.', 'error');
+                }
+            }
+
+            // ── Step 3: Tandai COMPLETED via JSONP (GET) — sama seperti sebelumnya ──
+            btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan status...';
+            bbmSetProgress(90, 'Menyimpan status ke spreadsheet...');
+
+            const res = await callAPI({
+                action: 'completeVoucherRequest',
+                id: currentCompleteId,
+                link_foto_bukti: fotoUrl
+            });
+
+            bbmSetProgress(100, 'Selesai!');
+
+            if (res && (res.success || res.status === 'success')) {
+                const msg = fotoUrl
+                    ? '✅ Berhasil! Foto terupload dan data tersimpan.'
+                    : '✅ Berhasil! Data tersimpan (tanpa foto).';
+                if (window.showToast) showToast(msg, 'success');
+                closeModal('bbm-completeModal');
+                // Reset state
+                selectedBuktiFotoFile = null;
+                selectedBuktiFotoBase64 = null;
+                clearCache();
+                await loadRequests(true);
+            } else {
+                throw new Error(res?.message || 'Server gagal menyimpan status COMPLETED');
+            }
+
+        } catch (e) {
+            if (window.showToast) showToast('Error: ' + e.message, 'error');
+            console.error('[BBM Complete]', e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            bbmHideProgress();
+        }
+    };
+
+    // ── Edit Request ──────────────────────────────────────────
     window.bbmOpenEdit = (id) => {
         const req = masterRequests.find(r => String(r.id) === String(id));
         if (!req) return;
         currentEditId = id;
-        // Tampilkan info request di panel
         const infoEl = document.getElementById('bbm-edit-req-info');
         if (infoEl) {
             infoEl.innerHTML = `
                 <div style="display:flex;flex-direction:column;gap:6px;">
-                    <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;white-space:nowrap;">Pegawai</span><span style="font-weight:600;color:#1e293b;text-align:right;">${req.nama_pegawai || '-'}</span></div>
-                    <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;white-space:nowrap;">Unit</span><span style="color:#475569;text-align:right;">${req.unit_eselon || '-'}</span></div>
-                    <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;white-space:nowrap;">Kendaraan</span><span style="font-family:monospace;font-weight:600;">${req.nomor_kendaraan || '-'}</span></div>
+                    <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;">Pegawai</span><span style="font-weight:600;color:#1e293b;text-align:right;">${req.nama_pegawai || '-'}</span></div>
+                    <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;">Unit</span><span style="color:#475569;text-align:right;">${req.unit_eselon || '-'}</span></div>
+                    <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;">Kendaraan</span><span style="font-family:monospace;font-weight:600;">${req.nomor_kendaraan || '-'}</span></div>
                 </div>`;
         }
         const statusEl = document.getElementById('bbm-edit-status');
@@ -493,15 +861,10 @@
         const orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
         try {
-            const res = await callAPI({
-                action: 'updateVoucherRequest',
-                id: currentEditId,
-                status: document.getElementById('bbm-edit-status')?.value || 'PENDING'
-            });
-            if (res?.success) {
-                if (window.showToast) showToast('Status berhasil diperbarui!', 'success');
-                closeModal('bbm-editModal'); clearCache(); await loadRequests(true);
-            } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+            const newStatus = document.getElementById('bbm-edit-status')?.value || 'PENDING';
+            const res = await callAPI({ action: 'updateVoucherRequest', id: currentEditId, status: newStatus });
+            if (res?.success) { if (window.showToast) showToast('Status berhasil diperbarui!', 'success'); closeModal('bbm-editModal'); clearCache(); await loadRequests(true); }
+            else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
         } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); }
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
@@ -509,27 +872,17 @@
     // ── Delete Request ────────────────────────────────────────
     window.bbmDeleteRequest = (id, btnEl) => {
         showConfirmModal({
-            icon: '🗑️',
-            title: 'Hapus Permintaan?',
+            icon: '🗑️', title: 'Hapus Permintaan?',
             message: 'Permintaan voucher BBM ini akan dihapus permanen. <span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>',
-            confirmText: 'Ya, Hapus',
-            confirmClass: 'btn-danger',
+            confirmText: 'Ya, Hapus', confirmClass: 'btn-danger',
         }, async () => {
             const orig = btnEl ? btnEl.innerHTML : null;
             if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
             try {
                 const res = await callAPI({ action: 'deleteVoucherRequest', id });
-                if (res?.success) {
-                    if (window.showToast) showToast('Data berhasil dihapus', 'success');
-                    clearCache(); await loadRequests(true);
-                } else {
-                    if (window.showToast) showToast(res?.message || 'Gagal', 'error');
-                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-                }
-            } catch (e) {
-                if (window.showToast) showToast('Error: ' + e.message, 'error');
-                if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-            }
+                if (res?.success) { if (window.showToast) showToast('Data berhasil dihapus', 'success'); clearCache(); await loadRequests(true); }
+                else { if (window.showToast) showToast(res?.message || 'Gagal', 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
+            } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
         });
     };
 
@@ -540,11 +893,7 @@
         setCurrentMonth('bbm-filter-bulan-viol');
         if (!forceRefresh) {
             const cached = getFromCache(CACHE_KEYS.VIOLATIONS);
-            if (cached) {
-                masterViolations = sortByNewestId(cached);
-                window.bbmApplyViolFilter();
-                showCacheIndicator(); return;
-            }
+            if (cached) { masterViolations = sortByNewestId(cached); window.bbmApplyViolFilter(); showCacheIndicator(); return; }
         }
         const tbody = document.getElementById('bbm-violations-tbody');
         if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#64748b;">Memuat data...</p></td></tr>';
@@ -555,7 +904,7 @@
             masterViolations = sortByNewestId(rawData);
             window.bbmApplyViolFilter();
         } catch (e) {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data. <button onclick="bbmLoadViolations(true)" class="btn btn-sm" style="margin-left:8px;">Coba Lagi</button></td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;">Gagal memuat data.</td></tr>`;
             if (window.showToast) showToast('Gagal memuat catatan: ' + e.message, 'error');
         }
     }
@@ -568,7 +917,6 @@
         violationsCurrentPage = 1; renderPaginatedViolations();
     };
 
-    // Resolve violation by safe-encoded key (mirrors ruang-rapat resolveViol pattern)
     function resolveViol(safeId) {
         try {
             const key = JSON.parse(decodeURIComponent(safeId));
@@ -610,23 +958,19 @@
         if (cards) cards.innerHTML = items.map(v => {
             const safeV = encodeURIComponent(JSON.stringify({ id: v.id, bulan: v.bulan, unit: v.unit }));
             return `<div class="violation-card">
-                <div class="violation-card-header">
-                    <div>
-                        <div class="violation-card-title">${v.unit || '—'}</div>
-                        <div class="violation-card-subtitle">Bulan ${v.bulan || '—'}</div>
-                    </div>
-                </div>
+                <div class="violation-card-header"><div>
+                    <div class="violation-card-title">${v.unit || '—'}</div>
+                    <div class="violation-card-subtitle">Bulan ${v.bulan || '—'}</div>
+                </div></div>
                 <div class="violation-card-body">
                     <div class="violation-card-item"><div class="violation-card-label">Tgl Pengambilan</div><div class="violation-card-value">${normalizeDisplayDate(v.tanggal_pengambilan)}</div></div>
                     <div class="violation-card-item"><div class="violation-card-label">Tgl Pengembalian</div><div class="violation-card-value">${normalizeDisplayDate(v.tanggal_pengembalian)}</div></div>
                     <div class="violation-card-item" style="grid-column:1/-1"><div class="violation-card-label">No. Kendaraan</div><div class="violation-card-value" style="font-family:monospace;">${v.nomor_kendaraan || '—'}</div></div>
                 </div>
-                <div class="violation-card-footer">
-                    <div class="action-buttons" style="justify-content:flex-end;"><div class="btn-icon-group">
-                        <button onclick="bbmOpenEditViol('${safeV}')" class="btn-icon btn-icon-edit">${ICONS.edit}</button>
-                        <button onclick="bbmDeleteViol('${safeV}', this)" class="btn-icon btn-icon-delete">${ICONS.trash}</button>
-                    </div></div>
-                </div>
+                <div class="violation-card-footer"><div class="action-buttons" style="justify-content:flex-end;"><div class="btn-icon-group">
+                    <button onclick="bbmOpenEditViol('${safeV}')" class="btn-icon btn-icon-edit">${ICONS.edit}</button>
+                    <button onclick="bbmDeleteViol('${safeV}', this)" class="btn-icon btn-icon-delete">${ICONS.trash}</button>
+                </div></div></div>
             </div>`;
         }).join('');
 
@@ -641,7 +985,6 @@
         violationsCurrentPage = page; renderPaginatedViolations();
     };
 
-    // ── Violation source toggle ───────────────────────────────
     window.bbmSetViolSource = (src) => {
         violationSource = src;
         document.getElementById('bbm-vsrc-approved').style.display = src === 'approved' ? 'block' : 'none';
@@ -651,17 +994,13 @@
         if (src === 'approved') renderApprovedReqList();
     };
 
-    // ── Approved request list (mirrors ruang-rapat) ───────────
     function renderApprovedReqList(filter = '') {
         const list = document.getElementById('bbm-approved-req-list'); if (!list) return;
         const approved = masterRequests.filter(r => (r.status || '').toUpperCase() === 'APPROVED');
         const filtered = filter
             ? approved.filter(r => `${r.nama_pegawai} ${r.unit_eselon} ${r.nomor_kendaraan || ''}`.toLowerCase().includes(filter.toLowerCase()))
             : approved;
-        if (!filtered.length) {
-            list.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;font-size:13px;">Tidak ada permintaan yang disetujui</div>';
-            return;
-        }
+        if (!filtered.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;font-size:13px;">Tidak ada permintaan yang disetujui</div>'; return; }
         list.innerHTML = filtered.map(r => `
             <div class="req-pick-item ${selectedApprovedReq?.id === r.id ? 'selected' : ''}" onclick="bbmSelectApproved('${r.id}')">
                 <div class="req-pick-check">${selectedApprovedReq?.id === r.id ? ICONS.check : ''}</div>
@@ -681,29 +1020,23 @@
         const info = document.getElementById('bbm-selected-req-info');
         const detail = document.getElementById('bbm-selected-req-detail');
         if (info) info.style.display = 'block';
-        if (detail) {
-            detail.innerHTML = `<strong>${selectedApprovedReq.nama_pegawai}</strong> — ${selectedApprovedReq.unit_eselon} — <span style="font-family:monospace;background:#f1f5f9;padding:1px 6px;border-radius:3px;">${selectedApprovedReq.nomor_kendaraan || '-'}</span>`;
-        }
-        // Auto-set kendaraan dropdown
+        if (detail) detail.innerHTML = `<strong>${selectedApprovedReq.nama_pegawai}</strong> — ${selectedApprovedReq.unit_eselon} — <span style="font-family:monospace;background:#f1f5f9;padding:1px 6px;border-radius:3px;">${selectedApprovedReq.nomor_kendaraan || '-'}</span>`;
         const kendaraanSel = document.getElementById('bbm-viol-no-kendaraan');
         if (kendaraanSel && selectedApprovedReq.nomor_kendaraan) {
-            const plat = (selectedApprovedReq.nomor_kendaraan || '').trim();
-            let matched = false;
+            const plat = (selectedApprovedReq.nomor_kendaraan || '').trim().toUpperCase();
+            let found = false;
             for (let i = 0; i < kendaraanSel.options.length; i++) {
-                if (kendaraanSel.options[i].value.toLowerCase() === plat.toLowerCase()) {
-                    kendaraanSel.selectedIndex = i; matched = true; break;
-                }
+                if (kendaraanSel.options[i].value.trim().toUpperCase() === plat) { kendaraanSel.selectedIndex = i; found = true; break; }
             }
-            if (!matched) kendaraanSel.value = '';
+            if (!found) kendaraanSel.value = selectedApprovedReq.nomor_kendaraan;
         }
     };
 
-    // ── Add Violation ─────────────────────────────────────────
     window.bbmOpenAddViol = () => {
         selectedApprovedReq = null;
-        ['bbm-viol-bulan', 'bbm-viol-unit', 'bbm-viol-tgl-ambil', 'bbm-viol-tgl-kembali', 'bbm-viol-no-kendaraan'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.value = '';
-        });
+        ['bbm-viol-bulan', 'bbm-viol-unit', 'bbm-viol-tgl-ambil', 'bbm-viol-tgl-kembali'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        const kendaraanSel = document.getElementById('bbm-viol-no-kendaraan');
+        if (kendaraanSel) kendaraanSel.selectedIndex = 0;
         const srch = document.getElementById('bbm-approved-search'); if (srch) srch.value = '';
         const info = document.getElementById('bbm-selected-req-info'); if (info) info.style.display = 'none';
         if (!masterRequests.length) loadRequests().then(() => renderApprovedReqList());
@@ -716,22 +1049,20 @@
         const btn = document.getElementById('bbm-submit-viol-btn');
         const tglAmbilRaw = document.getElementById('bbm-viol-tgl-ambil')?.value || '';
         const tglKembaliRaw = document.getElementById('bbm-viol-tgl-kembali')?.value || '';
-
         let bulan, unit, noKendaraan;
         if (violationSource === 'approved') {
             if (!selectedApprovedReq) { if (window.showToast) showToast('Pilih permintaan yang disetujui', 'error'); return; }
             if (!tglAmbilRaw) { if (window.showToast) showToast('Tanggal pengambilan harus diisi', 'error'); return; }
             bulan = MONTHS_ID[new Date(tglAmbilRaw + 'T00:00:00').getMonth() + 1];
             unit = selectedApprovedReq.unit_eselon;
-            noKendaraan = selectedApprovedReq.nomor_kendaraan || '-';
+            noKendaraan = (document.getElementById('bbm-viol-no-kendaraan')?.value || '').trim() || selectedApprovedReq.nomor_kendaraan || '-';
         } else {
-            bulan = document.getElementById('bbm-viol-bulan')?.value.trim() || '';
-            unit = document.getElementById('bbm-viol-unit')?.value.trim() || '';
-            noKendaraan = document.getElementById('bbm-viol-no-kendaraan')?.value.trim() || '-';
+            bulan = (document.getElementById('bbm-viol-bulan')?.value || '').trim();
+            unit = (document.getElementById('bbm-viol-unit')?.value || '').trim();
+            noKendaraan = (document.getElementById('bbm-viol-no-kendaraan')?.value || '').trim() || '-';
             if (!bulan || !unit) { if (window.showToast) showToast('Bulan dan unit harus diisi', 'error'); return; }
             if (!tglAmbilRaw) { if (window.showToast) showToast('Tanggal pengambilan harus diisi', 'error'); return; }
         }
-
         const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
         try {
             const res = await callAPI({
@@ -740,48 +1071,35 @@
                 tanggal_pengembalian: tglKembaliRaw ? inputDateToStorage(tglKembaliRaw) : '-',
                 nomor_kendaraan: noKendaraan
             });
-            if (res?.success) {
-                if (window.showToast) showToast('Catatan berhasil ditambahkan!', 'success');
-                closeModal('bbm-addViolModal'); clearCache(); await loadViolations(true);
-            } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
+            if (res?.success) { if (window.showToast) showToast('Catatan berhasil ditambahkan!', 'success'); closeModal('bbm-addViolModal'); clearCache(); await loadViolations(true); }
+            else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
         } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); }
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    // ── Edit Violation (with pindah support, mirrors ruang-rapat) ──
     window.bbmOpenEditViol = (safeV) => {
         const v = resolveViol(safeV);
         if (!v) { if (window.showToast) showToast('Data tidak ditemukan', 'error'); return; }
         currentEditViol = v;
-
-        // Buka modal dulu agar elemen visible dan nilai bisa di-set dengan benar
         openModal('bbm-editViolModal');
-
-        // Helper: set select dengan loop eksplisit agar pasti cocok
         const setSelect = (id, val) => {
-            const el = document.getElementById(id);
-            if (!el || val == null) return;
+            const el = document.getElementById(id); if (!el || val == null) return;
             const v2 = (val || '').toString().trim();
-            // Exact match dulu
             for (let i = 0; i < el.options.length; i++) {
                 if (el.options[i].value === v2) { el.selectedIndex = i; return; }
             }
-            // Loose match (normalize spasi) untuk nomor kendaraan
             const norm = v2.replace(/\s+/g, '').toUpperCase();
             for (let i = 0; i < el.options.length; i++) {
                 if (el.options[i].value.replace(/\s+/g, '').toUpperCase() === norm) { el.selectedIndex = i; return; }
             }
-            el.value = v2; // fallback
+            el.value = v2;
         };
-        const setInput = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-
         setSelect('bbm-ev-bulan', v.bulan);
         setSelect('bbm-ev-unit', v.unit);
         setSelect('bbm-ev-no-kendaraan', v.nomor_kendaraan !== '-' ? v.nomor_kendaraan : '');
+        const setInput = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
         setInput('bbm-ev-tgl-ambil', storageToInputDate(v.tanggal_pengambilan));
         setInput('bbm-ev-tgl-kembali', storageToInputDate(v.tanggal_pengembalian));
-
-        // Simpan nilai asli untuk deteksi pindah
         const bulanEl = document.getElementById('bbm-ev-bulan');
         const unitEl = document.getElementById('bbm-ev-unit');
         if (bulanEl) bulanEl.dataset.original = v.bulan || '';
@@ -792,11 +1110,17 @@
     window.bbmUpdatePindahBadge = () => {
         const badge = document.getElementById('bbm-ev-pindah-badge');
         if (!badge || !currentEditViol) return;
-        const bulanBaru = document.getElementById('bbm-ev-bulan')?.value;
-        const unitBaru = document.getElementById('bbm-ev-unit')?.value;
+        const bulanBaru = document.getElementById('bbm-ev-bulan')?.value || '';
+        const unitBaru = document.getElementById('bbm-ev-unit')?.value || '';
         const bulanLama = document.getElementById('bbm-ev-bulan')?.dataset.original || currentEditViol.bulan;
         const unitLama = document.getElementById('bbm-ev-unit')?.dataset.original || currentEditViol.unit;
         const isPindah = bulanBaru !== bulanLama || unitBaru !== unitLama;
+        if (isPindah) {
+            badge.style.display = 'flex';
+            badge.innerHTML = `⚠️ Data akan dipindahkan dari <strong>${bulanLama} / ${unitLama}</strong> ke <strong>${bulanBaru} / ${unitBaru}</strong>`;
+        } else {
+            badge.style.display = 'none';
+        }
     };
 
     window.bbmSubmitEditViol = async () => {
@@ -805,51 +1129,41 @@
         const unitBaru = document.getElementById('bbm-ev-unit')?.value;
         const tglAmbil = document.getElementById('bbm-ev-tgl-ambil')?.value;
         const tglKembali = document.getElementById('bbm-ev-tgl-kembali')?.value;
-        const noKendaraan = document.getElementById('bbm-ev-no-kendaraan')?.value || '-';
+        const noKendaraan = (document.getElementById('bbm-ev-no-kendaraan')?.value || '').trim() || '-';
         if (!bulanBaru || !unitBaru) { if (window.showToast) showToast('Bulan dan unit harus diisi', 'error'); return; }
         if (!tglAmbil) { if (window.showToast) showToast('Tanggal pengambilan harus diisi', 'error'); return; }
-
         const bulanLama = document.getElementById('bbm-ev-bulan')?.dataset.original || currentEditViol.bulan;
         const unitLama = document.getElementById('bbm-ev-unit')?.dataset.original || currentEditViol.unit;
         const isPindah = bulanBaru !== bulanLama || unitBaru !== unitLama;
-
         const btn = document.getElementById('bbm-submit-ev-btn');
         const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan...';
         try {
-            const res = await callAPI({
-                action: 'updateBBMViolation',
-                id: currentEditViol.id,
-                bulan: bulanLama,
-                unit: unitLama,
-                bulan_orig: bulanLama,
-                unit_orig: unitLama,
+            const params = {
+                action: 'updateBBMViolation', id: currentEditViol.id,
+                bulan: bulanLama, unit: unitLama,
                 tanggal_pengambilan: inputDateToStorage(tglAmbil),
                 tanggal_pengembalian: tglKembali ? inputDateToStorage(tglKembali) : '-',
                 nomor_kendaraan: noKendaraan,
-                pindah: isPindah ? '1' : '0',
-                bulan_baru: isPindah ? bulanBaru : undefined,
-                unit_baru: isPindah ? unitBaru : undefined
-            });
+                pindah: isPindah ? '1' : '0'
+            };
+            if (isPindah) { params.bulan_baru = bulanBaru; params.unit_baru = unitBaru; }
+            const res = await callAPI(params);
             if (res?.success) {
                 if (window.showToast) showToast(res.message || 'Catatan berhasil diperbarui!', 'success');
-                closeModal('bbm-editViolModal');
-                currentEditViol = null;
+                closeModal('bbm-editViolModal'); currentEditViol = null;
                 clearCache(); await loadViolations(true);
             } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
         } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); }
         finally { btn.disabled = false; btn.innerHTML = orig; }
     };
 
-    // ── Delete Violation ──────────────────────────────────────
     window.bbmDeleteViol = (safeV, btnEl) => {
         const v = resolveViol(safeV);
         if (!v) { if (window.showToast) showToast('Data tidak ditemukan', 'error'); return; }
         showConfirmModal({
-            icon: '🗑️',
-            title: 'Hapus Catatan Pelanggaran?',
+            icon: '🗑️', title: 'Hapus Catatan Pelanggaran?',
             message: `Unit: <strong>${v.unit}</strong><br>Bulan: <strong>${v.bulan}</strong><br><br><span style="color:#ef4444;font-weight:600;">Tindakan ini tidak dapat dibatalkan.</span>`,
-            confirmText: 'Ya, Hapus',
-            confirmClass: 'btn-danger',
+            confirmText: 'Ya, Hapus', confirmClass: 'btn-danger',
         }, async () => {
             const orig = btnEl ? btnEl.innerHTML : null;
             if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>'; }
@@ -862,43 +1176,12 @@
                     if (window.showToast) showToast(res?.message || 'Gagal', 'error');
                     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
                 }
-            } catch (e) {
-                if (window.showToast) showToast('Error: ' + e.message, 'error');
-                if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
-            }
+            } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; } }
         });
     };
 
-    // ── Export ────────────────────────────────────────────────
     window.bbmExportViol = () => {
-        showConfirmModal({
-            icon: '📤',
-            title: 'Export Catatan Pelanggaran?',
-            message: 'Data catatan pelanggaran BBM akan diexport ke sheet baru di spreadsheet.',
-            confirmText: 'Ya, Export',
-            confirmClass: 'btn-primary',
-        }, async () => {
-            if (window.showToast) showToast('Mengekspor...', 'success');
-            try {
-                const res = await callAPI({
-                    action: 'exportBBMViolationsReport',
-                    bulan: document.getElementById('bbm-filter-bulan-viol')?.value || '',
-                    unit: document.getElementById('bbm-filter-unit-viol')?.value || ''
-                });
-                if (res?.success) {
-                    if (window.showToast) showToast(`Berhasil export ${res.recordCount} catatan!`, 'success');
-                    if (res.url) {
-                        showConfirmModal({
-                            icon: '🔗',
-                            title: 'Export Berhasil!',
-                            message: 'Spreadsheet berhasil dibuat. Buka sekarang?',
-                            confirmText: 'Buka Spreadsheet',
-                            confirmClass: 'btn-primary',
-                        }, () => window.open(res.url, '_blank'));
-                    }
-                } else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
-            } catch (e) { if (window.showToast) showToast('Gagal export: ' + e.message, 'error'); }
-        });
+        if (window.showToast) showToast('Fitur export belum tersedia', 'info');
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -906,16 +1189,9 @@
     // ═══════════════════════════════════════════════════════════
     async function loadScores(forceRefresh = false) {
         let bulan = document.getElementById('bbm-filter-score-bulan')?.value || '';
-        if (!bulan) {
-            bulan = MONTHS_ID[new Date().getMonth() + 1];
-            const el = document.getElementById('bbm-filter-score-bulan');
-            if (el) el.value = bulan;
-        }
-        const cacheKey = CACHE_KEYS.SCORES + '_' + (bulan || 'all');
-        if (!forceRefresh && bulan) {
-            const cached = getFromCache(cacheKey);
-            if (cached) { allScores = cached; renderScoresUI(); showCacheIndicator(); return; }
-        }
+        if (!bulan) { bulan = MONTHS_ID[new Date().getMonth() + 1]; const el = document.getElementById('bbm-filter-score-bulan'); if (el) el.value = bulan; }
+        const ck = CACHE_KEYS.SCORES + '_' + (bulan || 'all');
+        if (!forceRefresh && bulan) { const cached = getFromCache(ck); if (cached) { allScores = cached; renderScoresUI(); showCacheIndicator(); return; } }
         const container = document.getElementById('bbm-scores-container');
         if (container) container.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;">Memuat penilaian...</p></div>';
         const chartsGrid = document.getElementById('bbm-charts-grid');
@@ -926,14 +1202,10 @@
             const res = await callAPI({ action: 'getBBMScores', bulan });
             if (res?.success) {
                 allScores = { sanksi: res.sanksiPerPelanggaran, scores: res.scores };
-                if (bulan) saveToCache(cacheKey, allScores);
+                if (bulan) saveToCache(ck, allScores);
                 renderScoresUI();
-            } else {
-                if (container) container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><p style="color:#ef4444;">Gagal memuat penilaian</p></div>';
-            }
-        } catch (e) {
-            if (container) container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><p style="color:#ef4444;">${e.message}</p></div>`;
-        }
+            } else if (container) container.innerHTML = '<div class="empty-state"><p style="color:#ef4444;">Gagal memuat penilaian</p></div>';
+        } catch (e) { if (container) container.innerHTML = `<div class="empty-state"><p style="color:#ef4444;">${e.message}</p></div>`; }
     }
     window.bbmLoadScores = (f) => loadScores(f);
 
@@ -943,7 +1215,6 @@
         const chartsGrid = document.getElementById('bbm-charts-grid');
         const sanksiBox = document.getElementById('bbm-sanksi-box');
         const sanksiVal = document.getElementById('bbm-sanksi-value');
-
         if (allScores.sanksi !== undefined && sanksiBox && sanksiVal) {
             sanksiBox.style.display = 'block';
             sanksiVal.textContent = `${allScores.sanksi} poin per keterlambatan`;
@@ -975,10 +1246,7 @@
             return `<div class="score-card">
                 <div class="score-header">
                     <div><div class="score-unit-name">${score.unit}</div><div class="score-month">Bulan ${score.bulan}</div></div>
-                    <div style="text-align:right;">
-                        <div class="score-value ${cls}">${s.toFixed(2)}</div>
-                        <div style="font-size:12px;color:#64748b;margin-top:4px;">${label}</div>
-                    </div>
+                    <div style="text-align:right;"><div class="score-value ${cls}">${s.toFixed(2)}</div><div style="font-size:12px;color:#64748b;margin-top:4px;">${label}</div></div>
                 </div>
                 <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${barColor};"></div></div>
                 <div class="score-details">
@@ -998,14 +1266,12 @@
         const vlCtx = document.getElementById('bbm-violationChart'); if (!vlCtx) return;
         if (scoreChart) scoreChart.destroy();
         scoreChart = new Chart(scCtx.getContext('2d'), {
-            type: 'bar',
-            data: { labels: units, datasets: [{ label: 'Skor Akhir', data: scores, backgroundColor: scores.map(s => s >= 4.5 ? '#10b981' : s >= 3 ? '#f59e0b' : '#ef4444'), borderRadius: 6 }] },
+            type: 'bar', data: { labels: units, datasets: [{ label: 'Skor Akhir', data: scores, backgroundColor: scores.map(s => s >= 4.5 ? '#10b981' : s >= 3 ? '#f59e0b' : '#ef4444'), borderRadius: 6 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 5, ticks: { stepSize: 0.5 }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
         });
         if (violationChart) violationChart.destroy();
         violationChart = new Chart(vlCtx.getContext('2d'), {
-            type: 'bar',
-            data: { labels: units, datasets: [{ label: 'Keterlambatan', data: violations, backgroundColor: '#3b82f6', borderRadius: 6 }] },
+            type: 'bar', data: { labels: units, datasets: [{ label: 'Keterlambatan', data: violations, backgroundColor: '#3b82f6', borderRadius: 6 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
         });
     }
@@ -1020,44 +1286,42 @@
 
         section.innerHTML = `
 <style>
-/* ─── Shared styles mirroring ruang-rapat ─── */
 .filter-container { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .section-page-header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid #f1f5f9; }
 .section-page-title { font-size:22px; font-weight:700; color:#0f172a; margin-bottom:4px; }
 .section-page-subtitle { font-size:14px; color:#64748b; }
 .vsrc-toggle { display:flex; gap:8px; margin-bottom:14px; }
-
-/* Approved request picker list */
 .req-pick-list { max-height:260px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:12px; }
 .req-pick-item { padding:11px 14px; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; align-items:flex-start; gap:10px; transition:background 0.12s; }
 .req-pick-item:last-child { border-bottom:none; }
 .req-pick-item:hover { background:#eff6ff; }
 .req-pick-item.selected { background:#d1fae5; }
-.req-pick-check { width:18px; height:18px; border-radius:50%; border:2px solid #e5e7eb; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:11px; font-weight:700; margin-top:2px; }
-.req-pick-item.selected .req-pick-check { background:#10b981; border-color:#10b981; color:white; }
-.req-pick-name { font-weight:600; font-size:13.5px; color:#1e293b; }
-.req-pick-meta { font-size:12px; color:#64748b; margin-top:2px; }
-
-/* Score progress bar */
-.score-bar { height:4px; background:#e5e7eb; border-radius:2px; margin-top:10px; overflow:hidden; }
-.score-bar-fill { height:100%; border-radius:2px; transition:width 0.6s ease; }
-
-/* Detail modal shared styles */
-.req-detail-wrap { display:flex; flex-direction:column; gap:14px; }
-.req-detail-status-banner { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; border:1.5px solid; }
-.req-detail-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.req-detail-section { background:#f8fafc; border-radius:10px; padding:14px; border:1px solid #f1f5f9; }
-.req-detail-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; margin-bottom:12px; }
-.req-detail-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.req-pick-check { width:18px;height:18px;border-radius:50%;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;margin-top:2px; }
+.req-pick-item.selected .req-pick-check { background:#10b981;border-color:#10b981;color:white; }
+.req-pick-name { font-weight:600;font-size:13.5px;color:#1e293b; }
+.req-pick-meta { font-size:12px;color:#64748b;margin-top:2px; }
+.score-bar { height:4px;background:#e5e7eb;border-radius:2px;margin-top:10px;overflow:hidden; }
+.score-bar-fill { height:100%;border-radius:2px;transition:width 0.6s ease; }
+.req-detail-wrap { display:flex;flex-direction:column;gap:14px; }
+.req-detail-status-banner { display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;border:1.5px solid; }
+.req-detail-status-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+.req-detail-section { background:#f8fafc;border-radius:10px;padding:14px;border:1px solid #f1f5f9; }
+.req-detail-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:12px; }
+.req-detail-grid-2 { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
 @media(max-width:480px) { .req-detail-grid-2 { grid-template-columns:1fr; } }
-.req-detail-field { display:flex; align-items:flex-start; gap:10px; }
-.req-detail-field-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.req-detail-field-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; }
-.req-detail-field-value { font-size:13.5px; font-weight:600; color:#1e293b; line-height:1.4; }
-
-/* Status column center align */
-#bbm-requests-tbody tr td:nth-child(5), #section-voucher-bbm table thead tr th:nth-child(5) { text-align:center; vertical-align:middle; }
+.req-detail-field { display:flex;align-items:flex-start;gap:10px; }
+.req-detail-field-icon { width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.req-detail-field-label { font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px; }
+.req-detail-field-value { font-size:13.5px;font-weight:600;color:#1e293b;line-height:1.4; }
+.bbm-foto-preview { width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;margin-top:8px; }
+.bbm-upload-zone { border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s; }
+.bbm-upload-zone:hover { border-color:#3b82f6;background:#f8faff; }
+.bbm-progress-wrap { margin-top:10px; }
+.bbm-progress-bar { height:4px;background:#e5e7eb;border-radius:10px;overflow:hidden; }
+.bbm-progress-fill { height:100%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:10px;transition:width 0.3s; }
+.bbm-progress-label { font-size:11px;color:#64748b;margin-top:4px;text-align:right; }
 #bbm-requests-tbody tr { vertical-align:middle; }
+#bbm-requests-tbody tr td:nth-child(6) { text-align:center; }
 </style>
 
 <div class="container">
@@ -1079,12 +1343,13 @@
         </select>
     </div>
 
-    <!-- ═══ TAB 1: PERMINTAAN ═══ -->
+    <!-- TAB 1: PERMINTAAN -->
     <div id="bbm-tab-requests" class="tab-content active">
         <div class="stats-grid">
-            <div class="stat-card" style="border-left:3px solid #64748b;"><div class="stat-label">Total Permintaan</div><div class="stat-value" id="bbm-stat-total">0</div></div>
+            <div class="stat-card" style="border-left:3px solid #64748b;"><div class="stat-label">Total</div><div class="stat-value" id="bbm-stat-total">0</div></div>
             <div class="stat-card" style="border-left:3px solid #10b981;"><div class="stat-label">Disetujui</div><div class="stat-value" id="bbm-stat-approved">0</div></div>
             <div class="stat-card" style="border-left:3px solid #f59e0b;"><div class="stat-label">Menunggu</div><div class="stat-value" id="bbm-stat-pending">0</div></div>
+            <div class="stat-card" style="border-left:3px solid #3b82f6;"><div class="stat-label">Selesai</div><div class="stat-value" id="bbm-stat-completed">0</div></div>
             <div class="stat-card" style="border-left:3px solid #ef4444;"><div class="stat-label">Ditolak</div><div class="stat-value" id="bbm-stat-rejected">0</div></div>
         </div>
         <div class="card">
@@ -1095,17 +1360,26 @@
                         <option value="">Semua Status</option>
                         <option value="PENDING">Menunggu</option>
                         <option value="APPROVED">Disetujui</option>
+                        <option value="COMPLETED">Selesai</option>
                         <option value="REJECTED">Ditolak</option>
                     </select>
-                    <input type="text" class="search-input" id="bbm-search-req" placeholder="Cari Nama / unit..." oninput="bbmApplyFilter()">
+                    <input type="text" class="search-input" id="bbm-search-req" placeholder="Cari Nama / Unit / Plat..." oninput="bbmApplyFilter()">
                     <button onclick="bbmLoadRequests(true)" class="btn btn-sm">${ICONS.refresh} Refresh</button>
                 </div>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr><th>Nama</th><th>Unit / Bidang</th><th>No. Kendaraan</th><th>Waktu Pengajuan</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr>
+                        <th>Nama / Unit</th>
+                        <th>No. Kendaraan</th>
+                        <th>Jenis Voucher</th>
+                        <th>Nominal Diajukan</th>
+                        <th>Tgl Pengambilan</th>
+                        <th style="text-align:center;">Status</th>
+                        <th>Aksi</th>
+                    </tr></thead>
                     <tbody id="bbm-requests-tbody">
-                        <tr><td colspan="6" class="loading"><div class="spinner"></div><p style="margin-top:12px;">Memuat data...</p></td></tr>
+                        <tr><td colspan="7" class="loading"><div class="spinner"></div><p style="margin-top:12px;">Memuat data...</p></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1114,7 +1388,7 @@
         </div>
     </div>
 
-    <!-- ═══ TAB 2: CATATAN PELANGGARAN ═══ -->
+    <!-- TAB 2: CATATAN PELANGGARAN -->
     <div id="bbm-tab-violations" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1140,7 +1414,7 @@
         </div>
     </div>
 
-    <!-- ═══ TAB 3: PENILAIAN ═══ -->
+    <!-- TAB 3: PENILAIAN -->
     <div id="bbm-tab-scores" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1165,14 +1439,13 @@
             </div>
         </div>
     </div>
-</div><!-- /container -->
+</div>
 
-
-<!-- ════════════════ MODALS ════════════════ -->
+<!-- MODALS -->
 
 <!-- DETAIL -->
 <div id="bbm-detailModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
-    <div class="modal" style="max-width:520px;">
+    <div class="modal" style="max-width:580px;">
         <div class="modal-header"><h2 class="modal-title">Detail Permintaan Voucher BBM</h2></div>
         <div class="modal-content" id="bbm-detail-body"></div>
         <div class="modal-footer">
@@ -1183,11 +1456,30 @@
 
 <!-- APPROVE -->
 <div id="bbm-approveModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
-    <div class="modal" style="max-width:480px;">
+    <div class="modal" style="max-width:500px;">
         <div class="modal-header"><h2 class="modal-title" style="display:flex;align-items:center;gap:8px;">${ICONS.check} Setujui Permintaan Voucher BBM</h2></div>
         <div class="modal-content" style="padding:20px;">
-            <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:14px;margin-bottom:16px;" id="bbm-approve-req-info"></div>
-            <div class="alert alert-info">Status akan diubah menjadi <strong>Disetujui</strong>. Pastikan data sudah benar.</div>
+            <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:14px;margin-bottom:18px;" id="bbm-approve-req-info"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label class="input-label">Kode Voucher <span style="color:#ef4444;">*</span>
+                        <span style="font-weight:400;color:#94a3b8;font-size:11px;margin-left:4px;">(3 digit terakhir)</span>
+                    </label>
+                    <input type="text" class="form-input" id="bbm-approve-kode" maxlength="3"
+                        placeholder="mis: 123"
+                        style="font-family:monospace;font-size:18px;font-weight:700;letter-spacing:0.15em;text-align:center;"
+                        oninput="this.value=this.value.replace(/[^0-9A-Za-z]/g,'').toUpperCase()">
+                    <small style="color:#64748b;font-size:11px;margin-top:3px;display:block;">Hanya 3 karakter terakhir dari nomor seri voucher</small>
+                </div>
+                <div class="form-group">
+                    <label class="input-label">Nominal Disetujui <span style="color:#ef4444;">*</span></label>
+                    <input type="text" class="form-input rupiah-input" id="bbm-approve-nominal-display"
+                        placeholder="Contoh: 200.000" autocomplete="off" inputmode="numeric"
+                        oninput="bbmFormatApproveNominal(this)">
+                    <input type="hidden" id="bbm-approve-nominal">
+                    <small style="color:#64748b;font-size:11px;margin-top:3px;display:block;">Nominal yang disetujui dari pengajuan</small>
+                </div>
+            </div>
         </div>
         <div class="modal-footer">
             <button onclick="document.getElementById('bbm-approveModal').style.display='none'" class="btn" style="flex:1;">Batal</button>
@@ -1196,7 +1488,69 @@
     </div>
 </div>
 
-<!-- EDIT REQUEST — hanya status yang bisa diubah -->
+<!-- COMPLETE — diperbarui dengan progress bar dan error display seperti monev -->
+<div id="bbm-completeModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;">${ICONS.checkCircle} Selesaikan Voucher (Pengembalian)</h2>
+        </div>
+        <div class="modal-content" style="padding:20px;">
+            <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:14px;margin-bottom:18px;" id="bbm-complete-req-info"></div>
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1e40af;">
+                ℹ️ Pegawai telah mengembalikan sobekan voucher dan nota SPBU. Upload foto bukti (opsional), lalu klik Selesaikan.
+            </div>
+
+            <!-- Upload zone — sama seperti monev -->
+            <div style="background:#fafafa;border:1.5px dashed #cbd5e1;border-radius:10px;padding:16px;">
+                <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                    📎 Foto Bukti Pengembalian
+                    <span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;">Opsional</span>
+                </div>
+
+                <!-- Zona klik untuk upload -->
+                <label for="bbm-complete-foto" style="display:block;cursor:pointer;">
+                    <input type="file" id="bbm-complete-foto" accept="image/*,.pdf"
+                        style="display:none;"
+                        onchange="bbmHandleCompleteFile(this)">
+                    <div class="bbm-upload-zone">
+                        <div style="font-size:24px;margin-bottom:4px;">📷</div>
+                        <div style="font-size:13px;color:#64748b;"><strong style="color:#3b82f6;">Klik untuk pilih foto</strong></div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">JPG · PNG · WEBP · PDF | Maks 10 MB</div>
+                    </div>
+                </label>
+
+                <!-- Error message -->
+                <div id="bbm-complete-foto-error" style="display:none;font-size:12px;color:#ef4444;margin-top:6px;padding:6px 10px;background:#fee2e2;border-radius:5px;"></div>
+
+                <!-- File info setelah dipilih -->
+                <div id="bbm-complete-foto-info" style="font-size:12px;color:#10b981;margin-top:6px;font-weight:500;"></div>
+
+                <!-- Preview gambar -->
+                <div id="bbm-complete-foto-preview" style="display:none;margin-top:8px;position:relative;">
+                    <img id="bbm-complete-foto-img" class="bbm-foto-preview" alt="Preview foto bukti">
+                    <button onclick="bbmCancelFotoFile()"
+                        style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.5);border:none;color:white;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
+
+                <!-- Progress bar — sama seperti monev -->
+                <div id="bbm-complete-progress" style="display:none;margin-top:10px;" class="bbm-progress-wrap">
+                    <div class="bbm-progress-bar">
+                        <div id="bbm-complete-progress-fill" class="bbm-progress-fill" style="width:0%;"></div>
+                    </div>
+                    <div id="bbm-complete-progress-label" class="bbm-progress-label">Mengupload...</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="document.getElementById('bbm-completeModal').style.display='none'" class="btn" style="flex:1;">Batal</button>
+            <button onclick="bbmConfirmComplete()" class="btn btn-primary" style="flex:1;" id="bbm-confirm-complete-btn">
+                ${ICONS.checkCircle} Selesaikan
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT REQUEST -->
 <div id="bbm-editModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:420px;">
         <div class="modal-header"><h2 class="modal-title">Ubah Status Permintaan</h2></div>
@@ -1207,6 +1561,7 @@
                 <select class="form-input" id="bbm-edit-status">
                     <option value="PENDING">Menunggu</option>
                     <option value="APPROVED">Disetujui</option>
+                    <option value="COMPLETED">Selesai</option>
                     <option value="REJECTED">Ditolak</option>
                 </select>
             </div>
@@ -1227,8 +1582,6 @@
                 <button class="btn btn-sm btn-primary" id="bbm-vsrc-btn-approved" onclick="bbmSetViolSource('approved')">${ICONS.check} Dari Permintaan Disetujui</button>
                 <button class="btn btn-sm" id="bbm-vsrc-btn-manual" onclick="bbmSetViolSource('manual')">${ICONS.plus} Input Manual</button>
             </div>
-
-            <!-- Panel: dari approved -->
             <div id="bbm-vsrc-approved">
                 <div class="alert alert-info" style="margin-bottom:10px;">Pilih permintaan yang sudah disetujui sebagai dasar catatan pelanggaran.</div>
                 <div class="form-group" style="margin-bottom:8px;">
@@ -1242,26 +1595,16 @@
                     <div id="bbm-selected-req-detail" style="font-size:13.5px;"></div>
                 </div>
             </div>
-
-            <!-- Panel: manual -->
             <div id="bbm-vsrc-manual" style="display:none;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div class="form-group">
-                        <label class="input-label">Bulan <span style="color:#ef4444;">*</span></label>
-                        <select class="form-input" id="bbm-viol-bulan">${OPT_BULAN_REQ}</select>
-                    </div>
-                    <div class="form-group">
-                        <label class="input-label">Unit / Bidang <span style="color:#ef4444;">*</span></label>
-                        <select class="form-input" id="bbm-viol-unit">${OPT_UNIT_REQ}</select>
-                    </div>
-                    <div class="form-group" style="grid-column:1/-1;">
-                        <label class="input-label">Nomor Kendaraan</label>
-                        <select class="form-input" id="bbm-viol-no-kendaraan">${OPT_KENDARAAN}</select>
-                    </div>
+                    <div class="form-group"><label class="input-label">Bulan <span style="color:#ef4444;">*</span></label><select class="form-input" id="bbm-viol-bulan">${OPT_BULAN_REQ}</select></div>
+                    <div class="form-group"><label class="input-label">Unit / Bidang <span style="color:#ef4444;">*</span></label><select class="form-input" id="bbm-viol-unit">${OPT_UNIT_REQ}</select></div>
                 </div>
             </div>
-
-            <!-- Date fields (shared) -->
+            <div class="form-group" style="margin-top:14px;">
+                <label class="input-label">Nomor Kendaraan</label>
+                <select class="form-input" id="bbm-viol-no-kendaraan">${OPT_KENDARAAN}</select>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
                 <div class="form-group">
                     <label class="input-label">Tanggal Pengambilan <span style="color:#ef4444;">*</span></label>
@@ -1281,34 +1624,19 @@
     </div>
 </div>
 
-<!-- EDIT VIOLATION (with pindah support) -->
+<!-- EDIT VIOLATION -->
 <div id="bbm-editViolModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal">
         <div class="modal-header"><h2 class="modal-title">Edit Catatan Pelanggaran BBM</h2></div>
         <div class="modal-content">
             <div class="alert alert-info" style="margin-bottom:16px;font-size:13px;">Perubahan bulan atau unit akan memindahkan catatan ke kolom yang sesuai di sheet.</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div class="form-group">
-                    <label class="input-label">Bulan <span style="color:#ef4444;">*</span></label>
-                    <select class="form-input" id="bbm-ev-bulan" onchange="bbmUpdatePindahBadge()">${OPT_BULAN_EDIT}</select>
-                </div>
-                <div class="form-group">
-                    <label class="input-label">Unit / Bidang <span style="color:#ef4444;">*</span></label>
-                    <select class="form-input" id="bbm-ev-unit" onchange="bbmUpdatePindahBadge()">${OPT_UNIT_EDIT}</select>
-                </div>
-                <div class="form-group">
-                    <label class="input-label">Tanggal Pengambilan <span style="color:#ef4444;">*</span></label>
-                    <input type="date" class="form-input" id="bbm-ev-tgl-ambil">
-                </div>
-                <div class="form-group">
-                    <label class="input-label">Tanggal Pengembalian</label>
-                    <input type="date" class="form-input" id="bbm-ev-tgl-kembali">
-                </div>
+                <div class="form-group"><label class="input-label">Bulan <span style="color:#ef4444;">*</span></label><select class="form-input" id="bbm-ev-bulan" onchange="bbmUpdatePindahBadge()">${OPT_BULAN_EDIT}</select></div>
+                <div class="form-group"><label class="input-label">Unit / Bidang <span style="color:#ef4444;">*</span></label><select class="form-input" id="bbm-ev-unit" onchange="bbmUpdatePindahBadge()">${OPT_UNIT_EDIT}</select></div>
+                <div class="form-group"><label class="input-label">Tanggal Pengambilan <span style="color:#ef4444;">*</span></label><input type="date" class="form-input" id="bbm-ev-tgl-ambil"></div>
+                <div class="form-group"><label class="input-label">Tanggal Pengembalian</label><input type="date" class="form-input" id="bbm-ev-tgl-kembali"></div>
                 <div id="bbm-ev-pindah-badge" style="display:none;grid-column:1/-1;padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12px;font-weight:500;align-items:center;gap:6px;"></div>
-                <div class="form-group" style="grid-column:1/-1;">
-                    <label class="input-label">Nomor Kendaraan</label>
-                    <select class="form-input" id="bbm-ev-no-kendaraan">${OPT_KENDARAAN}</select>
-                </div>
+                <div class="form-group" style="grid-column:1/-1;"><label class="input-label">Nomor Kendaraan</label><select class="form-input" id="bbm-ev-no-kendaraan">${OPT_KENDARAAN}</select></div>
             </div>
         </div>
         <div class="modal-footer">

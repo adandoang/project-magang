@@ -583,17 +583,53 @@
                             </select>
                         </div>
                     </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nomor Kendaraan *</label>
+                            <select class="form-control" name="nomor_polisi" required>
+                                <option value="">Pilih Nomor Kendaraan</option>
+                                <!-- Mobil -->
+                                <option value="AB 1027 AV">AB 1027 AV</option>
+                                <option value="AB 1869 UA">AB 1869 UA</option>
+                                <option value="AB 1147 UH">AB 1147 UH</option>
+                                <option value="AB 1340 UH">AB 1340 UH</option>
+                                <option value="AB 1530 UH">AB 1530 UH</option>
+                                <option value="AB 1067 IA">AB 1067 IA</option>
+                                <option value="AB 8018 AI">AB 8018 AI</option>
+                                <option value="AB 67">AB 67</option>
+                                <!-- Motor -->
+                                <option value="AB 2695 UH">AB 2695 UH</option>
+                                <option value="AB 2174 IH">AB 2174 IH</option>
+                                <option value="AB 2198 IH">AB 2198 IH</option>
+                                <option value="AB 2177 IH">AB 2177 IH</option>
+                                <option value="AB 2176 IH">AB 2176 IH</option>
+                                <option value="AB 2175 IH">AB 2175 IH</option>
+                                <option value="AB 2179 IH">AB 2179 IH</option>
+                                <option value="AB 2114 IH">AB 2114 IH</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Jenis Voucher *</label>
+                            <select class="form-control" name="jenis_voucher" required>
+                                <option value="">Pilih Jenis Voucher</option>
+                                <option value="Pertamax">Pertamax</option>
+                                <option value="Pertamax Dex">Pertamax Dex</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="form-group">
-                        <label>Nomor Kendaraan *</label>
-                        <select class="form-control" name="nomor_polisi" required>
-                            <option value="">Pilih Nomor Kendaraan</option>
-                            <option value="AB 1027 AV">AB 1027 AV</option>
-                            <option value="AB 1869 UA">AB 1869 UA</option>
-                            <option value="AB 1147 UH">AB 1147 UH</option>
-                            <option value="AB 1340 UH">AB 1340 UH</option>
-                            <option value="AB 1530 UH">AB 1530 UH</option>
-                            <option value="AB 1067 IA">AB 1067 IA</option>
-                        </select>
+                        <label>Nominal Pengajuan (Rp) *</label>
+                        <input type="text" class="form-control rupiah-input" id="display-nominal-voucher"
+                            placeholder="Contoh: 200.000" autocomplete="off" inputmode="numeric" required
+                            oninput="formatRupiah(this, 'nominal_diajukan')">
+                        <input type="hidden" name="nominal_diajukan" id="nominal_diajukan">
+                        <small style="color: #6b7280; display: block; margin-top: 8px;">Masukkan nominal BBM yang
+                            dibutuhkan</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Alamat Tujuan Lengkap *</label>
+                        <textarea class="form-control" name="alamat_tujuan" rows="3"
+                            placeholder="Masukkan alamat tujuan perjalanan secara lengkap" required></textarea>
                     </div>
                     <button type="submit" id="submit-voucher" class="btn btn-primary btn-block">Kirim Pengajuan</button>
                     <div id="alert-voucher" class="alert alert-success" style="margin-top: 16px;"></div>
@@ -1299,6 +1335,16 @@
                 e.preventDefault();
                 document.getElementById('display-nominal-spj').focus();
                 alert('Nominal SPJ harus diisi dengan angka yang valid.');
+            }
+        });
+
+        // Validasi form voucher BBM
+        document.getElementById('form-voucher').addEventListener('submit', function (e) {
+            const raw = document.getElementById('nominal_diajukan').value;
+            if (!raw || parseInt(raw) <= 0) {
+                e.preventDefault();
+                document.getElementById('display-nominal-voucher').focus();
+                alert('Nominal pengajuan BBM harus diisi dengan angka yang valid.');
             }
         });
     </script>
