@@ -53,21 +53,74 @@
                 "Bidang Kewirausahaan": { totalPengajuan: 0, nominalTepat: 0, hariTerlambat: 0, nilaiTepat: 35.00, sanksi: 0.00, totalNilai: 35.00, catatan: "" },
                 "Bidang Koperasi": { totalPengajuan: 0, nominalTepat: 0, hariTerlambat: 0, nilaiTepat: 35.00, sanksi: 0.00, totalNilai: 35.00, catatan: "" },
                 "Bidang UKM": { totalPengajuan: 0, nominalTepat: 0, hariTerlambat: 0, nilaiTepat: 35.00, sanksi: 0.00, totalNilai: 35.00, catatan: "" },
-                "Bidang Usaha Mikro": { totalPengajuan: 0, nominalTepat: 0, hariTerlambat: 3, nilaiTepat: 12.20, sanksi: 5.70, totalNilai: 17.90, catatan: "Terlambat 3 hari" },
+                "Bidang Usaha Mikro": { totalPengajuan: 0, nominalTepat: 0, hariTerlambat: 0, nilaiTepat: 35.00, sanksi: 0.00, totalNilai: 35.00, catatan: "" },
                 "Sekretariat": { totalPengajuan: 0, nominalTepat: 0, hariTerlambat: 0, nilaiTepat: 35.00, sanksi: 0.00, totalNilai: 35.00, catatan: "" }
             }
         };
         setLocalData(demo);
     })();
 
+    // ── Helpers: jumlah hari sanksi per bulan ─────────────────
+    /**
+     * Mengembalikan jumlah hari sanksi tersedia untuk bulan tertentu.
+     * Rumus: totalHariBulan - 25
+     * Contoh: Januari (31 hari) → 31-25 = 6 hari sanksi
+     *         Februari normal   → 28-25 = 3 hari sanksi
+     *         Februari kabisat  → 29-25 = 4 hari sanksi
+     *         April (30 hari)   → 30-25 = 5 hari sanksi
+     */
+    function getHariSanksi(bulan) {
+        const tahun = new Date().getFullYear();
+        const isKabisat = (tahun % 4 === 0 && tahun % 100 !== 0) || (tahun % 400 === 0);
+        const mapHari = {
+            'JANUARI': 31, 'FEBRUARI': isKabisat ? 29 : 28, 'MARET': 31,
+            'APRIL': 30,   'MEI': 31,   'JUNI': 30,
+            'JULI': 31,    'AGUSTUS': 31, 'SEPTEMBER': 30,
+            'OKTOBER': 31, 'NOVEMBER': 30, 'DESEMBER': 31
+        };
+        const totalHari = mapHari[(bulan || '').toUpperCase()] || 30;
+        return totalHari - 25;
+    }
+
+    /**
+     * Mengembalikan persentase sanksi per hari (dalam bentuk desimal 0–1).
+     * Rumus: 1 / hariSanksi
+     * Contoh: Januari → 1/6 ≈ 16.67% per hari
+     *         Februari → 1/3 ≈ 33.33% per hari
+     *         April    → 1/5 = 20% per hari
+     */
+    function getSanksiPerHari(bulan) {
+        const hariSanksi = getHariSanksi(bulan);
+        return 1 / hariSanksi; // desimal, misal 0.1667 untuk Januari
+    }
+
     // ── Calculations ──────────────────────────────────────────
-    function calcSPJScores(totalPengajuan, nominalTepat, hariTerlambat) {
+    /**
+     * Hitung semua komponen nilai SPJ Keuangan.
+     * @param {number} totalPengajuan  - Total nominal pengajuan dana
+     * @param {number} nominalTepat    - Nominal SPJ yang masuk tepat waktu
+     * @param {number} hariTerlambat   - Jumlah hari keterlambatan
+     * @param {string} bulan           - Nama bulan (misal "JANUARI"), untuk menentukan sanksi/hari
+     * @returns {{ nilaiTepat, sisaBobot, sanksi, totalNilai }}
+     */
+    function calcSPJScores(totalPengajuan, nominalTepat, hariTerlambat, bulan) {
+        // 1. Persentase tepat waktu
         const persen = totalPengajuan > 0 ? (nominalTepat / totalPengajuan) : 1;
+
+        // 2. Nilai tepat waktu = persentase × skor maks
         const nilaiTepat = parseFloat((persen * SKOR_MAX).toFixed(2));
+
+        // 3. Sisa bobot = skor maks − nilai tepat
         const sisaBobot = parseFloat((SKOR_MAX - nilaiTepat).toFixed(2));
-        const sanksiPerHari = 100 / 6;
-        const sanksi = parseFloat((hariTerlambat * (sanksiPerHari / 100) * sisaBobot).toFixed(2));
+
+        // 4. Sanksi per hari dihitung dinamis berdasarkan bulan
+        //    Rumus: (1 / hariSanksiTersedia) × sisaBobot × hariTerlambat
+        const sanksiRatePerHari = getSanksiPerHari(bulan); // misal 1/6 untuk Jan
+        const sanksi = parseFloat((hariTerlambat * sanksiRatePerHari * sisaBobot).toFixed(2));
+
+        // 5. Total nilai = nilaiTepat + (sisaBobot − sanksi), minimal 0
         const totalNilai = Math.max(0, parseFloat((nilaiTepat + (sisaBobot - sanksi)).toFixed(2)));
+
         return { nilaiTepat, sisaBobot, sanksi, totalNilai };
     }
 
@@ -114,16 +167,13 @@
     }
 
     // ── Currency formatting helpers ───────────────────────────
-    // Format angka ke string dengan titik (1000000 → "1.000.000")
     function fmtCurrency(val) {
         if (!val && val !== 0) return '';
         return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
-    // Parse string dengan titik kembali ke angka (hapus titik)
     function parseCurrency(str) {
         return parseFloat(String(str).replace(/\./g, '')) || 0;
     }
-    // Attach currency mask ke sebuah input element
     function attachCurrencyMask(el) {
         if (!el || el._currencyMasked) return;
         el._currencyMasked = true;
@@ -134,15 +184,25 @@
             const caretPos = this.selectionStart;
             const dotsBefore = (this.value.slice(0, caretPos).match(/\./g) || []).length;
             this.value = formatted;
-            // Restore kursor dengan mempertimbangkan titik baru
             const dotsAfter = (formatted.slice(0, caretPos).match(/\./g) || []).length;
             try { this.setSelectionRange(caretPos + dotsAfter - dotsBefore, caretPos + dotsAfter - dotsBefore); } catch (e) { }
         });
     }
 
+    // ── Helper: ambil bulan aktif dari select input ───────────
+    function getBulanInput() {
+        return (document.getElementById('spj-select-bulan-input')?.value || '').toUpperCase();
+    }
+
+    // ── Helper: label sanksi per hari untuk ditampilkan di UI ─
+    function getLabelSanksiPerHari(bulan) {
+        if (!bulan) return '—';
+        const hariSanksi = getHariSanksi(bulan);
+        const pct = (100 / hariSanksi).toFixed(2);
+        return `100%/${hariSanksi} hari ≈ ${pct}%/hari`;
+    }
+
     // ── Tab 1: Input ──────────────────────────────────────────
-    // Renders all units automatically when a month is selected.
-    // Units with existing data show their scores; units without show inline input rows.
     window.spjRenderInputTable = function () {
         const bulan = document.getElementById('spj-select-bulan-input')?.value;
         const tbody = document.getElementById('spj-input-tbody');
@@ -158,7 +218,6 @@
         tbody.innerHTML = UNITS.map(unit => {
             const u = monthData[unit];
             if (!u) {
-                // Unit belum dinilai — tampilkan baris kosong dengan tombol isi nilai
                 return `<tr>
                     <td style="font-weight:500;vertical-align:middle;">${unit}</td>
                     <td style="text-align:center;vertical-align:middle;">${bulan}</td>
@@ -208,11 +267,13 @@
         document.getElementById('spj-input-hari-terlambat').value = u ? u.hariTerlambat : '';
         document.getElementById('spj-input-catatan').value = u ? u.catatan : '';
 
-        // Attach currency mask (idempotent)
+        // Update label sanksi per hari sesuai bulan
+        const sanksiLabel = document.getElementById('spj-sanksi-rate-label');
+        if (sanksiLabel) sanksiLabel.textContent = getLabelSanksiPerHari(bulan);
+
         attachCurrencyMask(totalEl);
         attachCurrencyMask(tepatEl);
 
-        // Clear validation state
         ['spj-input-total', 'spj-input-nominal-tepat', 'spj-input-hari-terlambat'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.borderColor = '';
@@ -225,17 +286,25 @@
     };
 
     window.spjUpdateModalScore = function () {
+        // Ambil bulan aktif — dari label modal (sudah di-set saat openEditModal)
+        const labelText = document.getElementById('spj-modal-bulan-label')?.textContent || '';
+        const bulanMatch = labelText.match(/Bulan:\s*([A-Z]+)/i);
+        const bulan = bulanMatch ? bulanMatch[1].toUpperCase() : getBulanInput();
+
         const total = parseCurrency(document.getElementById('spj-input-total').value);
         const tepat = parseCurrency(document.getElementById('spj-input-nominal-tepat').value);
-        const hari = parseFloat(document.getElementById('spj-input-hari-terlambat').value) || 0;
+        const hari  = parseFloat(document.getElementById('spj-input-hari-terlambat').value) || 0;
 
         // Validasi: jika tepat < total, hari terlambat wajib > 0
-        const hariEl = document.getElementById('spj-input-hari-terlambat');
-        const warnEl = document.getElementById('spj-hari-warning');
+        const hariEl  = document.getElementById('spj-input-hari-terlambat');
+        const warnEl  = document.getElementById('spj-hari-warning');
         const adaSelisih = total > 0 && tepat < total;
         if (adaSelisih && hari === 0) {
             if (hariEl) hariEl.style.borderColor = '#ef4444';
-            if (warnEl) { warnEl.style.display = 'flex'; warnEl.querySelector('span').textContent = `Ada Rp ${fmtCurrency(total - tepat)} yang tidak tepat waktu. Wajib isi hari terlambat!`; }
+            if (warnEl) {
+                warnEl.style.display = 'flex';
+                warnEl.querySelector('span').textContent = `Ada Rp ${fmtCurrency(total - tepat)} yang tidak tepat waktu. Wajib isi hari terlambat!`;
+            }
         } else {
             if (hariEl) hariEl.style.borderColor = '';
             if (warnEl) warnEl.style.display = 'none';
@@ -244,29 +313,35 @@
         const setVals = (nilaiTepat, sisaBobot, sanksi, totalNilai) => {
             document.getElementById('spj-modal-total-nilai').textContent = totalNilai.toFixed(2);
             document.getElementById('spj-modal-nilai-tepat').textContent = nilaiTepat.toFixed(2);
-            document.getElementById('spj-modal-sisa-bobot').textContent = sisaBobot.toFixed(2);
-            document.getElementById('spj-modal-sanksi').textContent = sanksi.toFixed(2);
+            document.getElementById('spj-modal-sisa-bobot').textContent  = sisaBobot.toFixed(2);
+            document.getElementById('spj-modal-sanksi').textContent      = sanksi.toFixed(2);
         };
+
         if (tepat === 0 && total === 0) {
-            if (hari === 0) { setVals(35, 0, 0, 35); }
-            else { const ss = calcSPJScores(1, 1, hari); setVals(ss.nilaiTepat, ss.sisaBobot, ss.sanksi, ss.totalNilai); }
+            if (hari === 0) {
+                setVals(35, 0, 0, 35);
+            } else {
+                // Tidak ada nominal → anggap 100% terlambat (tepat/total = 1 tapi semua terlambat)
+                const ss = calcSPJScores(1, 1, hari, bulan);
+                setVals(ss.nilaiTepat, ss.sisaBobot, ss.sanksi, ss.totalNilai);
+            }
             return;
         }
-        const ss = calcSPJScores(total || tepat, tepat, hari);
+        const ss = calcSPJScores(total || tepat, tepat, hari, bulan);
         setVals(ss.nilaiTepat, ss.sisaBobot, ss.sanksi, ss.totalNilai);
     };
 
     window.spjSubmitInputNilai = async function () {
-        const bulan = document.getElementById('spj-select-bulan-input').value;
-        const unit = document.getElementById('spj-input-unit').value;
+        const bulan  = document.getElementById('spj-select-bulan-input').value;
+        const unit   = document.getElementById('spj-input-unit').value;
         if (!unit) { if (window.showToast) showToast('Pilih unit terlebih dahulu', 'error'); return; }
 
         const totalPengajuan = parseCurrency(document.getElementById('spj-input-total').value);
-        const nominalTepat = parseCurrency(document.getElementById('spj-input-nominal-tepat').value);
-        const hariTerlambat = parseFloat(document.getElementById('spj-input-hari-terlambat').value) || 0;
-        const catatan = document.getElementById('spj-input-catatan').value;
+        const nominalTepat   = parseCurrency(document.getElementById('spj-input-nominal-tepat').value);
+        const hariTerlambat  = parseFloat(document.getElementById('spj-input-hari-terlambat').value) || 0;
+        const catatan        = document.getElementById('spj-input-catatan').value;
 
-        // ── Validasi: ada selisih tapi hari terlambat kosong ──
+        // Validasi: ada selisih tapi hari terlambat kosong
         if (totalPengajuan > 0 && nominalTepat < totalPengajuan && hariTerlambat === 0) {
             const selisih = fmtCurrency(totalPengajuan - nominalTepat);
             if (window.showToast) showToast(`Ada Rp ${selisih} yang tidak tepat waktu. Isi jumlah hari terlambat!`, 'error');
@@ -277,10 +352,14 @@
 
         let nilaiTepat, sanksi, totalNilai, sisaBobot;
         if (totalPengajuan === 0 && nominalTepat === 0) {
-            if (hariTerlambat === 0) { nilaiTepat = 35; sanksi = 0; totalNilai = 35; sisaBobot = 0; }
-            else { const ss = calcSPJScores(1, 1, hariTerlambat); ({ nilaiTepat, sanksi, totalNilai, sisaBobot } = ss); }
+            if (hariTerlambat === 0) {
+                nilaiTepat = 35; sanksi = 0; totalNilai = 35; sisaBobot = 0;
+            } else {
+                const ss = calcSPJScores(1, 1, hariTerlambat, bulan);
+                ({ nilaiTepat, sanksi, totalNilai, sisaBobot } = ss);
+            }
         } else {
-            const ss = calcSPJScores(totalPengajuan || nominalTepat, nominalTepat, hariTerlambat);
+            const ss = calcSPJScores(totalPengajuan || nominalTepat, nominalTepat, hariTerlambat, bulan);
             ({ nilaiTepat, sanksi, totalNilai, sisaBobot } = ss);
         }
 
@@ -294,7 +373,14 @@
         setLocalData(data);
 
         const u = (window.AUTH && window.AUTH.getUser) ? window.AUTH.getUser() || {} : {};
-        try { await callAPI({ action: 'saveSPJKeuangan', bulan, unit, totalPengajuan, nominalTepat, hariTerlambat, nilaiTepat, sanksi, totalNilai, catatan, penilai: u.name || 'Admin' }); } catch (e) { }
+        try {
+            await callAPI({
+                action: 'saveSPJKeuangan', bulan, unit,
+                totalPengajuan, nominalTepat, hariTerlambat,
+                nilaiTepat, sanksi, totalNilai, catatan,
+                penilai: u.name || 'Admin'
+            });
+        } catch (e) { }
 
         document.getElementById('spj-input-unit').disabled = false;
         document.getElementById('spj-inputModal').style.display = 'none';
@@ -323,20 +409,21 @@
     // ── Tab 2: Rekapitulasi ───────────────────────────────────
     function renderRekap() {
         const bulan = document.getElementById('spj-select-bulan-rekap').value;
-        const data = getLocalData();
+        const data  = getLocalData();
         let targetData = {};
-        if (bulan) { targetData[bulan] = data[bulan] || {}; }
-        else {
+        if (bulan) {
+            targetData[bulan] = data[bulan] || {};
+        } else {
             const latestMonth = MONTHS.slice().reverse().find(m => data[m] && Object.keys(data[m]).length > 0);
             if (latestMonth) targetData[latestMonth] = data[latestMonth];
         }
         const currentBulan = bulan || Object.keys(targetData)[0] || '';
-        const monthData = targetData[currentBulan] || {};
-        const tbody = document.getElementById('spj-rekap-tbody');
+        const monthData    = targetData[currentBulan] || {};
+        const tbody        = document.getElementById('spj-rekap-tbody');
         if (!tbody) return;
-        const nilaiTepat = UNITS.map(u => (monthData[u]?.nilaiTepat ?? 0).toFixed(2));
+        const nilaiTepat   = UNITS.map(u => (monthData[u]?.nilaiTepat ?? 0).toFixed(2));
         const nilaiTerlambat = UNITS.map(u => (monthData[u]?.sanksi ?? 0).toFixed(2));
-        const totalNilai = UNITS.map(u => (monthData[u]?.totalNilai ?? 0).toFixed(2));
+        const totalNilai   = UNITS.map(u => (monthData[u]?.totalNilai ?? 0).toFixed(2));
         tbody.innerHTML = `
         <tr>
             <td style="text-align:center;vertical-align:middle;">1</td>
@@ -376,19 +463,30 @@
     }
     window.spjRenderRekap = renderRekap;
 
-    // ── Kalkulator ────────────────────────────────────────────
+    // ── Tab 3: Kalkulator ─────────────────────────────────────
     window.spjRecalculate = function () {
-        const total = parseFloat(document.getElementById('spj-calc-total').value) || 0;
-        const tepat = parseFloat(document.getElementById('spj-calc-tepat').value) || 0;
-        const hari = parseFloat(document.getElementById('spj-calc-terlambat').value) || 0;
+        const total  = parseFloat(document.getElementById('spj-calc-total').value) || 0;
+        const tepat  = parseFloat(document.getElementById('spj-calc-tepat').value) || 0;
+        const hari   = parseFloat(document.getElementById('spj-calc-terlambat').value) || 0;
+        const bulan  = (document.getElementById('spj-calc-bulan')?.value || '').toUpperCase();
+
         if (tepat === 0 && total === 0) return;
+
         const base = total || tepat;
-        const ss = calcSPJScores(base, tepat, hari);
+        const ss   = calcSPJScores(base, tepat, hari, bulan);
         const persen = base > 0 ? ((tepat / base) * 100).toFixed(1) : '100.0';
+
+        // Info sanksi per hari sesuai bulan terpilih
+        const hariSanksi = bulan ? getHariSanksi(bulan) : 6;
+        const pctPerHari = (100 / hariSanksi).toFixed(2);
+        const infoSanksi = bulan
+            ? `(100% ÷ ${hariSanksi} hari = ${pctPerHari}%/hari untuk ${bulan})`
+            : '';
+
         document.getElementById('spj-res-persentase').textContent = `Persentase tepat waktu: ${persen}%`;
         document.getElementById('spj-res-nilai-tepat').textContent = `Nilai tepat waktu: ${ss.nilaiTepat.toFixed(2)}`;
-        document.getElementById('spj-res-sanksi').textContent = `Total sanksi: ${ss.sanksi.toFixed(2)}`;
-        document.getElementById('spj-res-total').textContent = ss.totalNilai.toFixed(2);
+        document.getElementById('spj-res-sanksi').textContent      = `Total sanksi: ${ss.sanksi.toFixed(2)} ${infoSanksi}`;
+        document.getElementById('spj-res-total').textContent       = ss.totalNilai.toFixed(2);
     };
 
     // ═══ HTML Injection & Initialization ════════════════════
@@ -413,7 +511,6 @@
     vertical-align: middle;
     box-sizing: border-box;
     padding: 10px 12px;
-    /* TIDAK overflow:hidden agar tombol aksi tidak terpotong */
 }
 
 /* Kolom input table */
@@ -427,7 +524,6 @@
 #spj-input-table th:nth-child(7), #spj-input-table td:nth-child(7) { width: 12%; text-align: center; }
 #spj-input-table th:nth-child(8), #spj-input-table td:nth-child(8) { width: 8%; text-align: center; white-space: nowrap; }
 
-/* Pastikan action-buttons tidak terpotong */
 #spj-input-table .action-buttons,
 #spj-input-table .btn-icon-group { display: flex; justify-content: center; align-items: center; gap: 4px; }
 #spj-input-table .btn-icon { flex-shrink: 0; }
@@ -578,8 +674,8 @@
             </div>
             <div class="banner-pills">
                 <div class="pill"><div class="pill-dot" style="background:#10b981;"></div>Tepat Waktu: Penuh</div>
-                <div class="pill"><div class="pill-dot" style="background:#f59e0b;"></div>Sanksi: −17%/hari</div>
-                <div class="pill"><div class="pill-dot" style="background:#ef4444;"></div>Maks Denda: 6 Hari</div>
+                <div class="pill"><div class="pill-dot" style="background:#f59e0b;"></div>Sanksi: 100% ÷ (Hari Sanksi Bulan Tsb)</div>
+                <div class="pill"><div class="pill-dot" style="background:#ef4444;"></div>Batas Tepat: tgl 25</div>
             </div>
         </div>
         <div class="grid-2" style="margin-bottom:20px;">
@@ -592,20 +688,45 @@
                         <div style="font-size:12px;color:#64748b;margin-top:8px;">Contoh: 30jt dari 40jt → (30/40) × 35 = <strong style="color:#10b981;">26.25</strong></div>
                     </div>
                     <div class="score-section" style="border-left-color:#ef4444;">
-                        <div class="score-section-title">2. Sanksi Keterlambatan</div>
-                        <div style="font-size:14px;line-height:1.8;color:#475569;">= <strong>100% / 6 hari ≈ 17%</strong> per hari × sisa bobot</div>
-                        <div style="font-size:12px;color:#64748b;margin-top:8px;">Contoh 1 hari terlambat: 17% × 8.75 = <strong style="color:#ef4444;">1.46</strong></div>
+                        <div class="score-section-title">2. Sanksi Keterlambatan (dinamis per bulan)</div>
+                        <div style="font-size:14px;line-height:1.8;color:#475569;">= <strong>(100% ÷ Hari Sanksi Bulan)</strong> per hari × Sisa Bobot × Hari Terlambat</div>
+                        <div style="background:#fef9c3;border-radius:6px;padding:10px;margin-top:8px;font-size:12px;color:#713f12;line-height:1.9;">
+                            <strong>Referensi sanksi per hari:</strong><br>
+                            • Januari, Maret, Mei, Juli, Agustus, Oktober, Desember (31 hr) → 100%/6 ≈ <strong>16.67%/hari</strong><br>
+                            • April, Juni, September, November (30 hr) → 100%/5 = <strong>20%/hari</strong><br>
+                            • Februari normal (28 hr) → 100%/3 ≈ <strong>33.33%/hari</strong><br>
+                            • Februari kabisat (29 hr) → 100%/4 = <strong>25%/hari</strong>
+                        </div>
                     </div>
                     <div class="score-section" style="border-left-color:#10b981;">
                         <div class="score-section-title">3. Total Nilai Akhir</div>
                         <div style="font-size:14px;line-height:1.8;color:#475569;">= Nilai Tepat + (Sisa Bobot − Total Sanksi)</div>
-                        <div style="font-size:12px;color:#64748b;margin-top:8px;">Batas tepat waktu: <strong>sebelum tgl 25</strong> · Periode denda: <strong>tgl 26–30</strong></div>
+                        <div style="font-size:12px;color:#64748b;margin-top:8px;">Batas tepat waktu: <strong>sebelum tgl 25</strong> · Periode sanksi: <strong>tgl 26 s.d. akhir bulan</strong></div>
                     </div>
                 </div>
             </div>
             <div class="card" style="margin:0;">
                 <div class="card-header"><h3 class="card-title">🧮 Kalkulator Nilai SPJ</h3></div>
                 <div class="card-content">
+                    <div class="form-group">
+                        <label class="input-label">Bulan <span style="color:#ef4444;">*</span></label>
+                        <select class="form-input" id="spj-calc-bulan" onchange="spjRecalculate()">
+                            <option value="">Pilih Bulan</option>
+                            <option value="JANUARI">Januari (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                            <option value="FEBRUARI">Februari normal (28 hr → sanksi 100%/3 ≈ 33.33%/hr)</option>
+                            <option value="FEBRUARI_KABISAT">Februari kabisat (29 hr → sanksi 100%/4 = 25%/hr)</option>
+                            <option value="MARET">Maret (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                            <option value="APRIL">April (30 hr → sanksi 100%/5 = 20%/hr)</option>
+                            <option value="MEI">Mei (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                            <option value="JUNI">Juni (30 hr → sanksi 100%/5 = 20%/hr)</option>
+                            <option value="JULI">Juli (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                            <option value="AGUSTUS">Agustus (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                            <option value="SEPTEMBER">September (30 hr → sanksi 100%/5 = 20%/hr)</option>
+                            <option value="OKTOBER">Oktober (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                            <option value="NOVEMBER">November (30 hr → sanksi 100%/5 = 20%/hr)</option>
+                            <option value="DESEMBER">Desember (31 hr → sanksi 100%/6 ≈ 16.67%/hr)</option>
+                        </select>
+                    </div>
                     <div class="form-group"><label class="input-label">Total Pengajuan Dana (Rp)</label><input type="number" class="form-input" id="spj-calc-total" placeholder="Contoh: 40000000" oninput="spjRecalculate()"></div>
                     <div class="form-group"><label class="input-label">Nominal SPJ Tepat Waktu (Rp)</label><input type="number" class="form-input" id="spj-calc-tepat" placeholder="Contoh: 30000000" oninput="spjRecalculate()"></div>
                     <div class="form-group"><label class="input-label">Jumlah Hari Terlambat</label><input type="number" class="form-input" id="spj-calc-terlambat" placeholder="0 jika tepat waktu" min="0" max="30" oninput="spjRecalculate()"></div>
@@ -660,15 +781,18 @@
                 </div>
             </div>
             <div class="score-section" style="border-left-color:#ef4444;">
-                <div class="score-section-title">Komponen 2: SPJ Terlambat (tgl 26–30)</div>
+                <div class="score-section-title">Komponen 2: SPJ Terlambat (tgl 26 s.d. akhir bulan)</div>
                 <div class="form-group" style="margin:0;">
                     <label class="input-label">Jumlah Hari Terlambat <span style="color:#ef4444;font-size:11px;" id="spj-hari-required-mark"></span></label>
                     <input type="number" class="form-input" id="spj-input-hari-terlambat" placeholder="0 jika tidak ada keterlambatan" min="0" max="6" oninput="spjUpdateModalScore()">
-                    <div style="font-size:12px;color:#64748b;margin-top:4px;">Sanksi per hari = 100%/6 ≈ 17% × sisa nilai bobot</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:4px;" id="spj-sanksi-rate-label">
+                        Sanksi per hari = 100% ÷ hari sanksi bulan ini
+                    </div>
                     <div id="spj-hari-warning">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                         <span></span>
                     </div>
+                </div>
             </div>
             <div class="score-preview">
                 <div class="score-preview-title">TOTAL NILAI</div>
@@ -700,7 +824,6 @@
             }
         });
 
-        // Attach currency mask ke input Rp di modal
         attachCurrencyMask(document.getElementById('spj-input-total'));
         attachCurrencyMask(document.getElementById('spj-input-nominal-tepat'));
 
