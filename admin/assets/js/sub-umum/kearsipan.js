@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfAJcjPDuKqwKk8A46z4quyaeV9trBLAuDtdqhQqX0CIZke6fgN1sptcnS0EURuF6ksg/exec';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwjJwYtLjnhZ__smIDfVkLJTpu_m3rqvg4Sy1TSfyXvwA6_2FKrXGFgMUi4_MSMefpvtg/exec';
     const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
     let masterDocuments = [], allDocuments = [];

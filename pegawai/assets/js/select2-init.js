@@ -141,8 +141,8 @@ function createAutocomplete(targetId) {
         // Kalau ada nilai terpilih, scroll ke item itu
         if ($select.value) {
             const allItems = list.querySelectorAll('.ac-item');
-            allItems.forEach(function (el, i) {
-                if (el.textContent === $select.value || el.getAttribute('data-value') === $select.value) {
+            allItems.forEach(function (el) {
+                if (el.textContent === $select.value) {
                     el.classList.add('ac-selected');
                     el.scrollIntoView({ block: 'nearest' });
                 }
@@ -158,7 +158,17 @@ function createAutocomplete(targetId) {
 
     function selectItem(value) {
         input.value = value;
+
+        // Sync ke <select> asli — pastikan option ada, atau buat sementara
+        let opt = $select.querySelector('option[value="' + value.replace(/"/g, '\\"') + '"]');
+        if (!opt) {
+            opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = value;
+            $select.appendChild(opt);
+        }
         $select.value = value;
+
         input.classList.remove('ac-invalid');
         closeList();
         $select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -283,9 +293,12 @@ function initAllAutocomplete() {
         });
     }
 
+    // Init semua field sub kegiatan — termasuk Dana Bersama
     createAutocomplete('sub-kegiatan-spj');
     createAutocomplete('sub-kegiatan-dana');
-    console.log('✅ Custom autocomplete initialized');
+    createAutocomplete('sub-kegiatan-dana-bersama'); // ← TAMBAHAN untuk Dana Bersama
+
+    console.log('✅ Custom autocomplete initialized (spj, dana, dana-bersama)');
 }
 
 document.addEventListener('DOMContentLoaded', function () {

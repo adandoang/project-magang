@@ -7,15 +7,15 @@
 
 const ANGGARAN_GAS_URL = "https://script.google.com/macros/s/AKfycbxoYIwpRZizipn0TD84nNeoqld570-85UlnL6jBdXbbu-GVNwoEK712P7yB1e03SSU0EQ/exec";
 
-let allDana           = [];
+let allDana = [];
 let currentDanaFilter = 'ALL';
-let danaCurrentPage   = 1;
-let danaPageSize      = 10;
-let danaDisplayData   = [];
+let danaCurrentPage = 1;
+let danaPageSize = 10;
+let danaDisplayData = [];
 
 // ★ State untuk modal edit
-let editDanaItem      = null;
-let editDanaNewFile   = null;
+let editDanaItem = null;
+let editDanaNewFile = null;
 
 // ============================================
 // INJECT STYLES
@@ -499,7 +499,7 @@ let editDanaNewFile   = null;
     document.body.appendChild(modal);
 
     // Tutup modal saat klik overlay
-    modal.addEventListener('click', function(e) {
+    modal.addEventListener('click', function (e) {
         if (e.target === modal) closeDanaEditModal();
     });
 })();
@@ -508,7 +508,7 @@ let editDanaNewFile   = null;
 // PAGE SIZE
 // ============================================
 function changeDanaPageSize(val) {
-    danaPageSize    = parseInt(val) || 10;
+    danaPageSize = parseInt(val) || 10;
     danaCurrentPage = 1;
     renderDanaTable(danaDisplayData, 1);
 }
@@ -517,7 +517,7 @@ function changeDanaPageSize(val) {
 // TIMESTAMP HELPERS
 // ============================================
 function getDanaTimestamp(item) {
-    const keys = ['timestamp','Timestamp','tanggal','Tanggal','createdAt','date','Date','TIMESTAMP','waktu'];
+    const keys = ['timestamp', 'Timestamp', 'tanggal', 'Tanggal', 'createdAt', 'date', 'Date', 'TIMESTAMP', 'waktu'];
     for (const k of keys) { if (item[k]) return item[k]; }
     for (const val of Object.values(item)) {
         if (val && typeof val === 'string' && !isNaN(Date.parse(val))) return val;
@@ -531,7 +531,7 @@ function parseDanaDate(raw) {
     const d = new Date(raw);
     if (!isNaN(d)) return d;
     const m = String(raw).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (m) return new Date(m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0'));
+    if (m) return new Date(m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'));
     return new Date(0);
 }
 
@@ -548,9 +548,9 @@ function fetchJSONP(url) {
     return new Promise((resolve, reject) => {
         const cbName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
         const script = document.createElement('script');
-        script.src   = url + '&callback=' + cbName;
-        const timer  = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 15000);
-        window[cbName] = function(data) { cleanup(); resolve(data); };
+        script.src = url + '&callback=' + cbName;
+        const timer = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 15000);
+        window[cbName] = function (data) { cleanup(); resolve(data); };
         function cleanup() {
             clearTimeout(timer); delete window[cbName];
             if (script.parentNode) script.parentNode.removeChild(script);
@@ -610,8 +610,8 @@ function loadDanaData() {
 // ============================================
 function renderDanaTable(data, page) {
     page = page || 1;
-    const tbody      = document.getElementById('dana-table-body');
-    const total      = data.length;
+    const tbody = document.getElementById('dana-table-body');
+    const total = data.length;
     const totalPages = Math.max(1, Math.ceil(total / danaPageSize));
     page = Math.min(page, totalPages);
 
@@ -625,25 +625,25 @@ function renderDanaTable(data, page) {
     const slice = data.slice(start, start + danaPageSize);
 
     tbody.innerHTML = slice.map((item, idx) => {
-        const status      = (item.status || 'PENDING').toUpperCase();
+        const status = (item.status || 'PENDING').toUpperCase();
         const statusClass = status.toLowerCase();
-        const isRejected  = status === 'REJECTED' || status === 'DITOLAK';
-        const rowClass    = isRejected ? 'row-rejected' : '';
+        const isRejected = status === 'REJECTED' || status === 'DITOLAK';
+        const rowClass = isRejected ? 'row-rejected' : '';
 
-        const rawTs     = getDanaTimestamp(item);
+        const rawTs = getDanaTimestamp(item);
         const timestamp = rawTs
-            ? parseDanaDate(rawTs).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' })
+            ? parseDanaDate(rawTs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
             : '-';
 
         const nominal = item.nominalPengajuan
             ? new Intl.NumberFormat('id-ID', {
                 style: 'currency', currency: 'IDR',
                 minimumFractionDigits: 0, maximumFractionDigits: 0
-              }).format(item.nominalPengajuan)
+            }).format(item.nominalPengajuan)
             : '-';
 
-        const bulan  = item.bulanPengajuan || '-';
-        const sub    = item.subKegiatan || '-';
+        const bulan = item.bulanPengajuan || '-';
+        const sub = item.subKegiatan || '-';
         const subShow = sub.length > 50 ? sub.substring(0, 47) + '...' : sub;
 
         // ★ globalIdx = posisi item ini di dalam danaDisplayData (bukan slice)
@@ -652,7 +652,7 @@ function renderDanaTable(data, page) {
         // Tombol Edit hanya untuk REJECTED
         const editBtn = isRejected
             ? `<br><button class="btn-edit-dana" onclick="openDanaEditModal(${globalIdx})" title="Edit dan kirim ulang pengajuan">
-                 ✏️ Edit &amp; Kirim Ulang
+                Edit &amp; Kirim Ulang
                </button>`
             : '';
 
@@ -681,8 +681,8 @@ function renderDanaPagination(total, page, totalPages) {
     if (!container) return;
     if (total === 0) { container.innerHTML = ''; return; }
 
-    const start    = (page - 1) * danaPageSize + 1;
-    const end      = Math.min(page * danaPageSize, total);
+    const start = (page - 1) * danaPageSize + 1;
+    const end = Math.min(page * danaPageSize, total);
     const sizeOpts = [10, 25, 50, 100];
 
     let html = '<div class="pagination-size"><label>Tampilkan&nbsp;<select class="page-size-select" onchange="changeDanaPageSize(this.value)">';
@@ -692,20 +692,20 @@ function renderDanaPagination(total, page, totalPages) {
     html += `</select>&nbsp;data per halaman</label></div>`;
     html += `<div class="pagination-info">Menampilkan ${start}–${end} dari ${total} data</div>`;
     html += `<div class="pagination-controls">`;
-    html += `<button class="page-btn" onclick="goToDanaPage(1)"${page===1?' disabled':''}>««</button>`;
-    html += `<button class="page-btn" onclick="goToDanaPage(${page-1})"${page===1?' disabled':''}>‹</button>`;
+    html += `<button class="page-btn" onclick="goToDanaPage(1)"${page === 1 ? ' disabled' : ''}>««</button>`;
+    html += `<button class="page-btn" onclick="goToDanaPage(${page - 1})"${page === 1 ? ' disabled' : ''}>‹</button>`;
 
     const delta = 2;
-    const from  = Math.max(1, page - delta);
-    const to    = Math.min(totalPages, page + delta);
+    const from = Math.max(1, page - delta);
+    const to = Math.min(totalPages, page + delta);
     if (from > 1) html += `<span class="page-ellipsis">…</span>`;
     for (let i = from; i <= to; i++) {
-        html += `<button class="page-btn${i===page?' active':''}" onclick="goToDanaPage(${i})">${i}</button>`;
+        html += `<button class="page-btn${i === page ? ' active' : ''}" onclick="goToDanaPage(${i})">${i}</button>`;
     }
     if (to < totalPages) html += `<span class="page-ellipsis">…</span>`;
 
-    html += `<button class="page-btn" onclick="goToDanaPage(${page+1})"${page===totalPages?' disabled':''}>›</button>`;
-    html += `<button class="page-btn" onclick="goToDanaPage(${totalPages})"${page===totalPages?' disabled':''}>»»</button>`;
+    html += `<button class="page-btn" onclick="goToDanaPage(${page + 1})"${page === totalPages ? ' disabled' : ''}>›</button>`;
+    html += `<button class="page-btn" onclick="goToDanaPage(${totalPages})"${page === totalPages ? ' disabled' : ''}>»»</button>`;
     html += `</div>`;
 
     container.innerHTML = html;
@@ -715,7 +715,7 @@ function goToDanaPage(page) {
     danaCurrentPage = page;
     renderDanaTable(danaDisplayData, danaCurrentPage);
     const sec = document.getElementById('status-dana');
-    if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+    if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================================
@@ -723,11 +723,11 @@ function goToDanaPage(page) {
 // ============================================
 function filterDana() {
     const searchTerm = document.getElementById('search-dana').value.toLowerCase();
-    let filtered = currentDanaFilter === 'ALL' ? allDana : allDana.filter(d => (d.status||'PENDING').toUpperCase() === currentDanaFilter);
+    let filtered = currentDanaFilter === 'ALL' ? allDana : allDana.filter(d => (d.status || 'PENDING').toUpperCase() === currentDanaFilter);
     if (searchTerm) {
         filtered = filtered.filter(d =>
             [d.nama, d.unit, d.subKegiatan, d.bulanPengajuan]
-                .map(v => (v||'').toLowerCase()).join(' ')
+                .map(v => (v || '').toLowerCase()).join(' ')
                 .includes(searchTerm)
         );
     }
@@ -743,11 +743,11 @@ function filterDanaByStatus(status, clickedBtn) {
     if (btn && btn.classList) btn.classList.add('active');
 
     const searchTerm = document.getElementById('search-dana').value.toLowerCase();
-    let filtered = status === 'ALL' ? allDana : allDana.filter(d => (d.status||'PENDING').toUpperCase() === status);
+    let filtered = status === 'ALL' ? allDana : allDana.filter(d => (d.status || 'PENDING').toUpperCase() === status);
     if (searchTerm) {
         filtered = filtered.filter(d =>
             [d.nama, d.unit, d.subKegiatan, d.bulanPengajuan]
-                .map(v => (v||'').toLowerCase()).join(' ')
+                .map(v => (v || '').toLowerCase()).join(' ')
                 .includes(searchTerm)
         );
     }
@@ -763,12 +763,12 @@ function openDanaEditModal(globalIdx) {
     // globalIdx = index dalam danaDisplayData
     const item = danaDisplayData[globalIdx];
     if (!item) return;
-    editDanaItem  = item;
+    editDanaItem = item;
     editDanaNewFile = null;
 
     // Populate info bar
     const nominal = item.nominalPengajuan
-        ? new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', minimumFractionDigits:0 }).format(item.nominalPengajuan)
+        ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.nominalPengajuan)
         : '-';
     document.getElementById('dana-edit-info-bar').innerHTML = `
         <div class="dana-edit-info-row">
@@ -795,15 +795,15 @@ function openDanaEditModal(globalIdx) {
 
     // Populate nominal input (tanpa format Rupiah agar user bisa edit)
     const displayEl = document.getElementById('dana-edit-nominal-display');
-    const rawEl     = document.getElementById('dana-edit-nominal-raw');
-    const nominalRaw = item.nominalPengajuan ? String(item.nominalPengajuan).replace(/\D/g,'') : '';
+    const rawEl = document.getElementById('dana-edit-nominal-raw');
+    const nominalRaw = item.nominalPengajuan ? String(item.nominalPengajuan).replace(/\D/g, '') : '';
     rawEl.value = nominalRaw;
     displayEl.value = nominalRaw
         ? parseInt(nominalRaw, 10).toLocaleString('id-ID')
         : '';
 
     // File saat ini
-    const fileRow  = document.getElementById('dana-current-file-row');
+    const fileRow = document.getElementById('dana-current-file-row');
     const fileLink = document.getElementById('dana-current-file-link');
     if (item.linkFilePengajuanDana && item.linkFilePengajuanDana.trim() !== '') {
         fileLink.href = item.linkFilePengajuanDana;
@@ -842,7 +842,7 @@ function closeDanaEditModal() {
     const modal = document.getElementById('dana-edit-modal');
     modal.classList.remove('show');
     document.body.style.overflow = '';
-    editDanaItem    = null;
+    editDanaItem = null;
     editDanaNewFile = null;
 }
 
@@ -850,7 +850,7 @@ function closeDanaEditModal() {
 // ★ FORMAT NOMINAL DALAM MODAL
 // ============================================
 function formatDanaEditNominal(inputEl) {
-    let raw = inputEl.value.replace(/\D/g,'');
+    let raw = inputEl.value.replace(/\D/g, '');
     document.getElementById('dana-edit-nominal-raw').value = raw;
     inputEl.value = raw ? parseInt(raw, 10).toLocaleString('id-ID') : '';
 }
@@ -859,8 +859,8 @@ function formatDanaEditNominal(inputEl) {
 // ★ HANDLE FILE CHANGE DALAM MODAL
 // ============================================
 function handleDanaEditFileChange(event) {
-    const file     = event.target.files[0];
-    const infoEl   = document.getElementById('dana-edit-file-info');
+    const file = event.target.files[0];
+    const infoEl = document.getElementById('dana-edit-file-info');
     const dropArea = document.getElementById('dana-file-drop-area');
 
     editDanaNewFile = null;
@@ -899,7 +899,6 @@ function handleDanaEditFileChange(event) {
 async function submitDanaEdit() {
     if (!editDanaItem) return;
 
-    // Validasi nominal
     const nominalRaw = document.getElementById('dana-edit-nominal-raw').value;
     if (!nominalRaw || parseInt(nominalRaw) <= 0) {
         showDanaModalAlert('❌ Nominal pengajuan harus diisi dengan angka yang valid.', 'error');
@@ -914,64 +913,80 @@ async function submitDanaEdit() {
     showDanaModalProgress(15, 'Mempersiapkan data...');
 
     try {
-        // Validasi ID
         const itemId = String(editDanaItem.id || '').trim();
-        if (!itemId) {
-            throw new Error('ID pengajuan tidak ditemukan. Coba refresh halaman dan ulangi.');
-        }
+        if (!itemId) throw new Error('ID pengajuan tidak ditemukan. Coba refresh halaman.');
 
-        // Siapkan semua field yang dibutuhkan GAS handler
         const fields = {
-            action            : 'resubmitPengajuanDana',
-            id                : itemId,
-            nama              : editDanaItem.nama || '',
-            unit              : editDanaItem.unit || '',
-            sub_kegiatan      : editDanaItem.subKegiatan || '',
-            bulan_pengajuan   : editDanaItem.bulanPengajuan || '',
-            nominal_pengajuan : nominalRaw,
-            existingFileUrl   : editDanaItem.linkFilePengajuanDana || '',
-            hasNewFile        : 'false',
+            action: 'resubmitPengajuanDana',
+            id: itemId,
+            nama: editDanaItem.nama || '',
+            unit: editDanaItem.unit || '',
+            sub_kegiatan: editDanaItem.subKegiatan || '',
+            bulan_pengajuan: editDanaItem.bulanPengajuan || '',
+            nominal_pengajuan: nominalRaw,
+            existingFileUrl: editDanaItem.linkFilePengajuanDana || '',
+            hasNewFile: 'false',
+            fileName: '',
+            fileData: '',
+            mimeType: '',
         };
 
         if (editDanaNewFile) {
-            // Ada file baru → base64 encode
             showDanaModalProgress(35, 'Membaca file PDF...');
             const base64Data = await fileToBase64Dana(editDanaNewFile);
-            fields.fileName   = editDanaNewFile.name;
-            fields.fileData   = base64Data;
-            fields.mimeType   = editDanaNewFile.type || 'application/pdf';
+            fields.fileName = editDanaNewFile.name;
+            fields.fileData = base64Data;
+            fields.mimeType = editDanaNewFile.type || 'application/pdf';
             fields.hasNewFile = 'true';
         }
 
         showDanaModalProgress(60, 'Mengirim ke sistem...');
 
-        // Kirim via hidden iframe (sama dengan pola submitViaIframeFields yang sudah ada)
-        submitDanaViaIframe(fields, 'iframe-dana-edit');
+        // ★ GANTI iframe → fetch POST (sama persis dengan submitViaIframeFields di main.js)
+        const body = Object.keys(fields)
+            .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(fields[k] ?? ''))
+            .join('&');
 
-        showDanaModalProgress(90, 'Menyelesaikan...');
+        const resp = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+            redirect: 'follow'
+        });
 
-        setTimeout(() => {
-            showDanaModalProgress(100, 'Selesai!');
-        }, 600);
+        const text = await resp.text();
+        console.log('[submitDanaEdit] raw response:', text.slice(0, 300));
 
-        setTimeout(() => {
-            hideDanaModalProgress();
-            showDanaModalAlert('✅ Pengajuan berhasil dikirim ulang! Status akan diperbarui setelah diproses admin.', 'success');
-            submitBtn.textContent = '✓ Terkirim';
+        let result;
+        try { result = JSON.parse(text); }
+        catch (e) { result = { status: 'success' }; }
 
-            // Reload data setelah 2.5 detik
+        showDanaModalProgress(100, 'Selesai!');
+
+        const ok = result?.status === 'success' || result?.success === true;
+        if (ok) {
             setTimeout(() => {
-                closeDanaEditModal();
-                showLoadingDana();
-                loadDanaData();
-            }, 2500);
-        }, 1600);
+                hideDanaModalProgress();
+                showDanaModalAlert('✅ Pengajuan berhasil dikirim ulang! Menunggu proses admin.', 'success');
+                submitBtn.textContent = '✓ Terkirim';
+                setTimeout(() => {
+                    closeDanaEditModal();
+                    showLoadingDana();
+                    loadDanaData();
+                }, 2500);
+            }, 400);
+        } else {
+            hideDanaModalProgress();
+            showDanaModalAlert('❌ Gagal: ' + (result?.message || 'Terjadi kesalahan di server.'), 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Kirim Ulang Pengajuan';
+        }
 
     } catch (err) {
         console.error('Dana edit error:', err);
         hideDanaModalProgress();
         showDanaModalAlert('❌ Terjadi kesalahan: ' + err.message, 'error');
-        submitBtn.disabled  = false;
+        submitBtn.disabled = false;
         submitBtn.textContent = 'Kirim Ulang Pengajuan';
     }
 }
@@ -980,7 +995,7 @@ async function submitDanaEdit() {
 function fileToBase64Dana(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result.split(',')[1]);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
@@ -1004,16 +1019,16 @@ function submitDanaViaIframe(fields, iframeId) {
 
     Object.entries(fields).forEach(([key, value]) => {
         const input = document.createElement('input');
-        input.type  = 'hidden';
-        input.name  = key;
+        input.type = 'hidden';
+        input.name = key;
         input.value = value;
         hiddenForm.appendChild(input);
     });
 
     let iframe = document.getElementById(iframeId);
     if (!iframe) {
-        iframe      = document.createElement('iframe');
-        iframe.id   = iframeId;
+        iframe = document.createElement('iframe');
+        iframe.id = iframeId;
         iframe.name = iframeId;
         iframe.style.display = 'none';
         document.body.appendChild(iframe);
@@ -1042,12 +1057,12 @@ function hideDanaModalAlert() {
 }
 
 function showDanaModalProgress(pct, label) {
-    const wrap  = document.getElementById('dana-modal-progress');
-    const fill  = document.getElementById('dana-modal-progress-fill');
-    const lbl   = document.getElementById('dana-modal-progress-label');
-    if (wrap)  wrap.classList.add('show');
-    if (fill)  fill.style.width = pct + '%';
-    if (lbl)   lbl.textContent = label || '';
+    const wrap = document.getElementById('dana-modal-progress');
+    const fill = document.getElementById('dana-modal-progress-fill');
+    const lbl = document.getElementById('dana-modal-progress-label');
+    if (wrap) wrap.classList.add('show');
+    if (fill) fill.style.width = pct + '%';
+    if (lbl) lbl.textContent = label || '';
 }
 function hideDanaModalProgress() {
     const wrap = document.getElementById('dana-modal-progress');
