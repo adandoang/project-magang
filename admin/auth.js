@@ -55,6 +55,7 @@ const AUTH = (() => {
         'spj-pengumpulan': 'pengumpulan_spj',
         'pengajuan-dana': 'pengajuan_dana',
         'monev': 'penilaian_monev',
+        'penilaian-orang': 'penilaian_orang',
         'manageacc': 'manajemen_akun',
         'ganti-password': 'ganti_password',
         'diklat': 'diklat',
@@ -77,7 +78,7 @@ const AUTH = (() => {
         superadmin: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat', 'kearsipan',
             'penilaian_spj', 'pengumpulan_spj', 'pengajuan_dana',
-            'penilaian_monev', 'manajemen_akun', 'diklat'
+            'penilaian_monev', 'penilaian_orang', 'manajemen_akun', 'diklat'
         ],
         subumum: [
             'dashboard', 'kendaraan', 'voucher', 'ruang_rapat',
@@ -89,7 +90,7 @@ const AUTH = (() => {
         ],
         sekretariat: [
             'dashboard',
-            'penilaian_monev', 'ganti_password'
+            'penilaian_monev', 'penilaian_orang', 'ganti_password'
         ],
     };
 
@@ -373,7 +374,6 @@ const AUTH = (() => {
     /* Redirect setelah login berhasil             */
     /* ─────────────────────────────────────────── */
     function redirectAfterLogin(user) {
-        saveUser(user);
         const role = normalizeRole(user.role);
         if (!role) {
             // Role tidak dikenal — jangan simpan, tampilkan error langsung
@@ -385,6 +385,9 @@ const AUTH = (() => {
             localStorage.clear();
             return;
         }
+        // Simpan role dalam format baku agar modul lain konsisten membaca akses
+        const normalizedUser = Object.assign({}, user, { role: role });
+        saveUser(normalizedUser);
         const home = ROLE_HOME[role] || 'admin-dashboard.html';
         console.log('[AUTH] Login sebagai "' + role + '" → ' + home);
         window.location.replace(home);

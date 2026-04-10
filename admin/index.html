@@ -508,6 +508,14 @@
                 </svg>
                 Penilaian Monev
             </a>
+            <a href="#" class="nav-item" data-section="penilaian-orang" onclick="showSection('penilaian-orang');return false;">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 21a8 8 0 0 1 16 0" />
+                    <path d="M17 11l1.5 1.5L22 9" />
+                </svg>
+                Penilaian Per Orang
+            </a>
             <a href="#" class="nav-item" data-section="manageacc" onclick="showSection('manageacc');return false;">
                 <svg class="nav-icon" viewBox="0 0 24 24">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -879,6 +887,15 @@
         </div>
 
         <!-- ═══════════════════════════════════ -->
+        <!-- SECTION: PENILAIAN PER ORANG       -->
+        <!-- ═══════════════════════════════════ -->
+        <div id="section-penilaian-orang" class="admin-section">
+            <div class="section-loader">
+                <div class="spinner"></div><span>Memuat Penilaian Per Orang...</span>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════ -->
         <!-- SECTION: MANAJEMEN AKUN             -->
         <!-- ═══════════════════════════════════ -->
         <div id="section-manageacc" class="admin-section">
@@ -910,6 +927,8 @@
     <script src="assets/js/sub-keuangan/spj-pengumpulan.js" defer></script>
     <script src="assets/js/sub-keuangan/pengajuan-dana.js" defer></script>
     <script src="assets/js/sekretariat/monev.js" defer></script>
+    <script src="assets/js/penilaian-individu/penilaian-orang-gas-integration.js" defer></script>
+    <script src="assets/js/penilaian-individu/penilaian-orang.js" defer></script>
     <script src="assets/js/manageacc.js" defer></script>
     <script src="assets/js/gantipassword.js" defer></script>
     <script>
