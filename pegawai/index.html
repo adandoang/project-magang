@@ -65,7 +65,6 @@
             color: #92400e;
         }
 
-        /* Fallback untuk browser yang tidak support :has() */
         .radio-option.selected {
             border-color: #c5a572;
             background: #fdf8f0;
@@ -77,7 +76,6 @@
             line-height: 1;
         }
 
-        /* ── Permintaan Khusus hint ──────────────────────── */
         .field-hint {
             font-size: 12.5px;
             color: #6b7280;
@@ -98,6 +96,168 @@
             padding: 1px 7px;
             margin-left: 6px;
             vertical-align: middle;
+        }
+
+        /* ── Bidang Multi-Select (Dana Bersama) ─────────── */
+        .bidang-selector-wrap {
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+
+        .bidang-selector-wrap:focus-within {
+            border-color: #c5a572;
+            box-shadow: 0 0 0 3px rgba(197, 165, 114, .15);
+        }
+
+        .bidang-search-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            background: #fdf8f0;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .bidang-chips-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .bidang-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .16s ease;
+            user-select: none;
+            background: #fff;
+            color: #6b7280;
+        }
+
+        .bidang-chip:hover {
+            border-color: #c5a572;
+            color: #92400e;
+            background: #fdf8f0;
+        }
+
+        .bidang-chip.active {
+            background: #c5a572;
+            border-color: #c5a572;
+            color: #fff;
+        }
+
+        .bidang-chip input {
+            display: none;
+        }
+
+        .bidang-selected-row {
+            padding: 8px 12px 10px;
+            border-top: 1px solid #e5e7eb;
+            background: #f8fafc;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 38px;
+        }
+
+        .bidang-selected-row .empty-hint {
+            font-size: 12px;
+            color: #9ca3af;
+            align-self: center;
+        }
+
+        .bidang-tag-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #1e293b;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+
+        .bidang-tag-item button {
+            background: rgba(255, 255, 255, .25);
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            font-size: 10px;
+            line-height: 1;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .14s;
+        }
+
+        .bidang-tag-item button:hover {
+            background: rgba(255, 255, 255, .45);
+        }
+
+        /* ── Status Dana Bersama table badges ───────────── */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .status-badge.approved {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .status-badge.rejected {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            display: inline-block;
+        }
+
+        .bidang-pill {
+            display: inline-block;
+            background: #fdf8f0;
+            color: #92400e;
+            border: 1px solid #e8d5b0;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            white-space: nowrap;
+            margin: 1px;
         }
     </style>
 </head>
@@ -138,6 +298,7 @@
                     <option value="voucher">Voucher BBM</option>
                     <option value="arsip">Dokumen Arsip</option>
                     <option value="pengajuan-dana">Pengajuan Dana</option>
+                    <option value="pengajuan-dana-bersama">Dana Bersama</option>
                     <option value="spj">Penyampaian SPJ</option>
                     <option value="" disabled>───────────</option>
                     <option value="" disabled>Transparansi Nilai</option>
@@ -152,6 +313,7 @@
                     <option value="status-ruangan">Jadwal Ruang Rapat</option>
                     <option value="status-voucher">Status Voucher BBM</option>
                     <option value="status-dana">Status Pengajuan Dana</option>
+                    <option value="status-dana-bersama">Status Dana Bersama</option>
                 </select>
             </div>
 
@@ -162,6 +324,7 @@
                 <button class="nav-tab" onclick="showSection('voucher')">Voucher BBM</button>
                 <button class="nav-tab" onclick="showSection('arsip')">Dokumen Arsip</button>
                 <button class="nav-tab" onclick="showSection('pengajuan-dana')">Pengajuan Dana</button>
+                <button class="nav-tab" onclick="showSection('pengajuan-dana-bersama')">Dana Bersama</button>
                 <button class="nav-tab" onclick="showSection('spj')">Penyampaian SPJ</button>
 
                 <div class="nav-dropdown">
@@ -193,6 +356,7 @@
                         <a href="#" onclick="showCalendar('RUANG_RAPAT'); return false;">Jadwal Ruang Rapat</a>
                         <a href="#" onclick="showVoucherStatus(); return false;">Status Voucher BBM</a>
                         <a href="#" onclick="showDanaStatus(); return false;">Status Pengajuan Dana</a>
+                        <a href="#" onclick="showDanaBersamaStatus(); return false;">Status Dana Bersama</a>
                     </div>
                 </div>
             </div>
@@ -369,6 +533,24 @@
                         <p>Kirim laporan pertanggungjawaban (SPJ) bulanan</p>
                         <button class="btn btn-primary btn-block" onclick="showSection('spj')">Kirim SPJ</button>
                     </div>
+                    <!-- CARD BARU: Dana Bersama -->
+                    <div class="card">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="22" cy="28" r="10" stroke="white" stroke-width="2.5" fill="white"
+                                    fill-opacity="0.15" />
+                                <circle cx="42" cy="28" r="10" stroke="white" stroke-width="2.5" fill="white"
+                                    fill-opacity="0.15" />
+                                <path d="M32 20v16M26 26h12" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+                                <path d="M16 50c0-6.627 5.373-10 12-10h8c6.627 0 12 3.373 12 10" stroke="white"
+                                    stroke-width="2.5" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <h3>Dana Bersama</h3>
+                        <p>Ajukan dana operasional lintas bidang secara kolaboratif</p>
+                        <button class="btn btn-primary btn-block" onclick="showSection('pengajuan-dana-bersama')">Buat
+                            Pengajuan</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -448,8 +630,6 @@
                     <p>Isi formulir berikut untuk reservasi ruang rapat dan pertemuan</p>
                 </div>
                 <form id="form-ruangan" onsubmit="submitRuang(event)">
-
-                    <!-- Baris 1: Nama & Unit -->
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Nama *</label>
@@ -470,8 +650,6 @@
                             </select>
                         </div>
                     </div>
-
-                    <!-- Baris 2: Tanggal & Waktu -->
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Tanggal Penggunaan *</label>
@@ -486,8 +664,6 @@
                             <input type="time" class="form-control" name="waktu_selesai" required>
                         </div>
                     </div>
-
-                    <!-- Baris 3: Nama Kegiatan & Jumlah Peserta -->
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Nama Kegiatan *</label>
@@ -500,12 +676,8 @@
                                 placeholder="Jumlah peserta" required>
                         </div>
                     </div>
-
-                    <!-- ★ BARU: Apakah Ada Peserta Difabel? -->
                     <div class="form-group">
-                        <label>
-                            Apakah Ada Peserta Difabel? *
-                        </label>
+                        <label>Apakah Ada Peserta Difabel? *</label>
                         <p class="field-hint">Informasi ini digunakan untuk mempersiapkan aksesibilitas ruangan.</p>
                         <div class="radio-group" id="difabel-radio-group">
                             <label class="radio-option" onclick="setRadioSelected(this)">
@@ -525,20 +697,13 @@
                             </label>
                         </div>
                     </div>
-
-                    <!-- ★ BARU: Permintaan Khusus (Opsional) -->
                     <div class="form-group">
-                        <label>
-                            Permintaan Khusus
-                            <span class="optional-badge">Opsional</span>
-                        </label>
+                        <label>Permintaan Khusus <span class="optional-badge">Opsional</span></label>
                         <textarea class="form-control" name="permintaan_khusus" rows="3"
-                            placeholder="Contoh: butuh proyektor, kursi roda, meja U-shape, dll. (kosongkan jika tidak ada)"></textarea>
-                        <p class="field-hint">
-                            💡 Sampaikan kebutuhan khusus terkait peralatan atau pengaturan ruangan.
+                            placeholder="Contoh: butuh proyektor, kursi roda, meja U-shape, dll."></textarea>
+                        <p class="field-hint">💡 Sampaikan kebutuhan khusus terkait peralatan atau pengaturan ruangan.
                         </p>
                     </div>
-
                     <button type="submit" id="submit-ruangan" class="btn btn-primary btn-block">Kirim Pengajuan</button>
                     <div id="loading-ruangan" class="loading" style="margin-top: 16px;">Mengirim pengajuan</div>
                     <div id="progress-ruangan" class="progress-bar" style="margin-top: 12px;">
@@ -588,7 +753,6 @@
                             <label>Nomor Kendaraan *</label>
                             <select class="form-control" name="nomor_polisi" required>
                                 <option value="">Pilih Nomor Kendaraan</option>
-                                <!-- Mobil -->
                                 <option value="AB 1027 AV">AB 1027 AV</option>
                                 <option value="AB 1869 UA">AB 1869 UA</option>
                                 <option value="AB 1147 UH">AB 1147 UH</option>
@@ -597,7 +761,6 @@
                                 <option value="AB 1067 IA">AB 1067 IA</option>
                                 <option value="AB 8018 AI">AB 8018 AI</option>
                                 <option value="AB 67">AB 67</option>
-                                <!-- Motor -->
                                 <option value="AB 2695 UH">AB 2695 UH</option>
                                 <option value="AB 2174 IH">AB 2174 IH</option>
                                 <option value="AB 2198 IH">AB 2198 IH</option>
@@ -698,31 +861,24 @@
                         <input type="text" class="form-control" name="jenis_dokumen"
                             placeholder="Contoh: Laporan Keuangan, Surat Keputusan" required>
                     </div>
-
-                    <!-- Upload Mode Tabs -->
                     <div class="form-group">
                         <label>Pengumpulan Dokumen *</label>
                         <div class="upload-mode-tabs">
                             <button type="button" class="mode-tab active" id="tab-file"
-                                onclick="setArsipUploadMode('file')">
-                                📁 Upload File
-                            </button>
-                            <button type="button" class="mode-tab" id="tab-drive" onclick="setArsipUploadMode('drive')">
-                                🔗 Link Google Drive
-                            </button>
+                                onclick="setArsipUploadMode('file')">📁 Upload File</button>
+                            <button type="button" class="mode-tab" id="tab-drive"
+                                onclick="setArsipUploadMode('drive')">🔗 Link Google Drive</button>
                         </div>
                         <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">Pilih cara pengumpulan: upload file
                             langsung atau kirim link folder/file Google Drive</p>
                     </div>
-
-                    <!-- Mode: Upload File (1 file saja) -->
                     <div id="arsip-mode-file">
                         <div class="form-group">
                             <label>Pilih Dokumen</label>
                             <div
                                 style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#854d0e;">
-                                ⚠️ <strong>Mode ini hanya mendukung 1 file.</strong>
-                                Untuk mengirim lebih dari 1 file, gunakan tab <em>🔗 Link Google Drive</em>.
+                                ⚠️ <strong>Mode ini hanya mendukung 1 file.</strong> Untuk mengirim lebih dari 1 file,
+                                gunakan tab <em>🔗 Link Google Drive</em>.
                             </div>
                             <input type="file" class="form-control" id="file-input"
                                 accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
@@ -733,30 +889,24 @@
                                 style="margin-top:10px;font-size:13.5px;color:#059669;font-weight:500;"></div>
                         </div>
                     </div>
-
-                    <!-- Mode: Link Google Drive -->
                     <div id="arsip-mode-drive" style="display:none;">
                         <div class="form-group">
                             <label>Link Google Drive</label>
                             <small style="color: #6b7280; display: block; margin-bottom: 10px;">Pastikan link Drive
-                                sudah diatur <strong>"Anyone with the link can view"</strong> sebelum dikirim. Bisa
-                                berupa link file atau folder.</small>
+                                sudah diatur <strong>"Anyone with the link can view"</strong> sebelum dikirim.</small>
                             <div id="drive-links-container">
                                 <div class="drive-link-row" id="drive-row-1"
                                     style="display:flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                                     <input type="url" class="form-control drive-link-input"
-                                        placeholder="https://drive.google.com/file/d/... atau folder/..."
-                                        style="flex:1;">
+                                        placeholder="https://drive.google.com/file/d/..." style="flex:1;">
                                     <button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')"
                                         style="display:none; color:#dc2626; border-color:#fca5a5; flex-shrink:0;">✕</button>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm" onclick="addDriveLink()" style="margin-top: 4px;">
-                                + Tambah Link
-                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addDriveLink()" style="margin-top: 4px;">+
+                                Tambah Link</button>
                         </div>
                     </div>
-
                     <div class="form-group">
                         <label>Keterangan Tambahan</label>
                         <textarea class="form-control" name="keterangan" rows="4"
@@ -953,6 +1103,399 @@
         </div>
     </div>
 
+    <!-- ==================== PENGAJUAN DANA BERSAMA SECTION ==================== -->
+    <div id="pengajuan-dana-bersama" class="section">
+        <div class="container">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>Pengajuan Dana Bersama</h2>
+                    <p>Ajukan dana operasional untuk kegiatan yang melibatkan lebih dari satu bidang</p>
+                </div>
+                <form id="form-dana-bersama" onsubmit="submitDanaBersama(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nama *</label>
+                            <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- Sub Kegiatan — AC widget mandiri, TIDAK pakai class select2-subkegiatan
+                     agar tidak di-touch oleh select2-init.js maupun jQuery Select2.
+                     Nilai disimpan ke hidden input #db-sub-kegiatan-val. -->
+                    <div class="form-group" id="db-subkegiatan-group">
+                        <label>Sub Kegiatan *</label>
+                        <div class="ac-wrapper" id="db-ac-wrapper" style="position:relative;">
+                            <input type="text" id="db-ac-input" class="form-control ac-input"
+                                placeholder="Ketik untuk mencari sub kegiatan..." autocomplete="off" spellcheck="false">
+                            <span class="ac-chevron" id="db-ac-chevron">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </span>
+                            <ul class="ac-list" id="db-ac-list" style="display:none;"></ul>
+                        </div>
+                        <!-- Hidden input yang benar-benar dikirim ke GAS -->
+                        <input type="hidden" name="sub_kegiatan" id="db-sub-kegiatan-val">
+                        <small style="color:#6b7280;display:block;margin-top:8px;">
+                            Ketik untuk mencari sub kegiatan
+                        </small>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Bulan Pengajuan *</label>
+                            <select class="form-control" name="bulan_pengajuan" required>
+                                <option value="">Pilih Bulan</option>
+                                <option value="Januari">Januari</option>
+                                <option value="Februari">Februari</option>
+                                <option value="Maret">Maret</option>
+                                <option value="April">April</option>
+                                <option value="Mei">Mei</option>
+                                <option value="Juni">Juni</option>
+                                <option value="Juli">Juli</option>
+                                <option value="Agustus">Agustus</option>
+                                <option value="September">September</option>
+                                <option value="Oktober">Oktober</option>
+                                <option value="November">November</option>
+                                <option value="Desember">Desember</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nominal Pengajuan (Rp) *</label>
+                            <input type="text" class="form-control rupiah-input" id="display-nominal-dana-bersama"
+                                placeholder="Contoh: 5.000.000" autocomplete="off" inputmode="numeric" required
+                                oninput="formatRupiah(this, 'nominal_dana_bersama_hidden')">
+                            <input type="hidden" name="nominal_pengajuan" id="nominal_dana_bersama_hidden">
+                            <small style="color:#6b7280;display:block;margin-top:8px;">
+                                Angka otomatis diformat dengan titik pemisah
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Bidang yang Terlibat — HANYA chips multi-select.
+                     Tidak ada <select> dropdown bidang. Nilai dikirim via
+                     hidden input #bidang-hidden-value dalam format "A,B,C". -->
+                    <div class="form-group">
+                        <label>Bidang yang Terlibat *</label>
+                        <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">
+                            Pilih satu atau lebih bidang yang terlibat dalam pengajuan ini
+                        </p>
+                        <div class="bidang-selector-wrap" id="bidang-selector-wrap">
+                            <input type="text" class="bidang-search-input" id="bidang-search-input"
+                                placeholder="🔍  Cari bidang..." oninput="filterBidangChips(this.value)">
+                            <div class="bidang-chips-list" id="bidang-chips-list"></div>
+                            <div class="bidang-selected-row" id="bidang-selected-row">
+                                <span class="empty-hint" id="bidang-empty-hint">Belum ada bidang dipilih</span>
+                            </div>
+                        </div>
+                        <!-- Dikirim ke GAS: "Sekretariat,Bidang Koperasi" dst dalam 1 kolom -->
+                        <input type="hidden" name="bidang" id="bidang-hidden-value">
+                    </div>
+
+                    <!-- Upload File -->
+                    <div class="form-group">
+                        <label>Upload File Laporan Pengajuan Dana (PDF) *</label>
+                        <input type="file" class="form-control" id="file-dana-bersama-input" accept=".pdf" required
+                            onchange="handleDanaBersamaFile(event)">
+                        <small style="color:#6b7280;display:block;margin-top:8px;">
+                            Format: PDF | Maksimal: 10MB
+                        </small>
+                        <div id="file-dana-bersama-info" class="file-info"></div>
+                    </div>
+
+                    <button type="submit" id="submit-dana-bersama" class="btn btn-primary btn-block">
+                        Kirim Pengajuan Dana Bersama
+                    </button>
+                    <div id="loading-dana-bersama" class="loading" style="margin-top:16px;">
+                        Mengunggah pengajuan ke sistem
+                    </div>
+                    <div id="progress-dana-bersama" class="progress-bar" style="margin-top:12px;">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div id="alert-dana-bersama" class="alert alert-success" style="margin-top:16px;"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==================== STATUS DANA BERSAMA SECTION ====================
+     (tidak berubah — tempel persis di bawah section pengajuan di atas)
+     ==================================================================== -->
+    <div id="status-dana-bersama" class="section">
+        <div class="container">
+            <div class="calendar-header">
+                <h2>Status Pengajuan Dana Bersama</h2>
+                <p>Lihat semua pengajuan dana lintas bidang dan statusnya</p>
+            </div>
+            <div class="search-filter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                <input type="text" id="search-dana-bersama" class="search-input"
+                    placeholder="Cari nama, unit, bidang, atau sub kegiatan..." onkeyup="filterDanaBersama()">
+                <select id="filter-status-dana-bersama" class="form-control" style="width:auto;min-width:140px;"
+                    onchange="filterDanaBersama()">
+                    <option value="">Semua Status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Disetujui</option>
+                    <option value="REJECTED">Ditolak</option>
+                </select>
+                <button class="btn btn-sm" onclick="loadDanaBersamaData()" style="white-space:nowrap;">🔄
+                    Refresh</button>
+            </div>
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>Daftar Pengajuan Dana Bersama</h3>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active"
+                            onclick="filterDanaBersamaByStatus('ALL', this)">Semua</button>
+                        <button class="filter-btn"
+                            onclick="filterDanaBersamaByStatus('APPROVED', this)">Disetujui</button>
+                        <button class="filter-btn" onclick="filterDanaBersamaByStatus('PENDING', this)">Pending</button>
+                        <button class="filter-btn"
+                            onclick="filterDanaBersamaByStatus('REJECTED', this)">Ditolak</button>
+                    </div>
+                </div>
+                <div id="dana-bersama-loading" style="text-align:center;padding:40px;color:#6b7280;display:none;">
+                    <div class="spinner" style="margin:0 auto 12px;"></div>
+                    <p>Memuat data...</p>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="voucher-table" id="dana-bersama-table">
+                        <thead>
+                            <tr>
+                                <th style="min-width:100px;">Tanggal</th>
+                                <th style="min-width:140px;">Nama</th>
+                                <th style="min-width:160px;">Unit</th>
+                                <th style="min-width:220px;">Sub Kegiatan</th>
+                                <th style="min-width:90px;">Bulan</th>
+                                <th style="min-width:120px;text-align:right;">Nominal</th>
+                                <th style="min-width:180px;">Bidang</th>
+                                <th style="min-width:100px;">Status</th>
+                                <th style="min-width:80px;">File</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dana-bersama-tbody">
+                            <tr>
+                                <td colspan="9" style="text-align:center;padding:40px;color:#6b7280;">
+                                    Klik Refresh untuk memuat data
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="dana-bersama-pagination" class="pagination-wrapper"></div>
+        </div>
+    </div>
+
+    <!-- ==================== STATUS DANA BERSAMA SECTION ==================== -->
+    <div id="pengajuan-dana-bersama" class="section">
+        <div class="container">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>Pengajuan Dana Bersama</h2>
+                    <p>Ajukan dana operasional untuk kegiatan yang melibatkan lebih dari satu bidang</p>
+                </div>
+                <form id="form-dana-bersama" onsubmit="submitDanaBersama(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nama *</label>
+                            <input type="text" class="form-control" name="nama" placeholder="Masukkan nama lengkap"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label>Unit *</label>
+                            <select class="form-control" name="unit" required>
+                                <option value="">Pilih Unit</option>
+                                <option value="Sekretariat">Sekretariat</option>
+                                <option value="Bidang Koperasi">Bidang Koperasi</option>
+                                <option value="Bidang UKM">Bidang UKM</option>
+                                <option value="Bidang Usaha Mikro">Bidang Usaha Mikro</option>
+                                <option value="Bidang Kewirausahaan">Bidang Kewirausahaan</option>
+                                <option value="Balai Layanan Usaha Terpadu KUMKM">Balai Layanan Usaha Terpadu KUMKM
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Sub Kegiatan — pakai <select> biasa agar select2-init.js
+                     otomatis jadikan searchable text field via createAutocomplete() -->
+                    <div class="form-group">
+                        <label>Sub Kegiatan *</label>
+                        <select class="form-control select2-subkegiatan" name="sub_kegiatan"
+                            id="sub-kegiatan-dana-bersama" required style="width:100%;">
+                            <option value="">Pilih Sub Kegiatan</option>
+                            <option value="Pemanfaatan Ruang Satuan Ruang Strategis Merapi">Pemanfaatan Ruang Satuan
+                                Ruang Strategis Merapi</option>
+                            <option value="Penyusunan Dokumen Perencanaan Perangkat Daerah">Penyusunan Dokumen
+                                Perencanaan Perangkat Daerah</option>
+                            <option value="Koordinasi dan Penyusunan DPA-SKPD">Koordinasi dan Penyusunan DPA-SKPD
+                            </option>
+                            <option value="Evaluasi Kinerja Perangkat Daerah">Evaluasi Kinerja Perangkat Daerah</option>
+                            <option value="Penyediaan Gaji dan Tunjangan ASN">Penyediaan Gaji dan Tunjangan ASN</option>
+                            <option value="Pelaksanaan Penatausahaan dan Pengujian/Verifikasi Keuangan SKPD">Pelaksanaan
+                                Penatausahaan dan Pengujian/Verifikasi Keuangan SKPD</option>
+                            <option value="Koordinasi dan Penyusunan Laporan Keuangan Akhir Tahun SKPD">Koordinasi dan
+                                Penyusunan Laporan Keuangan Akhir Tahun SKPD</option>
+                            <option
+                                value="Koordinasi dan Penyusunan Laporan Keuangan Bulanan/ Triwulanan/Semesteran SKPD">
+                                Koordinasi dan Penyusunan Laporan Keuangan Bulanan/ Triwulanan/Semesteran SKPD</option>
+                            <option value="Penatausahaan Barang Milik Daerah pada SKPD">Penatausahaan Barang Milik
+                                Daerah pada SKPD</option>
+                            <option value="Penyediaan Komponen Instalasi Listrik/Penerangan Bangunan Kantor">Penyediaan
+                                Komponen Instalasi Listrik/Penerangan Bangunan Kantor</option>
+                            <option value="Penyediaan Peralatan dan Perlengkapan Kantor">Penyediaan Peralatan dan
+                                Perlengkapan Kantor</option>
+                            <option value="Penyediaan Peralatan Rumah Tangga">Penyediaan Peralatan Rumah Tangga</option>
+                            <option value="Penyediaan Barang Cetakan dan Penggandaan">Penyediaan Barang Cetakan dan
+                                Penggandaan</option>
+                            <option value="Penyediaan Bahan Bacaan dan Peraturan Perundang-Undangan">Penyediaan Bahan
+                                Bacaan dan Peraturan Perundang-Undangan</option>
+                            <option value="Penyelenggaraan Rapat Koordinasi dan Konsultasi SKPD">Penyelenggaraan Rapat
+                                Koordinasi dan Konsultasi SKPD</option>
+                            <option value="Pengadaan Peralatan dan Mesin Lainnya">Pengadaan Peralatan dan Mesin Lainnya
+                            </option>
+                            <option value="Pengadaan Sarana dan Prasarana Gedung Kantor atau Bangunan Lainnya">Pengadaan
+                                Sarana dan Prasarana Gedung Kantor atau Bangunan Lainnya</option>
+                            <option value="Penyediaan Jasa Surat Menyurat">Penyediaan Jasa Surat Menyurat</option>
+                            <option value="Penyediaan Jasa Komunikasi, Sumber Daya Air dan Listrik">Penyediaan Jasa
+                                Komunikasi, Sumber Daya Air dan Listrik</option>
+                            <option value="Penyediaan Jasa Pelayanan Umum Kantor">Penyediaan Jasa Pelayanan Umum Kantor
+                            </option>
+                            <option
+                                value="Penyediaan Jasa Pemeliharaan, Biaya Pemeliharaan dan Pajak Kendaraan Perorangan Dinas atau Kendaraan Dinas Jabatan">
+                                Penyediaan Jasa Pemeliharaan, Biaya Pemeliharaan dan Pajak Kendaraan Perorangan Dinas
+                                atau Kendaraan Dinas Jabatan</option>
+                            <option
+                                value="Penyediaan Jasa Pemeliharaan, Biaya Pemeliharaan, Pajak dan Perizinan Kendaraan Dinas Operasional atau Lapangan">
+                                Penyediaan Jasa Pemeliharaan, Biaya Pemeliharaan, Pajak dan Perizinan Kendaraan Dinas
+                                Operasional atau Lapangan</option>
+                            <option value="Pemeliharaan Mebel">Pemeliharaan Mebel</option>
+                            <option value="Pemeliharaan Peralatan dan Mesin Lainnya">Pemeliharaan Peralatan dan Mesin
+                                Lainnya</option>
+                            <option value="Pemeliharaan/Rehabilitasi Gedung Kantor dan Bangunan Lainnya">
+                                Pemeliharaan/Rehabilitasi Gedung Kantor dan Bangunan Lainnya</option>
+                            <option
+                                value="Pemeliharaan/Rehabilitasi Sarana dan Prasarana Gedung Kantor atau Bangunan Lainnya">
+                                Pemeliharaan/Rehabilitasi Sarana dan Prasarana Gedung Kantor atau Bangunan Lainnya
+                            </option>
+                            <option
+                                value="Fasilitasi Izin Usaha Simpan Pinjam untuk Koperasi Dengan Wilayah Keanggotaan Lintas Daerah Kabupaten/Kota dalam 1 (satu) Daerah Provinsi">
+                                Fasilitasi Izin Usaha Simpan Pinjam untuk Koperasi Dengan Wilayah Keanggotaan Lintas
+                                Daerah Kabupaten/Kota dalam 1 (satu) Daerah Provinsi</option>
+                            <option value="Penguatan Tata Kelola Kelembagaan Koperasi">Penguatan Tata Kelola Kelembagaan
+                                Koperasi</option>
+                            <option
+                                value="Penilaian Kesehatan Koperasi Meliputi Tata Kelola, Profil Risiko, Kinerja Keuangan, dan Permodalan">
+                                Penilaian Kesehatan Koperasi Meliputi Tata Kelola, Profil Risiko, Kinerja Keuangan, dan
+                                Permodalan</option>
+                            <option
+                                value="Peningkatan Pemahaman dan Pengetahuan Perkoperasian serta Kapasitas dan Kompetensi SDM Koperasi">
+                                Peningkatan Pemahaman dan Pengetahuan Perkoperasian serta Kapasitas dan Kompetensi SDM
+                                Koperasi</option>
+                            <option
+                                value="Peningkatan Produktivitas, Nilai Tambah, Akses Pasar, Akses Pembiayaan, Penguatan Kelembagaan, Penataan Manajemen, Standarisasi, dan Restrukturisasi Usaha">
+                                Peningkatan Produktivitas, Nilai Tambah, Akses Pasar, Akses Pembiayaan, Penguatan
+                                Kelembagaan, Penataan Manajemen, Standarisasi, dan Restrukturisasi Usaha</option>
+                            <option
+                                value="Menumbuhkembangkan UMKM untuk Menjadi Usaha yang Tangguh dan Mandiri Sehingga dapat Meningkatkan Penciptaan Lapangan Kerja, Pemerataan Pendapatan, Pertumbuhan Ekonomi, dan Pengentasan Kemiskinan">
+                                Menumbuhkembangkan UMKM untuk Menjadi Usaha yang Tangguh dan Mandiri Sehingga dapat
+                                Meningkatkan Penciptaan Lapangan Kerja, Pemerataan Pendapatan, Pertumbuhan Ekonomi, dan
+                                Pengentasan Kemiskinan</option>
+                            <option
+                                value="Peningkatan Pemahaman dan Pengetahuan UMKM serta Kapasitas dan Kompetensi SDM UMKM dan Kewirausahaan">
+                                Peningkatan Pemahaman dan Pengetahuan UMKM serta Kapasitas dan Kompetensi SDM UMKM dan
+                                Kewirausahaan</option>
+                            <option
+                                value="Produksi dan Pengolahan, Pemasaran, Sumber Daya Manusia, serta Desain dan Teknologi">
+                                Produksi dan Pengolahan, Pemasaran, Sumber Daya Manusia, serta Desain dan Teknologi
+                            </option>
+                            <option
+                                value="Peningkatan Pemahaman dan Pengetahuan Literasi Hukum dan Bantuan Penyelesaian Perkara bagi Pelaku UMKM">
+                                Peningkatan Pemahaman dan Pengetahuan Literasi Hukum dan Bantuan Penyelesaian Perkara
+                                bagi Pelaku UMKM</option>
+                            <option value="Nominasi Warisan Budaya Nasional dan Dunia">Nominasi Warisan Budaya Nasional
+                                dan Dunia</option>
+                            <option value="Pengembangan Industri Kreatif">Pengembangan Industri Kreatif</option>
+                            <option value="Pengembangan Kewirausahaan Desa">Pengembangan Kewirausahaan Desa</option>
+                        </select>
+                        <small style="color:#6b7280;display:block;margin-top:8px;">Ketik untuk mencari sub
+                            kegiatan</small>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Bulan Pengajuan *</label>
+                            <select class="form-control" name="bulan_pengajuan" required>
+                                <option value="">Pilih Bulan</option>
+                                <option value="Januari">Januari</option>
+                                <option value="Februari">Februari</option>
+                                <option value="Maret">Maret</option>
+                                <option value="April">April</option>
+                                <option value="Mei">Mei</option>
+                                <option value="Juni">Juni</option>
+                                <option value="Juli">Juli</option>
+                                <option value="Agustus">Agustus</option>
+                                <option value="September">September</option>
+                                <option value="Oktober">Oktober</option>
+                                <option value="November">November</option>
+                                <option value="Desember">Desember</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nominal Pengajuan (Rp) *</label>
+                            <input type="text" class="form-control rupiah-input" id="display-nominal-dana-bersama"
+                                placeholder="Contoh: 5.000.000" autocomplete="off" inputmode="numeric" required
+                                oninput="formatRupiah(this, 'nominal_dana_bersama_hidden')">
+                            <input type="hidden" name="nominal_pengajuan" id="nominal_dana_bersama_hidden">
+                            <small style="color:#6b7280;display:block;margin-top:8px;">Angka otomatis diformat dengan
+                                titik pemisah</small>
+                        </div>
+                    </div>
+
+                    <!-- ★ BIDANG MULTI-SELECT — hanya satu, pakai chips -->
+                    <div class="form-group">
+                        <label>Bidang yang Terlibat *</label>
+                        <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">
+                            Pilih satu atau lebih bidang yang terlibat dalam pengajuan ini
+                        </p>
+                        <div class="bidang-selector-wrap" id="bidang-selector-wrap">
+                            <input type="text" class="bidang-search-input" id="bidang-search-input"
+                                placeholder="🔍  Cari bidang..." oninput="filterBidangChips(this.value)">
+                            <div class="bidang-chips-list" id="bidang-chips-list"></div>
+                            <div class="bidang-selected-row" id="bidang-selected-row">
+                                <span class="empty-hint" id="bidang-empty-hint">Belum ada bidang dipilih</span>
+                            </div>
+                        </div>
+                        <!-- Hidden field — diisi oleh JS saat chip dipilih -->
+                        <input type="hidden" name="bidang" id="bidang-hidden-value">
+                    </div>
+
+                    <!-- Upload File -->
+                    <div class="form-group">
+                        <label>Upload File Laporan Pengajuan Dana (PDF) *</label>
+                        <input type="file" class="form-control" id="file-dana-bersama-input" accept=".pdf" required
+                            onchange="handleDanaBersamaFile(event)">
+                        <small style="color:#6b7280;display:block;margin-top:8px;">Format: PDF | Maksimal: 10MB</small>
+                        <div id="file-dana-bersama-info" class="file-info"></div>
+                    </div>
+
+                    <button type="submit" id="submit-dana-bersama" class="btn btn-primary btn-block">
+                        Kirim Pengajuan Dana Bersama
+                    </button>
+                    <div id="loading-dana-bersama" class="loading" style="margin-top:16px;">
+                        Mengunggah pengajuan ke sistem
+                    </div>
+                    <div id="progress-dana-bersama" class="progress-bar" style="margin-top:12px;">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div id="alert-dana-bersama" class="alert alert-success" style="margin-top:16px;"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== SPJ SECTION ==================== -->
     <div id="spj" class="section">
         <div class="container">
@@ -1139,9 +1682,7 @@
                     <button onclick="changeMonth(1)">Bulan Depan ▶</button>
                 </div>
                 <div class="calendar-month-year" id="calendar-month-year"></div>
-                <div class="calendar-nav">
-                    <button onclick="goToToday()">Hari Ini</button>
-                </div>
+                <div class="calendar-nav"><button onclick="goToToday()">Hari Ini</button></div>
             </div>
             <div class="calendar-grid" id="calendar-grid"></div>
         </div>
@@ -1288,21 +1829,21 @@
     </div>
 
     <script>
-        // ── Format Rupiah: titik pemisah ribuan ───────────────────
+        // ── Format Rupiah ─────────────────────────────────────────
         function formatRupiah(inputEl, hiddenId) {
-            let raw = inputEl.value.replace(/\D/g, '');
+            var raw = inputEl.value.replace(/\D/g, '');
             document.getElementById(hiddenId).value = raw;
             if (raw === '') { inputEl.value = ''; return; }
             inputEl.value = parseInt(raw, 10).toLocaleString('id-ID');
         }
 
-        // ── Isi dropdown tahun otomatis ───────────────────────────
+        /* ── Tahun otomatis ───────────────────────────────────────────── */
         (function () {
-            const tahunSelect = document.getElementById('tahun-select');
+            var tahunSelect = document.getElementById('tahun-select');
             if (!tahunSelect) return;
-            const tahunSekarang = new Date().getFullYear();
-            for (let i = tahunSekarang - 5; i <= tahunSekarang + 10; i++) {
-                const option = document.createElement('option');
+            var tahunSekarang = new Date().getFullYear();
+            for (var i = tahunSekarang - 5; i <= tahunSekarang + 10; i++) {
+                var option = document.createElement('option');
                 option.value = i;
                 option.textContent = i;
                 if (i === tahunSekarang) option.selected = true;
@@ -1310,10 +1851,9 @@
             }
         })();
 
-        // ── Radio button: highlight pilihan terpilih ─────────────
-        // Fallback untuk browser yang tidak mendukung CSS :has()
+        /* ── Radio button difabel ─────────────────────────────────────── */
         function setRadioSelected(labelEl) {
-            const group = labelEl.closest('.radio-group');
+            var group = labelEl.closest('.radio-group');
             if (!group) return;
             group.querySelectorAll('.radio-option').forEach(function (opt) {
                 opt.classList.remove('selected');
@@ -1321,31 +1861,613 @@
             labelEl.classList.add('selected');
         }
 
-        // Inisialisasi: jika ada radio yang sudah checked (misal setelah back)
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.radio-group input[type="radio"]:checked').forEach(function (radio) {
                 radio.closest('.radio-option').classList.add('selected');
             });
         });
 
-        // Validasi form SPJ
-        document.getElementById('form-spj').addEventListener('submit', function (e) {
-            const raw = document.getElementById('nominal_spj').value;
-            if (!raw || parseInt(raw) <= 0) {
-                e.preventDefault();
-                document.getElementById('display-nominal-spj').focus();
-                alert('Nominal SPJ harus diisi dengan angka yang valid.');
+        /* ── Validasi nominal SPJ ─────────────────────────────────────── */
+        document.addEventListener('DOMContentLoaded', function () {
+            var formSpj = document.getElementById('form-spj');
+            if (formSpj) {
+                formSpj.addEventListener('submit', function (e) {
+                    var raw = document.getElementById('nominal_spj').value;
+                    if (!raw || parseInt(raw) <= 0) {
+                        e.preventDefault();
+                        document.getElementById('display-nominal-spj').focus();
+                        alert('Nominal SPJ harus diisi dengan angka yang valid.');
+                    }
+                });
+            }
+
+            var formVoucher = document.getElementById('form-voucher');
+            if (formVoucher) {
+                formVoucher.addEventListener('submit', function (e) {
+                    var raw = document.getElementById('nominal_diajukan').value;
+                    if (!raw || parseInt(raw) <= 0) {
+                        e.preventDefault();
+                        document.getElementById('display-nominal-voucher').focus();
+                        alert('Nominal pengajuan BBM harus diisi dengan angka yang valid.');
+                    }
+                });
             }
         });
 
-        // Validasi form voucher BBM
-        document.getElementById('form-voucher').addEventListener('submit', function (e) {
-            const raw = document.getElementById('nominal_diajukan').value;
-            if (!raw || parseInt(raw) <= 0) {
-                e.preventDefault();
-                document.getElementById('display-nominal-voucher').focus();
-                alert('Nominal pengajuan BBM harus diisi dengan angka yang valid.');
+
+        /* ════════════════════════════════════════════════════════════════
+           DANA BERSAMA — Autocomplete Sub Kegiatan (mandiri, tanpa Select2)
+           Mengoperasikan:
+             #db-ac-input    → text input yang user ketik
+             #db-ac-chevron  → tombol toggle dropdown
+             #db-ac-list     → <ul> dropdown
+             #db-sub-kegiatan-val → hidden input, dikirim ke GAS
+           ════════════════════════════════════════════════════════════════ */
+        (function () {
+            /* Daftar sub kegiatan — sama dengan SUB_KEGIATAN_LIST di select2-init.js */
+            var SK_LIST = [
+                "Pemanfaatan Ruang Satuan Ruang Strategis Merapi",
+                "Penyusunan Dokumen Perencanaan Perangkat Daerah",
+                "Koordinasi dan Penyusunan DPA-SKPD",
+                "Evaluasi Kinerja Perangkat Daerah",
+                "Penyediaan Gaji dan Tunjangan ASN",
+                "Pelaksanaan Penatausahaan dan Pengujian/Verifikasi Keuangan SKPD",
+                "Koordinasi dan Penyusunan Laporan Keuangan Akhir Tahun SKPD",
+                "Koordinasi dan Penyusunan Laporan Keuangan Bulanan/ Triwulanan/Semesteran SKPD",
+                "Penatausahaan Barang Milik Daerah pada SKPD",
+                "Penyediaan Komponen Instalasi Listrik/Penerangan Bangunan Kantor",
+                "Penyediaan Peralatan dan Perlengkapan Kantor",
+                "Penyediaan Peralatan Rumah Tangga",
+                "Penyediaan Barang Cetakan dan Penggandaan",
+                "Penyediaan Bahan Bacaan dan Peraturan Perundang-Undangan",
+                "Penyelenggaraan Rapat Koordinasi dan Konsultasi SKPD",
+                "Pengadaan Peralatan dan Mesin Lainnya",
+                "Pengadaan Sarana dan Prasarana Gedung Kantor atau Bangunan Lainnya",
+                "Penyediaan Jasa Surat Menyurat",
+                "Penyediaan Jasa Komunikasi, Sumber Daya Air dan Listrik",
+                "Penyediaan Jasa Pelayanan Umum Kantor",
+                "Penyediaan Jasa Pemeliharaan, Biaya Pemeliharaan dan Pajak Kendaraan Perorangan Dinas atau Kendaraan Dinas Jabatan",
+                "Penyediaan Jasa Pemeliharaan, Biaya Pemeliharaan, Pajak dan Perizinan Kendaraan Dinas Operasional atau Lapangan",
+                "Pemeliharaan Mebel",
+                "Pemeliharaan Peralatan dan Mesin Lainnya",
+                "Pemeliharaan/Rehabilitasi Gedung Kantor dan Bangunan Lainnya",
+                "Pemeliharaan/Rehabilitasi Sarana dan Prasarana Gedung Kantor atau Bangunan Lainnya",
+                "Fasilitasi Izin Usaha Simpan Pinjam untuk Koperasi Dengan Wilayah Keanggotaan Lintas Daerah Kabupaten/Kota dalam 1 (satu) Daerah Provinsi",
+                "Penguatan Tata Kelola Kelembagaan Koperasi",
+                "Penilaian Kesehatan Koperasi Meliputi Tata Kelola, Profil Risiko, Kinerja Keuangan, dan Permodalan",
+                "Peningkatan Pemahaman dan Pengetahuan Perkoperasian serta Kapasitas dan Kompetensi SDM Koperasi",
+                "Peningkatan Produktivitas, Nilai Tambah, Akses Pasar, Akses Pembiayaan, Penguatan Kelembagaan, Penataan Manajemen, Standarisasi, dan Restrukturisasi Usaha",
+                "Menumbuhkembangkan UMKM untuk Menjadi Usaha yang Tangguh dan Mandiri Sehingga dapat Meningkatkan Penciptaan Lapangan Kerja, Pemerataan Pendapatan, Pertumbuhan Ekonomi, dan Pengentasan Kemiskinan",
+                "Peningkatan Pemahaman dan Pengetahuan UMKM serta Kapasitas dan Kompetensi SDM UMKM dan Kewirausahaan",
+                "Produksi dan Pengolahan, Pemasaran, Sumber Daya Manusia, serta Desain dan Teknologi",
+                "Peningkatan Pemahaman dan Pengetahuan Literasi Hukum dan Bantuan Penyelesaian Perkara bagi Pelaku UMKM",
+                "Nominasi Warisan Budaya Nasional dan Dunia",
+                "Pengembangan Industri Kreatif",
+                "Pengembangan Kewirausahaan Desa"
+            ];
+
+            var input, chevron, list, hidden;
+            var activeIdx = -1;
+            var isOpen = false;
+
+            function init() {
+                input = document.getElementById('db-ac-input');
+                chevron = document.getElementById('db-ac-chevron');
+                list = document.getElementById('db-ac-list');
+                hidden = document.getElementById('db-sub-kegiatan-val');
+                if (!input || !list || !hidden) return; /* elemen belum ada */
+
+                input.addEventListener('click', onInputClick);
+                input.addEventListener('input', onInputChange);
+                input.addEventListener('keydown', onKeyDown);
+                input.addEventListener('blur', onBlur);
+                if (chevron) chevron.addEventListener('mousedown', onChevronDown);
+
+                document.addEventListener('click', function (e) {
+                    var wrapper = document.getElementById('db-ac-wrapper');
+                    if (wrapper && !wrapper.contains(e.target)) closeList();
+                });
             }
+
+            function escHtml(str) {
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function getFiltered() {
+                var q = input.value.trim().toLowerCase();
+                if (!q) return SK_LIST;
+                return SK_LIST.filter(function (s) { return s.toLowerCase().includes(q); });
+            }
+
+            function openList(items) {
+                list.innerHTML = '';
+                activeIdx = -1;
+                var q = input.value.trim();
+
+                if (!items || items.length === 0) {
+                    var empty = document.createElement('li');
+                    empty.className = 'ac-empty';
+                    empty.textContent = 'Sub kegiatan tidak ditemukan';
+                    list.appendChild(empty);
+                } else {
+                    items.forEach(function (item) {
+                        var li = document.createElement('li');
+                        li.className = 'ac-item';
+                        if (q) {
+                            var idx = item.toLowerCase().indexOf(q.toLowerCase());
+                            if (idx >= 0) {
+                                li.innerHTML =
+                                    escHtml(item.slice(0, idx)) +
+                                    '<mark>' + escHtml(item.slice(idx, idx + q.length)) + '</mark>' +
+                                    escHtml(item.slice(idx + q.length));
+                            } else {
+                                li.textContent = item;
+                            }
+                        } else {
+                            li.textContent = item;
+                        }
+                        li.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            selectItem(item);
+                        });
+                        list.appendChild(li);
+                    });
+                }
+                list.style.display = 'block';
+                isOpen = true;
+            }
+
+            function closeList() {
+                list.style.display = 'none';
+                isOpen = false;
+                activeIdx = -1;
+            }
+
+            function selectItem(value) {
+                input.value = value;
+                hidden.value = value;
+                input.classList.remove('ac-invalid');
+                closeList();
+            }
+
+            function highlight(newIdx) {
+                var items = list.querySelectorAll('.ac-item');
+                items.forEach(function (el) { el.classList.remove('ac-active'); });
+                if (newIdx >= 0 && newIdx < items.length) {
+                    items[newIdx].classList.add('ac-active');
+                    items[newIdx].scrollIntoView({ block: 'nearest' });
+                    activeIdx = newIdx;
+                }
+            }
+
+            function onInputClick() { openList(getFiltered()); }
+            function onChevronDown(e) {
+                e.preventDefault();
+                if (isOpen) closeList();
+                else { input.focus(); openList(getFiltered()); }
+            }
+            function onInputChange() {
+                var q = input.value.trim();
+                hidden.value = ''; /* bersihkan hidden sampai user pilih dari list */
+                openList(q ? SK_LIST.filter(function (s) { return s.toLowerCase().includes(q.toLowerCase()); }) : SK_LIST);
+            }
+            function onKeyDown(e) {
+                var items = list.querySelectorAll('.ac-item');
+                if (!isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                    openList(getFiltered()); return;
+                }
+                if (e.key === 'ArrowDown') { e.preventDefault(); highlight(Math.min(activeIdx + 1, items.length - 1)); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); highlight(Math.max(activeIdx - 1, 0)); }
+                else if (e.key === 'Enter') {
+                    if (activeIdx >= 0 && items[activeIdx]) {
+                        e.preventDefault();
+                        selectItem(items[activeIdx].textContent.replace(/\s+/g, ' ').trim());
+                    }
+                } else if (e.key === 'Escape') { closeList(); }
+                else if (e.key === 'Tab') {
+                    if (activeIdx >= 0 && items[activeIdx]) selectItem(items[activeIdx].textContent.replace(/\s+/g, ' ').trim());
+                    closeList();
+                }
+            }
+            function onBlur() {
+                setTimeout(function () {
+                    closeList();
+                    var val = input.value.trim();
+                    if (val && !SK_LIST.includes(val)) {
+                        input.classList.add('ac-invalid');
+                        hidden.value = '';
+                    } else if (!val) {
+                        hidden.value = '';
+                    }
+                }, 200);
+            }
+
+            /* Jalankan setelah DOM siap */
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
+
+
+        /* ════════════════════════════════════════════════════════════════
+           DANA BERSAMA — Bidang Multi-Select (chips)
+           Nilai dikirim ke spreadsheet dalam 1 kolom: "A,B,C"
+           ════════════════════════════════════════════════════════════════ */
+        var BIDANG_OPTIONS = [
+            'Sekretariat',
+            'Bidang Koperasi',
+            'Bidang UKM',
+            'Bidang Usaha Mikro',
+            'Bidang Kewirausahaan',
+            'Balai Layanan Usaha Terpadu KUMKM'
+        ];
+        var selectedBidangSet = new Set();
+        var selectedDanaBersamaFile = null;
+
+        function initBidangChips() {
+            renderBidangChips('');
+        }
+
+        function renderBidangChips(filter) {
+            var container = document.getElementById('bidang-chips-list');
+            if (!container) return;
+            var q = (filter || '').toLowerCase();
+            container.innerHTML = '';
+            BIDANG_OPTIONS
+                .filter(function (b) { return b.toLowerCase().includes(q); })
+                .forEach(function (b) {
+                    var chip = document.createElement('div');
+                    chip.className = 'bidang-chip' + (selectedBidangSet.has(b) ? ' active' : '');
+                    chip.textContent = b;
+                    chip.addEventListener('click', function () { toggleBidang(b); });
+                    container.appendChild(chip);
+                });
+        }
+
+        function filterBidangChips(val) { renderBidangChips(val); }
+
+        function toggleBidang(name) {
+            if (selectedBidangSet.has(name)) selectedBidangSet.delete(name);
+            else selectedBidangSet.add(name);
+            var searchEl = document.getElementById('bidang-search-input');
+            renderBidangChips(searchEl ? searchEl.value : '');
+            renderBidangSelectedRow();
+            syncBidangHidden();
+        }
+
+        function syncBidangHidden() {
+            /* Format: "Sekretariat,Bidang Koperasi" — satu kolom di spreadsheet */
+            var el = document.getElementById('bidang-hidden-value');
+            if (el) el.value = Array.from(selectedBidangSet).join(',');
+        }
+
+        function renderBidangSelectedRow() {
+            var row = document.getElementById('bidang-selected-row');
+            var hint = document.getElementById('bidang-empty-hint');
+            if (!row) return;
+            Array.from(row.children).forEach(function (c) {
+                if (!c.classList.contains('empty-hint')) c.remove();
+            });
+            if (selectedBidangSet.size === 0) {
+                if (hint) hint.style.display = '';
+            } else {
+                if (hint) hint.style.display = 'none';
+                selectedBidangSet.forEach(function (b) {
+                    var tag = document.createElement('span');
+                    tag.className = 'bidang-tag-item';
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.title = 'Hapus';
+                    btn.textContent = '✕';
+                    btn.addEventListener('click', function () { toggleBidang(b); });
+                    tag.appendChild(document.createTextNode(b));
+                    tag.appendChild(btn);
+                    row.appendChild(tag);
+                });
+            }
+        }
+
+        /* ── File handler Dana Bersama ──────────────────────────────── */
+        function handleDanaBersamaFile(event) {
+            var file = event.target.files[0];
+            var infoEl = document.getElementById('file-dana-bersama-info');
+            selectedDanaBersamaFile = null;
+            if (infoEl) { infoEl.textContent = ''; infoEl.className = 'file-info'; }
+            if (!file) return;
+            if (file.type !== 'application/pdf') {
+                alert('❌ Hanya file PDF yang diperbolehkan!');
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert('❌ Ukuran file maksimal 10MB!');
+                event.target.value = '';
+                return;
+            }
+            selectedDanaBersamaFile = file;
+            if (infoEl) {
+                infoEl.innerHTML = '✅ ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+                infoEl.className = 'file-info show';
+            }
+        }
+
+        /* ── Reset form Dana Bersama setelah submit berhasil ─────────── */
+        function resetDanaBersamaForm() {
+            var form = document.getElementById('form-dana-bersama');
+            if (form) form.reset();
+            // ★ Tidak perlu reset unit karena sudah tidak ada
+
+            // Reset AC sub kegiatan
+            var acInput = document.getElementById('db-ac-input');
+            var acHidden = document.getElementById('db-sub-kegiatan-val');
+            if (acInput) { acInput.value = ''; acInput.classList.remove('ac-invalid'); }
+            if (acHidden) acHidden.value = '';
+
+            // Reset nominal display
+            var nomDisp = document.getElementById('display-nominal-dana-bersama');
+            var nomHid = document.getElementById('nominal_dana_bersama_hidden');
+            if (nomDisp) nomDisp.value = '';
+            if (nomHid) nomHid.value = '';
+
+            // Reset bidang chips
+            selectedBidangSet.clear();
+            var bSearch = document.getElementById('bidang-search-input');
+            if (bSearch) bSearch.value = '';
+            renderBidangChips('');
+            renderBidangSelectedRow();
+            syncBidangHidden();
+
+            // Reset file
+            selectedDanaBersamaFile = null;
+            var fileInput = document.getElementById('file-dana-bersama-input');
+            if (fileInput) fileInput.value = '';
+            var fi = document.getElementById('file-dana-bersama-info');
+            if (fi) { fi.textContent = ''; fi.className = 'file-info'; }
+        }
+
+        /* ── Submit Dana Bersama ────────────────────────────────────── */
+        async function submitDanaBersama(event) {
+            event.preventDefault();
+
+            // Validasi sub kegiatan
+            var subKegiatan = (document.getElementById('db-sub-kegiatan-val') || {}).value || '';
+            subKegiatan = subKegiatan.trim();
+            if (!subKegiatan) {
+                alert('❌ Sub Kegiatan harus dipilih dari daftar yang tersedia!');
+                var acInput = document.getElementById('db-ac-input');
+                if (acInput) acInput.focus();
+                return;
+            }
+
+            // Validasi bidang
+            if (selectedBidangSet.size === 0) {
+                alert('❌ Pilih minimal satu bidang yang terlibat!');
+                return;
+            }
+
+            // Validasi file
+            if (!selectedDanaBersamaFile) {
+                alert('❌ Silakan pilih file PDF pengajuan dana terlebih dahulu!');
+                return;
+            }
+
+            // Validasi nominal
+            var nominal = (document.getElementById('nominal_dana_bersama_hidden') || {}).value || '';
+            if (!nominal || parseInt(nominal) <= 0) {
+                alert('❌ Nominal pengajuan harus diisi dengan angka yang valid.');
+                var dispEl = document.getElementById('display-nominal-dana-bersama');
+                if (dispEl) dispEl.focus();
+                return;
+            }
+
+            var form = event.target;
+            var submitBtn = document.getElementById('submit-dana-bersama');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Mengunggah...';
+            setProgress('progress-dana-bersama', 'loading-dana-bersama', 20, 'Membaca file...');
+
+            try {
+                var base64Data = await fileToBase64(selectedDanaBersamaFile);
+                setProgress('progress-dana-bersama', 'loading-dana-bersama', 55, 'Mengunggah ke sistem...');
+
+                var fields = {
+                    action: 'uploadDanaBersama',
+                    nama: form.querySelector('[name="nama"]').value,
+                    // ★ TIDAK ADA unit — digantikan oleh bidang
+                    sub_kegiatan: subKegiatan,
+                    bulan_pengajuan: form.querySelector('[name="bulan_pengajuan"]').value,
+                    nominal_pengajuan: nominal,
+                    bidang: Array.from(selectedBidangSet).join(','),
+                    fileName: selectedDanaBersamaFile.name,
+                    fileData: base64Data,
+                    mimeType: selectedDanaBersamaFile.type || 'application/pdf'
+                };
+
+                setProgress('progress-dana-bersama', 'loading-dana-bersama', 80, 'Menyimpan data...');
+                var result = await submitViaIframeFields(fields, 'iframe-dana-bersama');
+
+                setProgress('progress-dana-bersama', 'loading-dana-bersama', 100, 'Selesai!');
+                setTimeout(function () {
+                    hideProgress('progress-dana-bersama', 'loading-dana-bersama');
+                }, 600);
+
+                var ok = result && (result.status === 'success' || result.success === true);
+                if (ok) {
+                    showAlert('alert-dana-bersama',
+                        '✓ Pengajuan Dana Bersama berhasil dikirim! File tersimpan di Google Drive.',
+                        'success');
+                    resetDanaBersamaForm();
+                } else {
+                    showAlert('alert-dana-bersama',
+                        '✗ ' + ((result && result.message) || 'Gagal mengirim pengajuan. Silakan coba lagi.'),
+                        'error');
+                }
+            } catch (error) {
+                console.error('submitDanaBersama error:', error);
+                hideProgress('progress-dana-bersama', 'loading-dana-bersama');
+                showAlert('alert-dana-bersama', '✗ ' + error.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Kirim Pengajuan Dana Bersama';
+            }
+        }
+
+
+        /* ════════════════════════════════════════════════════════════════
+           STATUS DANA BERSAMA
+           ════════════════════════════════════════════════════════════════ */
+        var allDanaBersamaData = [];
+        var danaBersamaDisplayData = [];
+        var danaBersamaCurrentPage = 1;
+        var danaBersamaPageSize = 10;
+        var danaBersamaStatusFilter = 'ALL';
+
+        function showDanaBersamaStatus() {
+            var dd = document.getElementById('status-dropdown');
+            if (dd) dd.classList.remove('show');
+            activateSection('status-dana-bersama');
+            var ms = document.getElementById('mobile-nav-select');
+            if (ms) ms.value = 'status-dana-bersama';
+            loadDanaBersamaData();
+        }
+
+        function loadDanaBersamaData() {
+            var tbody = document.getElementById('dana-bersama-tbody');
+            var loadingEl = document.getElementById('dana-bersama-loading');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#6b7280;">Memuat data...</td></tr>';
+            if (loadingEl) loadingEl.style.display = 'block';
+
+            apiGet({ action: 'getDanaBersama' },
+                function (data) {
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    allDanaBersamaData = (data && data.success && Array.isArray(data.data))
+                        ? data.data.sort(function (a, b) { return new Date(b.timestamp || 0) - new Date(a.timestamp || 0); })
+                        : [];
+                    danaBersamaCurrentPage = 1;
+                    danaBersamaDisplayData = allDanaBersamaData.slice();
+                    renderDanaBersamaTable();
+                },
+                function (err) {
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    console.error('loadDanaBersamaData error:', err);
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#dc2626;">Gagal memuat data. Coba refresh.</td></tr>';
+                }
+            );
+        }
+
+        function filterDanaBersama() {
+            var q = (document.getElementById('search-dana-bersama').value || '').toLowerCase();
+            var st = (document.getElementById('filter-status-dana-bersama').value || '').toUpperCase();
+            danaBersamaDisplayData = allDanaBersamaData.filter(function (row) {
+                var hay = [row.nama, row.unit, row.sub_kegiatan, row.bulan_pengajuan, row.bidang]
+                    .map(function (v) { return (v || '').toLowerCase(); }).join(' ');
+                return (!q || hay.includes(q)) && (!st || (row.status || '').toUpperCase() === st);
+            });
+            danaBersamaCurrentPage = 1;
+            renderDanaBersamaTable();
+        }
+
+        function filterDanaBersamaByStatus(status, btn) {
+            danaBersamaStatusFilter = status;
+            document.querySelectorAll('#status-dana-bersama .filter-btn').forEach(function (b) { b.classList.remove('active'); });
+            if (btn) btn.classList.add('active');
+            var q = (document.getElementById('search-dana-bersama').value || '').toLowerCase();
+            danaBersamaDisplayData = allDanaBersamaData.filter(function (row) {
+                var hay = [row.nama, row.unit, row.sub_kegiatan, row.bulan_pengajuan, row.bidang]
+                    .map(function (v) { return (v || '').toLowerCase(); }).join(' ');
+                return (!q || hay.includes(q)) &&
+                    (status === 'ALL' || (row.status || '').toUpperCase() === status);
+            });
+            danaBersamaCurrentPage = 1;
+            renderDanaBersamaTable();
+        }
+
+        function renderDanaBersamaTable() {
+            var tbody = document.getElementById('dana-bersama-tbody');
+            var paginEl = document.getElementById('dana-bersama-pagination');
+            var total = danaBersamaDisplayData.length;
+
+            if (total === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#6b7280;">Tidak ada data pengajuan dana bersama.</td></tr>';
+                if (paginEl) paginEl.innerHTML = '';
+                return;
+            }
+
+            var totalPages = Math.max(1, Math.ceil(total / danaBersamaPageSize));
+            danaBersamaCurrentPage = Math.min(danaBersamaCurrentPage, totalPages);
+            var start = (danaBersamaCurrentPage - 1) * danaBersamaPageSize;
+            var slice = danaBersamaDisplayData.slice(start, start + danaBersamaPageSize);
+
+            tbody.innerHTML = slice.map(function (row) {
+                var st = (row.status || 'PENDING').toUpperCase();
+                var stClass = st === 'APPROVED' ? 'approved' : st === 'REJECTED' ? 'rejected' : 'pending';
+                var stLabel = st === 'APPROVED' ? 'Disetujui' : st === 'REJECTED' ? 'Ditolak' : 'Pending';
+
+                /* Bidang: tampilkan sebagai pill, data asli di kolom = "A,B,C" */
+                var bidangPills = (row.bidang || '').split(',').filter(Boolean)
+                    .map(function (b) { return '<span class="bidang-pill">' + b.trim() + '</span>'; }).join('');
+
+                var fileCell = row.file_url
+                    ? '<a href="' + row.file_url + '" target="_blank" style="color:#c5a572;font-weight:600;font-size:12px;">📎 Lihat</a>'
+                    : '<span style="color:#9ca3af;font-size:12px;">—</span>';
+
+                var ts = '—';
+                try {
+                    var d = new Date(row.timestamp);
+                    if (!isNaN(d)) ts = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                } catch (_) { }
+
+                var nominal = parseInt(row.nominal_pengajuan || 0);
+                return '<tr>' +
+                    '<td style="font-size:13px;">' + ts + '</td>' +
+                    '<td style="font-weight:600;">' + (row.nama || '—') + '</td>' +
+                    '<td style="font-size:13px;color:#6b7280;">' + (row.unit || '—') + '</td>' +
+                    '<td style="font-size:12px;max-width:220px;">' + (row.sub_kegiatan || '—') + '</td>' +
+                    '<td style="font-size:13px;">' + (row.bulan_pengajuan || '—') + '</td>' +
+                    '<td style="text-align:right;font-weight:700;font-size:13px;">Rp ' + (isNaN(nominal) ? '0' : nominal.toLocaleString('id-ID')) + '</td>' +
+                    '<td><div style="display:flex;flex-wrap:wrap;gap:3px;">' + (bidangPills || '<span style="color:#9ca3af;font-size:12px;">—</span>') + '</div></td>' +
+                    '<td><span class="status-badge ' + stClass + '"><span class="status-dot"></span>' + stLabel + '</span></td>' +
+                    '<td>' + fileCell + '</td>' +
+                    '</tr>';
+            }).join('');
+
+            /* Pagination */
+            if (paginEl) {
+                if (totalPages <= 1) { paginEl.innerHTML = ''; return; }
+                var sizeOpts = [10, 25, 50];
+                var pg = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 0;">';
+                pg += '<select class="form-control" style="width:auto;" onchange="danaBersamaPageSize=parseInt(this.value);danaBersamaCurrentPage=1;renderDanaBersamaTable();">' +
+                    sizeOpts.map(function (n) { return '<option value="' + n + '"' + (n === danaBersamaPageSize ? ' selected' : '') + '>' + n + '/hal</option>'; }).join('') +
+                    '</select>';
+                pg += '<span style="font-size:13px;color:#6b7280;">Total ' + total + ' data</span>';
+                pg += '<button class="filter-btn" onclick="goToDanaBersamaPage(' + (danaBersamaCurrentPage - 1) + ')" ' + (danaBersamaCurrentPage === 1 ? 'disabled' : '') + '>‹</button>';
+                for (var i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || Math.abs(i - danaBersamaCurrentPage) <= 1) {
+                        pg += '<button class="filter-btn' + (i === danaBersamaCurrentPage ? ' active' : '') + '" onclick="goToDanaBersamaPage(' + i + ')">' + i + '</button>';
+                    } else if (Math.abs(i - danaBersamaCurrentPage) === 2) {
+                        pg += '<span>…</span>';
+                    }
+                }
+                pg += '<button class="filter-btn" onclick="goToDanaBersamaPage(' + (danaBersamaCurrentPage + 1) + ')" ' + (danaBersamaCurrentPage === totalPages ? 'disabled' : '') + '>›</button>';
+                pg += '</div>';
+                paginEl.innerHTML = pg;
+            }
+        }
+
+        function goToDanaBersamaPage(p) {
+            var totalPages = Math.ceil(danaBersamaDisplayData.length / danaBersamaPageSize);
+            if (p < 1 || p > totalPages) return;
+            danaBersamaCurrentPage = p;
+            renderDanaBersamaTable();
+            var el = document.getElementById('status-dana-bersama');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ── Init bidang chips on DOM ready ──────────────────────────
+        document.addEventListener('DOMContentLoaded', function () {
+            initBidangChips();
         });
     </script>
 

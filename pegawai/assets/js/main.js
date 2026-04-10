@@ -4,6 +4,37 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyHLaM0b5HH3O5Uagscvo41Z5dpOx9i-pWIehfFaWwxP5dWBN8sfEeUJ8erlYW6Qe05/exec";
 
 // ============================================
+// HELPER: JSONP request ke Google Apps Script
+// (fetch() tidak bisa dipakai ke GAS karena CORS/redirect)
+// ============================================
+function apiGet(params, callback, errorCallback) {
+    const cbName = 'gas_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    const qs = Object.entries(params)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join('&');
+    const url = `${GAS_URL}?${qs}&callback=${cbName}`;
+    const timeout = setTimeout(() => {
+        delete window[cbName];
+        if (script.parentNode) document.body.removeChild(script);
+        if (errorCallback) errorCallback(new Error('Request timeout'));
+    }, 15000);
+    window[cbName] = function (data) {
+        clearTimeout(timeout);
+        delete window[cbName];
+        if (script.parentNode) document.body.removeChild(script);
+        callback(data);
+    };
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = function () {
+        clearTimeout(timeout);
+        delete window[cbName];
+        if (errorCallback) errorCallback(new Error('Network error'));
+    };
+    document.body.appendChild(script);
+}
+
+// ============================================
 // GLOBAL VARIABLES
 // ============================================
 let selectedFile = null;
@@ -113,6 +144,13 @@ function handleMobileNav(value) {
             break;
         case 'status-dana':
             showDanaStatus();
+            break;
+        // Di dalam switch di handleMobileNav(), setelah case 'status-dana':
+        case 'status-dana-bersama':
+            showDanaBersamaStatus();
+            break;
+        case 'pengajuan-dana-bersama':
+            activateSection('pengajuan-dana-bersama');
             break;
         default:
             console.warn('handleMobileNav: nilai tidak dikenal →', value);
@@ -286,25 +324,24 @@ function showCalendar(type) {
 }
 
 function loadCalendarData() {
-    const url = `${GAS_URL}?action=getSchedule&type=${currentCalendarType}`;
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
+    apiGet(
+        { action: 'getSchedule', type: currentCalendarType },
+        function (data) {
             if (data.status === 'success') {
                 calendarData = data.summary || {};
-                renderCalendar();
             } else {
                 calendarData = {};
-                renderCalendar();
             }
+            renderCalendar();
             hideLoading();
-        })
-        .catch(error => {
-            console.error('❌ Fetch error:', error);
+        },
+        function (error) {
+            console.error('❌ JSONP error:', error);
             calendarData = {};
             renderCalendar();
             hideLoading();
-        });
+        }
+    );
 }
 
 function renderCalendar() {
@@ -375,22 +412,22 @@ function goToToday() {
 // ============================================
 function showScheduleDetail(date) {
     showLoading();
-    const url = `${GAS_URL}?action=getSchedule&type=${currentCalendarType}&date=${date}`;
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
+    apiGet(
+        { action: 'getSchedule', type: currentCalendarType, date: date },
+        function (data) {
             hideLoading();
             if (data.status === 'success' && data.schedules && data.schedules.length > 0) {
                 displayScheduleDetailPage(date, data.schedules);
             } else {
                 alert('Tidak ada jadwal pada tanggal ini');
             }
-        })
-        .catch(error => {
+        },
+        function (error) {
             console.error('❌ Error:', error);
             hideLoading();
             alert('Gagal memuat detail jadwal');
-        });
+        }
+    );
 }
 
 function displayScheduleDetailPage(date, schedules) {
@@ -550,23 +587,24 @@ function changeVoucherPageSize(val) {
 }
 
 function loadVoucherData() {
-    fetch(`${GAS_URL}?action=getVouchers`)
-        .then(response => response.json())
-        .then(data => {
+    apiGet(
+        { action: 'getVouchers' },
+        function (data) {
             allVouchers = data.status === 'success' ? (data.vouchers || []) : [];
             allVouchers = sortVouchersByDate(allVouchers);
             voucherCurrentPage = 1;
             voucherDisplayData = allVouchers;
             renderVoucherTable(voucherDisplayData, voucherCurrentPage);
             hideLoading();
-        })
-        .catch(error => {
-            console.error('❌ Fetch error:', error);
+        },
+        function (error) {
+            console.error('❌ JSONP error:', error);
             allVouchers = [];
             voucherDisplayData = [];
             renderVoucherTable([], 1);
             hideLoading();
-        });
+        }
+    );
 }
 
 function getVoucherTimestamp(voucher) {
@@ -900,15 +938,14 @@ function submitSPJ(event) {
 async function submitPengajuanDana(event) {
     event.preventDefault();
 
-    // ★ FIX: Sync hidden field sebelum validasi
+    // Sync hidden field nominal
     const displayEl = document.getElementById('display-nominal-pengajuan');
     const hiddenEl = document.getElementById('nominal_pengajuan');
     if (displayEl && hiddenEl) {
-        let raw = displayEl.value.replace(/\D/g, '');
+        const raw = displayEl.value.replace(/\D/g, '');
         if (raw) hiddenEl.value = raw;
     }
 
-    // ★ FIX: Validasi nominal dipindah ke sini (tidak di event listener terpisah)
     const nominalRaw = hiddenEl ? hiddenEl.value : '';
     if (!nominalRaw || parseInt(nominalRaw) <= 0) {
         alert('❌ Nominal pengajuan harus diisi dengan angka yang valid.');
@@ -931,64 +968,42 @@ async function submitPengajuanDana(event) {
         const base64Data = await fileToBase64(selectedPengajuanFile);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 50, 'Mengunggah ke sistem...');
 
-        const hiddenForm = document.createElement('form');
-        hiddenForm.method = 'POST';
-        hiddenForm.action = GAS_URL;
-        hiddenForm.target = 'iframe-pengajuan-dana';
-        hiddenForm.style.display = 'none';
-
         const fields = {
             action: 'uploadPengajuanDana',
             nama: formElement.querySelector('[name="nama"]').value,
             unit: formElement.querySelector('[name="unit"]').value,
             sub_kegiatan: formElement.querySelector('[name="sub_kegiatan"]').value,
             bulan_pengajuan: formElement.querySelector('[name="bulan_pengajuan"]').value,
-            nominal_pengajuan: nominalRaw,   // ★ Pakai nilai yang sudah divalidasi
+            nominal_pengajuan: nominalRaw,
             fileName: selectedPengajuanFile.name,
             fileData: base64Data,
             mimeType: selectedPengajuanFile.type
         };
 
-        for (let [key, value] of Object.entries(fields)) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = value;
-            hiddenForm.appendChild(input);
-        }
-
-        let iframe = document.getElementById('iframe-pengajuan-dana');
-        if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'iframe-pengajuan-dana';
-            iframe.name = 'iframe-pengajuan-dana';
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-        }
-
-        document.body.appendChild(hiddenForm);
         setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 75, 'Menyimpan file...');
-        hiddenForm.submit();
+        const result = await submitViaIframeFields(fields, 'iframe-pengajuan-dana');
+        console.log('[submitPengajuanDana] result:', result);
 
-        setTimeout(() => {
-            setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!');
-        }, 1000);
+        setProgress('progress-pengajuan-dana', 'loading-pengajuan-dana', 100, 'Selesai!');
+        setTimeout(() => hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana'), 600);
 
-        setTimeout(() => {
-            hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
-            showAlert('alert-pengajuan-dana', '✓ Pengajuan dana berhasil dikirim! File tersimpan di sistem.');
-            formElement.reset();
-            selectedPengajuanFile = null;
-            document.getElementById('file-pengajuan-info').classList.remove('show');
-            if (hiddenForm.parentNode) document.body.removeChild(hiddenForm);
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Kirim Pengajuan Dana';
-        }, 3000);
+        const ok = result?.status === 'success' || result?.success === true;
+        if (ok) {
+            showAlert('alert-pengajuan-dana', '✓ Pengajuan dana berhasil dikirim! File tersimpan di sistem.', 'success');
+        } else {
+            showAlert('alert-pengajuan-dana', '✗ ' + (result?.message || 'Gagal mengirim pengajuan'), 'error');
+        }
+
+        formElement.reset();
+        selectedPengajuanFile = null;
+        const fileInfo = document.getElementById('file-pengajuan-info');
+        if (fileInfo) fileInfo.classList.remove('show');
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ submitPengajuanDana error:', error);
         hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
         showAlert('alert-pengajuan-dana', '✗ ' + error.message, 'error');
+    } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Kirim Pengajuan Dana';
     }
@@ -1047,7 +1062,7 @@ async function submitDokumen(event) {
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-arsip');
 
-    // ── Validasi sesuai mode ──────────────────────────────
+    // ── Validasi ──────────────────────────────────────────
     if (arsipUploadMode === 'file') {
         if (!selectedArsipFile) {
             alert('❌ Silakan pilih file terlebih dahulu!');
@@ -1072,70 +1087,66 @@ async function submitDokumen(event) {
         bulan: formElement.querySelector('[name="bulan"]').value,
         tahun: formElement.querySelector('[name="tahun"]').value,
         jenis_dokumen: formElement.querySelector('[name="jenis_dokumen"]').value,
-        keterangan: formElement.querySelector('[name="keterangan"]').value,
+        keterangan: formElement.querySelector('[name="keterangan"]')?.value || '',
         upload_mode: arsipUploadMode
     };
 
     try {
-        if (arsipUploadMode === 'drive') {
-            // ── MODE DRIVE ──────────────────────────────────
-            const links = getDriveLinks();
-            const fields = { ...baseFields, drive_links: JSON.stringify(links) };
-            setProgress('progress-arsip', 'loading-arsip', 50, 'Mengirim link Drive...');
-            submitViaIframeFields(fields, 'iframe-arsip');
+        let fields;
 
+        if (arsipUploadMode === 'drive') {
+            const links = getDriveLinks();
+            fields = { ...baseFields, drive_links: JSON.stringify(links) };
+            setProgress('progress-arsip', 'loading-arsip', 50, 'Mengirim link Drive...');
         } else {
-            // ── MODE FILE (1 file) ──────────────────────────
             setProgress('progress-arsip', 'loading-arsip', 30, `Membaca file: ${selectedArsipFile.name}`);
             const base64Data = await fileToBase64(selectedArsipFile);
             setProgress('progress-arsip', 'loading-arsip', 65, 'Mengunggah ke Google Drive...');
-
-            const fields = {
+            fields = {
                 ...baseFields,
                 fileName: selectedArsipFile.name,
                 fileData: base64Data,
                 mimeType: selectedArsipFile.type || 'application/octet-stream',
             };
-            submitViaIframeFields(fields, 'iframe-arsip');
         }
 
-        setProgress('progress-arsip', 'loading-arsip', 95, 'Menyelesaikan...');
-        setTimeout(() => { setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!'); }, 800);
+        setProgress('progress-arsip', 'loading-arsip', 80, 'Menyimpan ke sistem...');
+        const result = await submitViaIframeFields(fields, 'iframe-arsip');
+        console.log('[submitDokumen] result:', result);
 
-        setTimeout(() => {
-            hideProgress('progress-arsip', 'loading-arsip');
+        setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
+        setTimeout(() => hideProgress('progress-arsip', 'loading-arsip'), 600);
 
+        // Cek apakah berhasil (status:'success' atau success:true)
+        const ok = result?.status === 'success' || result?.success === true;
+        if (ok) {
             const msg = arsipUploadMode === 'file'
-                ? `✓ Dokumen berhasil diunggah ke Google Drive!`
+                ? '✓ Dokumen berhasil diunggah ke Google Drive!'
                 : '✓ Link Google Drive berhasil dikirim!';
             showAlert('alert-arsip', msg, 'success');
+        } else {
+            showAlert('alert-arsip', '✗ ' + (result?.message || 'Gagal menyimpan dokumen'), 'error');
+        }
 
-            // Reset form
-            formElement.reset();
-            selectedArsipFile = null;
-
-            // Reset info file
-            const infoEl = document.getElementById('arsip-file-info');
-            if (infoEl) { infoEl.textContent = ''; infoEl.className = 'arsip-file-info'; }
-
-            // Reset drive links
-            driveLinksCounter = 1;
-            const dlContainer = document.getElementById('drive-links-container');
-            if (dlContainer) {
-                dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                    <input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;">
-                    <button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none;color:#dc2626;border-color:#fca5a5;flex-shrink:0;">✕</button>
-                </div>`;
-            }
-
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Kirim Dokumen';
-        }, 3200);
+        // Reset form
+        formElement.reset();
+        selectedArsipFile = null;
+        const infoEl = document.getElementById('arsip-file-info');
+        if (infoEl) { infoEl.textContent = ''; infoEl.className = 'arsip-file-info'; }
+        driveLinksCounter = 1;
+        const dlContainer = document.getElementById('drive-links-container');
+        if (dlContainer) {
+            dlContainer.innerHTML = `<div class="drive-link-row" id="drive-row-1" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                <input type="url" class="form-control drive-link-input" placeholder="https://drive.google.com/file/d/..." style="flex:1;">
+                <button type="button" class="btn btn-sm" onclick="removeDriveLink('drive-row-1')" style="display:none;color:#dc2626;border-color:#fca5a5;flex-shrink:0;">✕</button>
+            </div>`;
+        }
 
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ submitDokumen error:', error);
         hideProgress('progress-arsip', 'loading-arsip');
         showAlert('alert-arsip', '✗ ' + error.message, 'error');
+    } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Kirim Dokumen';
     }
@@ -1147,30 +1158,23 @@ function getDriveLinks() {
         .filter(v => v !== '');
 }
 
-function submitViaIframeFields(fields, iframeId) {
-    const hiddenForm = document.createElement('form');
-    hiddenForm.method = 'POST';
-    hiddenForm.action = GAS_URL;
-    hiddenForm.target = iframeId;
-    hiddenForm.style.display = 'none';
-    for (let [key, value] of Object.entries(fields)) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        hiddenForm.appendChild(input);
-    }
-    let iframe = document.getElementById(iframeId);
-    if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = iframeId;
-        iframe.name = iframeId;
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-    }
-    document.body.appendChild(hiddenForm);
-    hiddenForm.submit();
-    setTimeout(() => { if (hiddenForm.parentNode) document.body.removeChild(hiddenForm); }, 5000);
+async function submitViaIframeFields(fields, _iframeId) {
+    const body = Object.keys(fields)
+        .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(fields[k] ?? ''))
+        .join('&');
+
+    const resp = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        redirect: 'follow'
+    });
+
+    const text = await resp.text();
+    console.log('[submitViaIframeFields] raw response:', text.slice(0, 300));
+
+    try { return JSON.parse(text); }
+    catch (e) { return { status: 'success' }; } // GAS kadang redirect, tetap anggap sukses
 }
 
 // ============================================

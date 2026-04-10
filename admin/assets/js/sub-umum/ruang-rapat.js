@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyfAJcjPDuKqwKk8A46z4quyaeV9trBLAuDtdqhQqX0CIZke6fgN1sptcnS0EURuF6ksg/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwjJwYtLjnhZ__smIDfVkLJTpu_m3rqvg4Sy1TSfyXvwA6_2FKrXGFgMUi4_MSMefpvtg/exec';
     const CACHE_DURATION = 5 * 60 * 1000;
     const CACHE_KEYS = { REQUESTS: 'ruang_rapat_requests', VIOLATIONS: 'ruang_rapat_violations', SCORES: 'ruang_rapat_scores' };
 

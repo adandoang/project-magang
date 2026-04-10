@@ -5,7 +5,7 @@
 (function () {
     'use strict';
 
-    const API_URL = 'https://script.google.com/macros/s/AKfycby57ETxcwllJcTNCptwnZKW7EJ8PVrbqewUhxaUHGDYP3SO8TuvNofGeHfciXddvbhaVg/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwjJwYtLjnhZ__smIDfVkLJTpu_m3rqvg4Sy1TSfyXvwA6_2FKrXGFgMUi4_MSMefpvtg/exec';
     const CACHE_DURATION = 5 * 60 * 1000;
     const CACHE_KEYS = {
         REQUESTS: 'bbm_voucher_requests',
@@ -160,19 +160,16 @@
     }
 
     // ── API POST — sama persis seperti monev ──────────────────
-    // Kunci: redirect: 'follow' dan parse text() bukan json()
     function callAPIPost(params) {
         return new Promise((resolve, reject) => {
             const t = setTimeout(() => reject(new Error('timeout')), 60000);
 
-            const body = Object.keys(params)
-                .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k] || ''))
-                .join('&');
-
+            // Kirim sebagai text/plain agar tidak trigger CORS preflight
+            // tapi body tetap sampai utuh ke doPost
             fetch(API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body,
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(params),
                 redirect: 'follow'
             })
                 .then(r => r.text())
@@ -180,9 +177,33 @@
                     clearTimeout(t);
                     console.log('[BBM] Raw POST response:', text.slice(0, 300));
                     try { resolve(JSON.parse(text)); }
-                    catch (e) { resolve({ success: false, message: 'Respons tidak valid: ' + text.slice(0, 100) }); }
+                    catch (e) { resolve({ success: false, message: 'Respons tidak valid' }); }
                 })
                 .catch(err => { clearTimeout(t); reject(err); });
+        });
+    }
+
+    function bbmResizeImage(file, maxPx, quality) {
+        return new Promise((resolve) => {
+            if (!file.type.startsWith('image/')) { resolve(file); return; }
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                let w = img.width, h = img.height;
+                if (w <= maxPx && h <= maxPx) { resolve(file); return; }
+                if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+                else { w = Math.round(w * maxPx / h); h = maxPx; }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                canvas.toBlob(
+                    blob => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
+                    'image/jpeg', quality
+                );
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+            img.src = url;
         });
     }
 
@@ -656,13 +677,12 @@
 
     // ── Handle file pilih — sama persis seperti monev ─────────
     window.bbmHandleCompleteFile = async (input) => {
-        const file = input.files[0];
+        const file = input.files[0];  // ← langsung 'file', tidak pakai 'rawFile'
         const info = document.getElementById('bbm-complete-foto-info');
         const errEl = document.getElementById('bbm-complete-foto-error');
         const preview = document.getElementById('bbm-complete-foto-preview');
         const previewImg = document.getElementById('bbm-complete-foto-img');
 
-        // Reset state sebelumnya
         selectedBuktiFotoFile = null;
         selectedBuktiFotoBase64 = null;
         if (info) info.textContent = '';
@@ -681,7 +701,7 @@
             input.value = ''; return;
         }
 
-        // Tampilkan preview gambar
+        // Preview langsung pakai file asli
         if (preview && previewImg && file.type.startsWith('image/')) {
             previewImg.src = URL.createObjectURL(file);
             preview.style.display = 'block';
@@ -690,11 +710,11 @@
         if (info) info.textContent = 'Membaca file...';
 
         try {
-            // ── KUNCI: await FileReader tuntas dulu baru simpan ke state ──
-            // Sama persis dengan mnvReadFileAsBase64 di monev.js
-            const base64 = await bbmReadFileAsBase64(file);
-            selectedBuktiFotoFile = file;
-            selectedBuktiFotoBase64 = base64; // ← hasil await yang benar
+            // Resize kalau gambar, langsung baca kalau PDF
+            const fileToUpload = await bbmResizeImage(file, 800, 0.7);
+            const base64 = await bbmReadFileAsBase64(fileToUpload);
+            selectedBuktiFotoFile = fileToUpload;
+            selectedBuktiFotoBase64 = base64;
             const sizeKB = Math.round((base64.length * 3 / 4) / 1024);
             if (info) info.textContent = `✅ ${file.name} (±${sizeKB} KB siap upload)`;
         } catch (e) {
@@ -703,7 +723,6 @@
             selectedBuktiFotoBase64 = null;
         }
     };
-
     // ── Batalkan file yang dipilih ─────────────────────────────
     window.bbmCancelFotoFile = () => {
         selectedBuktiFotoFile = null;

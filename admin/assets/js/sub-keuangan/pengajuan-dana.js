@@ -1,7 +1,7 @@
 // ============================================================
 // pengajuan-dana.js — Pengajuan Dana section (SPA)
 // Admin Panel — Dinas Koperasi UKM
-// v2: delete pakai confirm() browser (bukan modal)
+// Update: navigasi tab (Pengajuan Dana | Pengajuan Dana Bersama)
 // ============================================================
 (function () {
     'use strict';
@@ -388,7 +388,7 @@
             const res = await callAPI({ action: 'updateStatusPengajuanDana', id: currentEditId, status: currentEditStatus });
             if (res?.success) {
                 if (window.showToast) showToast('Status berhasil diperbarui', 'success');
-                window.pdClearCache(); window.pdCloseEditModal(); await window.pdLoadData(true);
+                window.pdClearCache(); window.pdCloseEditModal(); btn.disabled = false; btn.innerHTML = orig; await window.pdLoadData(true);
             } else {
                 if (window.showToast) showToast(res?.message || 'Gagal memperbarui status', 'error');
             }
@@ -398,7 +398,7 @@
         }
     };
 
-    // ── Delete — pakai showConfirmModal ───────────────────────────
+    // ── Delete ────────────────────────────────────────────────
     window.pdOpenDeleteModal = function (id) {
         const item = allData.find(d => d.id === id);
         if (!item) return;
@@ -507,6 +507,60 @@
     };
 
     // ═══════════════════════════════════════════════════════════
+    // TAB SWITCH — dipanggil dari tombol tab
+    // ═══════════════════════════════════════════════════════════
+    window.pdSwitchTab = function (tabName, event) {
+        // Update tombol tab
+        document.querySelectorAll('#section-pengajuan-dana .tab').forEach(t => t.classList.remove('active'));
+        if (event?.target) event.target.classList.add('active');
+
+        // Update konten tab
+        document.querySelectorAll('#section-pengajuan-dana .tab-content').forEach(tc => tc.classList.remove('active'));
+        const el = document.getElementById('pd-tab-' + tabName);
+        if (el) el.classList.add('active');
+
+        // Load data sesuai tab
+        if (tabName === 'pengajuan') {
+            window.pdLoadData(false).then(() => {
+                const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
+                const fMonth = document.getElementById('pd-filter-bulan');
+                if (fMonth && !fMonth.value) fMonth.value = currentMonthName;
+                window.pdFilterData();
+            });
+        } else if (tabName === 'bersama') {
+            if (window.pdbLoadData) window.pdbLoadData(false).then(() => {
+                const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
+                const fMonth = document.getElementById('pdb-filter-bulan');
+                if (fMonth && !fMonth.value) fMonth.value = currentMonthName;
+                if (window.pdbFilterData) window.pdbFilterData();
+            });
+        }
+    };
+
+    // Dropdown version untuk mobile
+    window.pdSwitchTabDD = function (v) {
+        document.querySelectorAll('#section-pengajuan-dana .tab-content').forEach(tc => tc.classList.remove('active'));
+        const el = document.getElementById('pd-tab-' + v);
+        if (el) el.classList.add('active');
+
+        if (v === 'pengajuan') {
+            window.pdLoadData(false).then(() => {
+                const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
+                const fMonth = document.getElementById('pd-filter-bulan');
+                if (fMonth && !fMonth.value) fMonth.value = currentMonthName;
+                window.pdFilterData();
+            });
+        } else if (v === 'bersama') {
+            if (window.pdbLoadData) window.pdbLoadData(false).then(() => {
+                const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
+                const fMonth = document.getElementById('pdb-filter-bulan');
+                if (fMonth && !fMonth.value) fMonth.value = currentMonthName;
+                if (window.pdbFilterData) window.pdbFilterData();
+            });
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════
     // HTML INJECT & SECTION INIT
     // ═══════════════════════════════════════════════════════════
     window.sectionInits = window.sectionInits || {};
@@ -514,8 +568,12 @@
         const section = document.getElementById('section-pengajuan-dana');
         if (!section) return;
 
+        // Hancurkan chart lama jika ada
+        if (chartPengajuan) { chartPengajuan.destroy(); chartPengajuan = null; }
+
         section.innerHTML = `
 <style>
+/* ── Shared detail styles ──────────────────────────────── */
 .pd-detail-wrap { display:flex; flex-direction:column; gap:14px; }
 .pd-detail-status-banner { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; border:1.5px solid; }
 .pd-detail-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
@@ -527,6 +585,7 @@
 .pd-detail-field-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .pd-detail-field-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; }
 .pd-detail-field-value { font-size:13.5px; font-weight:600; color:#1e293b; line-height:1.4; }
+/* ── Edit modal status options ──────────────────────────── */
 .pd-status-options { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
 .pd-status-option { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.15s; }
 .pd-status-option:hover { border-color:#94a3b8; background:#f8fafc; }
@@ -540,6 +599,7 @@
 .pd-info-item { display:flex; flex-direction:column; gap:2px; }
 .pd-info-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
 .pd-info-value { font-size:13px; font-weight:600; color:#1e293b; }
+/* ── Filter container ───────────────────────────────────── */
 #section-pengajuan-dana .filter-container { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 #pd-data-tbody tr td:nth-child(7) { text-align:center; vertical-align:middle; }
 #pd-data-tbody tr { vertical-align:middle; }
@@ -551,89 +611,119 @@
         <p class="section-page-subtitle">Kelola dan verifikasi pengajuan dana kegiatan dari setiap unit / bidang</p>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card" style="border-left:4px solid #10b981;">
-            <div class="stat-label">Total Pengajuan</div>
-            <div class="stat-value" id="pd-stat-total">0</div>
-            <div class="stat-footer">Laporan Pengajuan Dana</div>
-        </div>
-        <div class="stat-card" style="border-left:4px solid #3b82f6;">
-            <div class="stat-label">Bulan Ini</div>
-            <div class="stat-value" id="pd-stat-bulan">0</div>
-            <div class="stat-footer" id="pd-stat-bulan-label">Laporan</div>
-        </div>
-        <div class="stat-card" style="border-left:4px solid #f59e0b;">
-            <div class="stat-label">Pending</div>
-            <div class="stat-value" id="pd-stat-pending">0</div>
-            <div class="stat-footer">Menunggu verifikasi</div>
-        </div>
-        <div class="stat-card" style="border-left:4px solid #64748b;">
-            <div class="stat-label">Total Nominal</div>
-            <div class="stat-value" id="pd-stat-nominal" style="font-size:24px;">Rp 0</div>
-            <div class="stat-footer">Akumulasi pengajuan</div>
-        </div>
+    <!-- ── Tab navigasi (desktop) ──────────────────────────── -->
+    <div class="tabs">
+        <button class="tab active" onclick="pdSwitchTab('pengajuan', event)">Pengajuan Dana</button>
+        <button class="tab"        onclick="pdSwitchTab('bersama', event)">Pengajuan Dana Bersama</button>
     </div>
 
-    <div class="card">
-        <div class="card-header"><h2 class="card-title">Tren Pengajuan Dana per Bulan</h2></div>
-        <div class="card-content"><div class="chart-container"><canvas id="pd-chartPengajuan"></canvas></div></div>
+    <!-- ── Tab navigasi (mobile dropdown) ─────────────────── -->
+    <div class="tabs-dropdown">
+        <select onchange="pdSwitchTabDD(this.value)">
+            <option value="pengajuan">Pengajuan Dana</option>
+            <option value="bersama">Pengajuan Dana Bersama</option>
+        </select>
     </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">Daftar Pengajuan Dana</h2>
-            <div class="filter-container">
-                <select class="select-input" id="pd-filter-bulan" onchange="pdFilterData()">
-                    <option value="">Semua Bulan</option>
-                    <option value="JANUARI">Januari</option><option value="FEBRUARI">Februari</option>
-                    <option value="MARET">Maret</option><option value="APRIL">April</option>
-                    <option value="MEI">Mei</option><option value="JUNI">Juni</option>
-                    <option value="JULI">Juli</option><option value="AGUSTUS">Agustus</option>
-                    <option value="SEPTEMBER">September</option><option value="OKTOBER">Oktober</option>
-                    <option value="NOVEMBER">November</option><option value="DESEMBER">Desember</option>
-                </select>
-                <select class="select-input" id="pd-filter-unit" onchange="pdFilterData()">
-                    <option value="">Semua Unit</option>
-                    <option value="Sekretariat">Sekretariat</option>
-                    <option value="Balai Layanan Usaha Terpadu KUMKM">BLUT KUMKM</option>
-                    <option value="Bidang Kewirausahaan">Bid. Kewirausahaan</option>
-                    <option value="Bidang Koperasi">Bid. Koperasi</option>
-                    <option value="Bidang UKM">Bid. UKM</option>
-                    <option value="Bidang Usaha Mikro">Bid. Usaha Mikro</option>
-                </select>
-                <select class="select-input" id="pd-filter-status" onchange="pdFilterData()">
-                    <option value="">Semua Status</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="APPROVED">Disetujui</option>
-                    <option value="REJECTED">Ditolak</option>
-                </select>
-                <input type="text" class="search-input" id="pd-search" placeholder="Cari nama / sub kegiatan..." oninput="pdFilterData()">
-                <button onclick="pdLoadData(true)" class="btn btn-sm" title="Refresh data">
-                    ${ICONS.refresh} Refresh
-                </button>
+    <!-- ══════════════════════════════════════════════════════
+         TAB 1: PENGAJUAN DANA
+    ══════════════════════════════════════════════════════════ -->
+    <div id="pd-tab-pengajuan" class="tab-content active">
+
+        <div class="stats-grid">
+            <div class="stat-card" style="border-left:4px solid #10b981;">
+                <div class="stat-label">Total Pengajuan</div>
+                <div class="stat-value" id="pd-stat-total">0</div>
+                <div class="stat-footer">Laporan Pengajuan Dana</div>
+            </div>
+            <div class="stat-card" style="border-left:4px solid #3b82f6;">
+                <div class="stat-label">Bulan Ini</div>
+                <div class="stat-value" id="pd-stat-bulan">0</div>
+                <div class="stat-footer" id="pd-stat-bulan-label">Laporan</div>
+            </div>
+            <div class="stat-card" style="border-left:4px solid #f59e0b;">
+                <div class="stat-label">Pending</div>
+                <div class="stat-value" id="pd-stat-pending">0</div>
+                <div class="stat-footer">Menunggu verifikasi</div>
+            </div>
+            <div class="stat-card" style="border-left:4px solid #64748b;">
+                <div class="stat-label">Total Nominal</div>
+                <div class="stat-value" id="pd-stat-nominal" style="font-size:24px;">Rp 0</div>
+                <div class="stat-footer">Akumulasi pengajuan</div>
             </div>
         </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th><th>Nama</th><th>Unit / Bidang</th>
-                        <th>Sub Kegiatan</th><th>Bulan</th><th>Nominal</th><th>Status</th><th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody id="pd-data-tbody">
-                    <tr><td colspan="8" style="text-align:center;padding:40px;">
-                        <div class="spinner"></div>
-                        <div style="margin-top:12px;color:#94a3b8;">Memuat data...</div>
-                    </td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="pagination" id="pd-pagination"></div>
-    </div>
-</div>
 
-<!-- EDIT STATUS MODAL -->
+        <div class="card">
+            <div class="card-header"><h2 class="card-title">Tren Pengajuan Dana per Bulan</h2></div>
+            <div class="card-content"><div class="chart-container"><canvas id="pd-chartPengajuan"></canvas></div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Daftar Pengajuan Dana</h2>
+                <div class="filter-container">
+                    <select class="select-input" id="pd-filter-bulan" onchange="pdFilterData()">
+                        <option value="">Semua Bulan</option>
+                        <option value="JANUARI">Januari</option><option value="FEBRUARI">Februari</option>
+                        <option value="MARET">Maret</option><option value="APRIL">April</option>
+                        <option value="MEI">Mei</option><option value="JUNI">Juni</option>
+                        <option value="JULI">Juli</option><option value="AGUSTUS">Agustus</option>
+                        <option value="SEPTEMBER">September</option><option value="OKTOBER">Oktober</option>
+                        <option value="NOVEMBER">November</option><option value="DESEMBER">Desember</option>
+                    </select>
+                    <select class="select-input" id="pd-filter-unit" onchange="pdFilterData()">
+                        <option value="">Semua Unit</option>
+                        <option value="Sekretariat">Sekretariat</option>
+                        <option value="Balai Layanan Usaha Terpadu KUMKM">BLUT KUMKM</option>
+                        <option value="Bidang Kewirausahaan">Bid. Kewirausahaan</option>
+                        <option value="Bidang Koperasi">Bid. Koperasi</option>
+                        <option value="Bidang UKM">Bid. UKM</option>
+                        <option value="Bidang Usaha Mikro">Bid. Usaha Mikro</option>
+                    </select>
+                    <select class="select-input" id="pd-filter-status" onchange="pdFilterData()">
+                        <option value="">Semua Status</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="APPROVED">Disetujui</option>
+                        <option value="REJECTED">Ditolak</option>
+                    </select>
+                    <input type="text" class="search-input" id="pd-search" placeholder="Cari nama / sub kegiatan..." oninput="pdFilterData()">
+                    <button onclick="pdLoadData(true)" class="btn btn-sm" title="Refresh data">
+                        ${ICONS.refresh} Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th><th>Nama</th><th>Unit / Bidang</th>
+                            <th>Sub Kegiatan</th><th>Bulan</th><th>Nominal</th><th>Status</th><th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pd-data-tbody">
+                        <tr><td colspan="8" style="text-align:center;padding:40px;">
+                            <div class="spinner"></div>
+                            <div style="margin-top:12px;color:#94a3b8;">Memuat data...</div>
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pd-pagination"></div>
+        </div>
+
+    </div><!-- /pd-tab-pengajuan -->
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 2: PENGAJUAN DANA BERSAMA
+         Konten diisi oleh initPengajuanDanaBersama()
+    ══════════════════════════════════════════════════════════ -->
+    <div id="pd-tab-bersama" class="tab-content">
+        <div id="pdb-content-slot"></div>
+    </div><!-- /pd-tab-bersama -->
+
+</div><!-- /container -->
+
+<!-- ════ EDIT STATUS MODAL — Pengajuan Dana ════ -->
 <div id="pd-editModal" class="modal-overlay" style="display:none;">
     <div class="modal" style="max-width:480px;">
         <div class="modal-header">
@@ -680,12 +770,16 @@
             if (e.target.id === 'pd-editModal') window.pdCloseEditModal();
         });
 
-        const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
-        const fMonth = document.getElementById('pd-filter-bulan');
-        if (fMonth) fMonth.value = currentMonthName;
-
+        // Load tab aktif (Pengajuan Dana) langsung
         window.pdLoadData(false).then(() => {
+            const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' }).toUpperCase();
+            const fMonth = document.getElementById('pd-filter-bulan');
+            if (fMonth) fMonth.value = currentMonthName;
             window.pdFilterData();
         });
+
+        // Inisialisasi konten Pengajuan Dana Bersama ke slot-nya
+        if (window.initPengajuanDanaBersama) window.initPengajuanDanaBersama();
     };
+
 })();
