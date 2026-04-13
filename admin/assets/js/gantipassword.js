@@ -239,10 +239,61 @@
 
     // ── Role badge config ─────────────────────────────────────
     const ROLE_CONFIG = {
-        superadmin: { label: 'Super Admin', icon: '🛡️', color: '#1e293b', bg: '#f1f5f9', border: '#cbd5e1' },
-        subumum: { label: 'Sub Bagian Umum', icon: '📋', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
-        subkeuangan: { label: 'Sub Bagian Keuangan', icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
-        sekretariat: { label: 'Sekretariat', icon: '🏛️', color: '#7e22ce', bg: '#faf5ff', border: '#d8b4fe' },
+        superadmin: {
+            label: 'Super Admin',
+            icon: '🛡️', color: '#1e293b', bg: '#f1f5f9', border: '#cbd5e1'
+        },
+        subkendaraan: {
+            label: 'Subbag Kendaraan & Ruang Rapat',
+            icon: '🚗', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe'
+        },
+        subvoucher: {
+            label: 'Subbag Voucher BBM',
+            icon: '⛽', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc'
+        },
+        subkearsipan: {
+            label: 'Subbag Kearsipan',
+            icon: '📁', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe'
+        },
+        subkeuangan: {
+            label: 'Subbag Keuangan',
+            icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac'
+        },
+        program: {
+            label: 'Program',
+            icon: '📊', color: '#b45309', bg: '#fffbeb', border: '#fde68a'
+        },
+        penilai_sekretariat: {
+            label: 'Penilai Sekretariat',
+            icon: '✍️', color: '#6b21a8', bg: '#faf5ff', border: '#d8b4fe'
+        },
+        penilai_ketua: {
+            label: 'Penilai Ketua',
+            icon: '👑', color: '#92400e', bg: '#fef3c7', border: '#fcd34d'
+        },
+        penilai_koperasi: {
+            label: 'Penilai Bidang Koperasi',
+            icon: '🤝', color: '#065f46', bg: '#ecfdf5', border: '#6ee7b7'
+        },
+        penilai_ukm: {
+            label: 'Penilai Bidang UKM',
+            icon: '🏪', color: '#1e40af', bg: '#dbeafe', border: '#93c5fd'
+        },
+        penilai_usaha_mikro: {
+            label: 'Penilai Bidang Usaha Mikro',
+            icon: '🏬', color: '#9a3412', bg: '#fff7ed', border: '#fdba74'
+        },
+        penilai_kewirausahaan: {
+            label: 'Penilai Bidang Kewirausahaan',
+            icon: '💡', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd'
+        },
+        penilai_blut: {
+            label: 'Penilai BLUT KUMKM',
+            icon: '🏢', color: '#4338ca', bg: '#eef2ff', border: '#a5b4fc'
+        },
+        // --- Alias backward-compat (akun lama di spreadsheet) ---
+        subumum:     { label: 'Subbag Kendaraan & Ruang Rapat', icon: '🚗', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
+        sekretariat: { label: 'Program', icon: '📊', color: '#b45309', bg: '#fffbeb', border: '#fde68a' },
     };
 
     // ── Password strength ─────────────────────────────────────
@@ -272,7 +323,7 @@
 
     // ── Build HTML: non-superadmin (ganti password sendiri) ───
     function buildChangeForm(user, role) {
-        const cfg = ROLE_CONFIG[role] || ROLE_CONFIG.subumum;
+        const cfg = ROLE_CONFIG[role] || ROLE_CONFIG.subkendaraan;
         const color = avColor(user.email);
 
         return `

@@ -1,16 +1,20 @@
 // ============================================================
-// penilaian-orang.js — Penilaian Per Orang section (SPA) v3.0
+// penilaian-orang.js — Penilaian Per Orang section (SPA) v3.1
 // Admin Panel — Dinas Koperasi UKM
 //
-// PERUBAHAN v3.0:
-//  1. Skor Tim diambil LANGSUNG dari semua API (bukan dari cache
-//     dashboard) via PPO_GAS_CONFIG.fetchAllTeamScores()
-//  2. Tombol "Ambil dari Dashboard" diganti "Ambil Skor Tim"
-//     yang fetch langsung dari API
-//  3. saveToGAS() dan deleteFromGAS() menggunakan helper baru
-//     PPO_GAS_CONFIG.savePenilaian() dan .deletePenilaian()
-//     yang sudah memperbaiki bug criteria tidak tersimpan
-//  4. Tambah progress indicator saat fetch skor tim
+// PERUBAHAN v3.1:
+//  1. Akses berbasis role penilai — setiap role penilai hanya
+//     bisa melihat & menilai kelompok/orang yang sesuai:
+//     - penilai_sekretariat  → hanya orang di grup 'sekretariat'
+//     - penilai_ketua        → hanya grup 'agus' (6 kepala bidang)
+//     - penilai_koperasi     → hanya grup 'koperasi'
+//     - penilai_ukm          → hanya grup 'ukm'
+//     - penilai_usaha_mikro  → hanya grup 'usaha-mikro'
+//     - penilai_kewirausahaan→ hanya grup 'kewirausahaan'
+//     - penilai_blut         → hanya grup 'blut'
+//     - program / superadmin → semua grup
+//  2. canEditGroup() menggunakan peta ROLE_TO_GID
+//  3. visibleGroups() menggunakan peta ROLE_TO_GID
 // ============================================================
 (function () {
     'use strict';
@@ -54,6 +58,18 @@
         { key:'kolaboratif', label:'Kolaboratif',
           desc:'Memberi kesempatan kontribusi; terbuka bekerja sama; menggerakkan pemanfaatan sumber daya bersama.' }
     ];
+
+    // ── Peta role penilai → gid grup yang boleh dinilai ──────
+    // 'program' dan 'superadmin' → semua (null = akses semua)
+    var ROLE_TO_GID = {
+        penilai_sekretariat:  'sekretariat',
+        penilai_ketua:        'agus',          // 6 kepala bidang
+        penilai_koperasi:     'koperasi',
+        penilai_ukm:          'ukm',
+        penilai_usaha_mikro:  'usaha-mikro',
+        penilai_kewirausahaan:'kewirausahaan',
+        penilai_blut:         'blut',
+    };
 
     var GROUPS = [
         {
@@ -196,7 +212,7 @@
         }
     }
 
-    // ── JSONP UNTUK PENILAIAN (load/save ke sheet PenilaianOrang) ──
+    // ── JSONP UNTUK PENILAIAN ──
     function gasJsonp(params) {
         return new Promise(function(resolve, reject) {
             var gasUrl = getGasUrl();
@@ -260,7 +276,7 @@
         };
     }
 
-    // ── LOAD DARI GAS (penilaian + team scores) ──
+    // ── LOAD DARI GAS ──
     function loadFromGAS() {
         var gasUrl = getGasUrl();
         if (!gasUrl) { console.warn('[PPO] GAS URL belum tersedia'); return Promise.resolve(); }
@@ -306,7 +322,7 @@
         btn.textContent = on ? 'Memuat...' : '↻ Refresh Data';
     }
 
-    // ── SAVE KE GAS (DIPERBAIKI) ──
+    // ── SAVE KE GAS ──
     function saveToGAS(personPid, rec) {
         var found = findPersonByPid(personPid);
         if (!found) return Promise.reject(new Error('Pegawai tidak ditemukan: ' + personPid));
@@ -318,7 +334,6 @@
             penilai:     found.group.evaluator,
             namaPegawai: found.person.name,
             unit:        found.person.unit,
-            // criteria tetap sebagai object — helper integration yang akan stringify
             criteria:    rec.criteria || {},
             diklat:      rec.diklat || 7,
             skorTim:     rec.teamScore || 0,
@@ -326,12 +341,10 @@
             catatan:     ''
         };
 
-        // Gunakan helper dari integration.js jika tersedia (lebih andal)
         if (window.PPO_GAS_CONFIG && window.PPO_GAS_CONFIG.savePenilaian) {
             return window.PPO_GAS_CONFIG.savePenilaian(payload);
         }
 
-        // Fallback: kirim via jsonBody langsung
         var gasUrl = getGasUrl();
         if (!gasUrl) return Promise.resolve({ status: 'skipped' });
 
@@ -375,7 +388,6 @@
             return window.PPO_GAS_CONFIG.deletePenilaian(payload);
         }
 
-        // Fallback
         var gasUrl = getGasUrl();
         if (!gasUrl) return Promise.resolve({ status: 'skipped' });
 
@@ -426,7 +438,28 @@
             : String(u.role || '').toLowerCase().trim();
         return u;
     }
+
     function isAdmin() { var u = state.currentUser; return !!(u && u._role === 'superadmin'); }
+    function isProgram() { var u = state.currentUser; return !!(u && u._role === 'program'); }
+
+    // ── AMBIL GID YANG BOLEH DIAKSES OLEH USER ──
+    // Mengembalikan array gid yang boleh dilihat/dinilai, atau null = semua
+    function getAllowedGids() {
+        var u = state.currentUser;
+        if (!u) return [];
+        var role = u._role;
+        if (role === 'superadmin' || role === 'program') return null; // akses semua
+
+        // Role penilai dengan peta tetap
+        if (ROLE_TO_GID[role]) return [ROLE_TO_GID[role]];
+
+        // Backward compat: cari berdasarkan nama evaluator
+        var derived = deriveGidFromUser(u);
+        if (derived) return [derived];
+
+        return [];
+    }
+
     function deriveGidFromUser(u) {
         if (!u || !u.name) return null;
         var uNameLower = u.name.toLowerCase().trim();
@@ -450,15 +483,12 @@
         }
         return null;
     }
+
     function canEditGroup(gid) {
-        if (isAdmin()) return true;
-        var u = state.currentUser;
-        if (!u) return false;
-        if (u.gid) return u.gid === gid;
-        var derived = deriveGidFromUser(u);
-        if (derived) { u.gid = derived; return derived === gid; }
-        if (u._role === 'sekretariat') return true;
-        return false;
+        if (isAdmin() || isProgram()) return true;
+        var allowedGids = getAllowedGids();
+        if (allowedGids === null) return true;
+        return allowedGids.indexOf(gid) !== -1;
     }
 
     // ── KALKULASI ──
@@ -509,16 +539,14 @@
         };
     }
 
-    // ── VISIBLE GROUPS ──
+    // ── VISIBLE GROUPS — berdasarkan role ──
     function visibleGroups() {
-        if (isAdmin()) return GROUPS;
-        var u = state.currentUser;
-        if (!u) return [];
-        if (!u.gid) u.gid = deriveGidFromUser(u);
-        if (!u.gid && u._role === 'sekretariat') return GROUPS;
-        if (!u.gid) return [];
-        return GROUPS.filter(function(g) { return g.id === u.gid; });
+        var allowedGids = getAllowedGids();
+        if (allowedGids === null) return GROUPS; // superadmin / program: semua
+        if (allowedGids.length === 0) return [];
+        return GROUPS.filter(function(g) { return allowedGids.indexOf(g.id) !== -1; });
     }
+
     function allVisiblePeople() {
         var rows = [];
         visibleGroups().forEach(function(g) {
@@ -594,7 +622,9 @@
         var tbody   = document.getElementById('ppo-tbody');
         var colEval = document.getElementById('ppo-col-evaluator');
         if (!tbody) return;
-        if (colEval) colEval.style.display = isAdmin() ? '' : 'none';
+        // Tampilkan kolom evaluator hanya untuk admin/program yang lihat banyak grup
+        var showEvalCol = isAdmin() || isProgram();
+        if (colEval) colEval.style.display = showEvalCol ? '' : 'none';
         var html = '', lastEval = '';
         people.forEach(function(p, i) {
             var s       = snap(p.pid, p.unit);
@@ -603,7 +633,7 @@
             var dk      = s.rec ? s.diklat : '—';
             var tot     = s.rec ? s.final.total.toFixed(1) : '—';
             var canEdit = canEditGroup(p.gid);
-            if (isAdmin() && p.evaluator !== lastEval) {
+            if (showEvalCol && p.evaluator !== lastEval) {
                 html += '<tr><td colspan="10" style="padding:8px 14px;font-size:11px;font-weight:700;' +
                     'color:#1e40af;background:#eff6ff;border-bottom:1px solid #bfdbfe;' +
                     'text-transform:uppercase;letter-spacing:.06em;">' +
@@ -625,7 +655,7 @@
                 '<td style="color:#94a3b8;font-size:12px;">' + (i+1) + '</td>' +
                 '<td><div style="font-weight:600;font-size:13px;">' + esc(p.name) + '</div></td>' +
                 '<td><span class="badge badge-pending" style="font-size:11px;">' + esc(p.unit) + '</span></td>' +
-                (isAdmin() ? '<td style="font-size:11px;color:#94a3b8;">' + esc(p.evaluator.split(',')[0]) + '</td>' : '') +
+                (showEvalCol ? '<td style="font-size:11px;color:#94a3b8;">' + esc(p.evaluator.split(',')[0]) + '</td>' : '') +
                 '<td style="text-align:center;font-family:monospace;">' + ts  + '</td>' +
                 '<td style="text-align:center;font-family:monospace;">' + ak  + '</td>' +
                 '<td style="text-align:center;font-family:monospace;">' + dk  + '</td>' +
@@ -745,7 +775,6 @@
             return '<div class="ppo-akhlak-item"><div class="ppo-akhlak-info"><div class="ppo-akhlak-name">' + esc(a.label) + '</div><div class="ppo-akhlak-desc">' + esc(a.desc) + '</div></div><div class="ppo-akhlak-sel">' + selectOrText + '</div></div>';
         }).join('');
 
-        // ── Breakdown komponen skor tim ──
         var tsRaw    = state.teamScores[person.unit] || null;
         var KOMP_DEF = [
             { label:'BBM',         key:'bbm',       maks:5  },
@@ -762,12 +791,10 @@
                 '<span style="font-family:monospace;font-weight:700;color:#1e293b;">' + v.toFixed(1) + '</span></div>';
         }).join('') : '';
 
-        // ── Tombol fetch skor tim langsung dari API ──
         var fetchBtnHtml = !isReadOnly ? (
             '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
-                // Tombol BARU: langsung fetch dari semua API
                 '<button id="ppo-btn-fetch-direct" onclick="ppoFetchTeamScoreDirect(\'' + escJs(person.unit) + '\')" ' +
-                    'title="Ambil skor tim langsung dari semua database (BBM, Kendaraan, Ruang Rapat, Kearsipan, SPJ, Monev)" ' +
+                    'title="Ambil skor tim langsung dari semua database" ' +
                     'style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #a7f3d0;' +
                     'background:#d1fae5;color:#065f46;font-size:12px;font-weight:600;cursor:pointer;' +
                     'font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;">' +
@@ -775,7 +802,6 @@
                     '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
                     'Ambil Skor Tim' +
                 '</button>' +
-                // Tombol manual tetap ada sebagai fallback
                 '<button onclick="ppoShowTeamScoreInput(\'' + escJs(person.unit) + '\')" ' +
                     'title="Input nilai tiap komponen secara manual" ' +
                     'style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #e5e7eb;' +
@@ -804,7 +830,6 @@
                     : '<div class="ppo-score-big" id="ppo-ts-display" style="color:#f59e0b;">—</div>' +
                       '<div id="ppo-ts-detail"></div>') +
                 fetchBtnHtml +
-                // Panel input manual
                 '<div id="ppo-ts-input-panel" style="display:none;margin-top:10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px;">' +
                     '<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Input Skor Tim per Komponen (/100)</div>' +
                     KOMP_DEF.map(function(c) {
@@ -882,7 +907,6 @@
         if (!isReadOnly) updatePreview();
     }
 
-    // ── UPDATE PREVIEW ──
     function updatePreview() {
         if (!_activePid || _modalReadOnly) return;
         var unit = '';
@@ -917,9 +941,7 @@
         updatePreview();
     }
 
-    // ── FETCH SKOR TIM LANGSUNG DARI SEMUA API (BARU) ──
-    // Berbeda dengan versi lama yang hanya cek cache dashboard,
-    // fungsi ini memanggil fetchAllTeamScores() dari integration.js
+    // ── FETCH SKOR TIM LANGSUNG DARI SEMUA API ──
     function fetchTeamScoreDirect(unit) {
         var btn = document.getElementById('ppo-btn-fetch-direct');
         var statusEl = document.getElementById('ppo-ts-fetch-status');
@@ -934,7 +956,6 @@
             }
         }
 
-        // Cek apakah integration.js menyediakan fetchAllTeamScores
         if (!window.PPO_GAS_CONFIG || !window.PPO_GAS_CONFIG.fetchAllTeamScores) {
             if (statusEl) statusEl.textContent = '⚠ fetchAllTeamScores belum dikonfigurasi di integration.js. Gunakan Input Manual.';
             restoreBtn();
@@ -943,7 +964,6 @@
 
         window.PPO_GAS_CONFIG.fetchAllTeamScores(state.month)
             .then(function(allScores) {
-                // Simpan semua unit ke state dan cache
                 state.teamScores = allScores;
                 saveTeamCacheMonth(state.month, allScores);
 
@@ -959,7 +979,6 @@
                         statusEl.style.color = '#059669';
                     }
                     if (window.showToast) showToast('Skor tim ' + unit.split(' ')[0] + ': ' + total.toFixed(1) + '/100', 'success');
-                    // Update tabel latar juga
                     render();
                 } else {
                     if (statusEl) { statusEl.textContent = '⚠ Skor unit ' + unit + ' belum tersedia di database.'; statusEl.style.color = '#d97706'; }
@@ -973,7 +992,6 @@
             .finally(restoreBtn);
     }
 
-    // Fallback: fetch dari cache atau GAS team score sheet saja
     function fetchTeamScore(unit) { fetchTeamScoreDirect(unit); }
 
     function showTeamScoreInput(unit) {
@@ -1013,7 +1031,6 @@
     function _applyTeamScoreToModal(unit, total, components) {
         var dispEl = document.getElementById('ppo-ts-display');
         if (dispEl) { dispEl.style.color = ''; dispEl.textContent = total.toFixed(1); }
-        // Update detail breakdown
         var detailEl = document.getElementById('ppo-ts-detail');
         if (detailEl && components) {
             var KOMP_DEF = [{label:'BBM',key:'bbm',maks:5},{label:'Kendaraan',key:'kendaraan',maks:10},{label:'Ruang Rapat',key:'ruang',maks:5},{label:'Kearsipan',key:'kearsipan',maks:5},{label:'SPJ',key:'spj',maks:35},{label:'Monev',key:'monev',maks:40}];
@@ -1067,20 +1084,17 @@
         closeModal();
         render();
 
-        // Sync ke GAS (async)
         saveToGAS(syncPid, newRec).then(function(res) {
             if (!res) return;
             if (res.status === 'success') {
                 if (window.showToast) showToast('✓ Tersinkronisasi ke server (GAS).', 'success');
             } else if (res.status === 'skipped') {
-                // silently skip
+                // silent
             } else {
                 if (window.showToast) showToast('Tersimpan lokal. Sinkronisasi server gagal: ' + (res.message || 'Error'), 'error');
-                console.warn('[PPO Save] GAS response:', res);
             }
         }).catch(function(err) {
             if (window.showToast) showToast('Tersimpan lokal. Sinkronisasi gagal: ' + err.message, 'error');
-            console.warn('[PPO Save] Error:', err);
         });
     }
 
@@ -1210,20 +1224,29 @@
         if (!section) return;
         var u     = state.currentUser;
         var admin = isAdmin();
-        var heroSub = admin
+        var prog  = isProgram();
+        var showAllGroups = admin || prog;
+
+        // Label role yang ramah untuk header
+        var roleLabel = u && u._role ? (
+            window.AUTH && AUTH.ROLE_LABELS ? (AUTH.ROLE_LABELS[u._role] || u._role) : u._role
+        ) : '';
+        var heroSub = showAllGroups
             ? 'Admin dapat melihat dan menilai seluruh pegawai di semua unit.'
-            : 'Anda menilai pegawai sebagai <strong>' + esc(u ? u.name : '—') + '</strong>.';
-        var penilaiFilter = admin
+            : 'Anda menilai sebagai <strong>' + esc(roleLabel) + '</strong>' +
+              (u && u.name ? ' (' + esc(u.name) + ')' : '') + '.';
+
+        var penilaiFilter = showAllGroups
             ? ('<select id="ppo-group-filter" onchange="(function(){window._ppoState.groupFilter=document.getElementById(\'ppo-group-filter\').value;window._ppoRender();})()" style="padding:7px 28px 7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:13px;">' +
                '<option value="">Semua penilai</option>' +
                GROUPS.map(function(g) { return '<option value="' + g.id + '">' + esc(g.evaluator) + '</option>'; }).join('') + '</select>')
             : '';
-        var adminTabs = admin
+
+        var adminTabs = showAllGroups
             ? ('<button class="ppo-tab-btn" onclick="ppoSwitchTab(\'rekap\',this)">Rekap per Divisi</button>' +
                '<button class="ppo-tab-btn" onclick="ppoSwitchTab(\'ranking\',this)">Ranking</button>')
             : '';
 
-        // Status integrasi API
         var hasIntegration = !!(window.PPO_GAS_CONFIG && window.PPO_GAS_CONFIG.fetchAllTeamScores);
         var integrationStatus = hasIntegration
             ? '<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#065f46;display:flex;gap:8px;align-items:center;">' +
@@ -1231,7 +1254,7 @@
               '<span>Skor Tim dapat diambil langsung dari database. Buka modal penilaian dan klik <strong>"Ambil Skor Tim"</strong>.</span></div>'
             : '<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;display:flex;gap:8px;align-items:center;">' +
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
-              '<span>Isi <code>urlOperasional</code>, <code>urlSPJ</code>, <code>urlMonev</code> di <code>penilaian-orang-gas-integration.js</code> agar Skor Tim bisa diambil otomatis.</span></div>';
+              '<span>Isi URL di <code>penilaian-orang-gas-integration.js</code> agar Skor Tim bisa diambil otomatis.</span></div>';
 
         function thStyle(align) { return ' style="text-align:' + (align||'left') + ';padding:10px 14px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc;border-bottom:1px solid #e5e7eb;"'; }
         function thCell(label, align) { return '<th' + thStyle(align) + '>' + label + '</th>'; }
@@ -1285,8 +1308,14 @@
     window.sectionInits[SECTION_ID] = function () {
         state.currentUser = getUser();
         if (state.currentUser && !state.currentUser.gid) {
-            var derivedGid = deriveGidFromUser(state.currentUser);
-            if (derivedGid) state.currentUser.gid = derivedGid;
+            // Untuk role penilai dengan peta tetap, tidak perlu derive dari nama
+            var role = state.currentUser._role;
+            if (ROLE_TO_GID[role]) {
+                state.currentUser.gid = ROLE_TO_GID[role];
+            } else {
+                var derivedGid = deriveGidFromUser(state.currentUser);
+                if (derivedGid) state.currentUser.gid = derivedGid;
+            }
         }
         loadRecords();
         injectStyles();
