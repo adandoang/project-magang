@@ -1,6 +1,20 @@
 // ============================================================
-// diklat.js — Diklat Training Management Section (SPA)
+// diklat.js — Diklat Training Management Section (SPA) v2.1
 // Admin Panel — Dinas Koperasi UKM
+//
+// PERUBAHAN v2.1:
+//  1. Daftar nama pegawai sudah ter-populate otomatis dari GROUPS
+//     (sama persis dengan penilaian-orang.js GROUPS) — tinggal upload foto
+//  2. Upload triwulan bersifat SEQUENTIAL: triwulan N hanya bisa
+//     diupload setelah triwulan N-1 sudah terisi
+//  3. Upload dibatasi sesuai PERIODE SAAT INI berdasarkan bulan:
+//     Jan–Mar  → hanya Triwulan 1
+//     Apr–Jun  → Triwulan 1 & 2
+//     Jul–Sep  → Triwulan 1, 2 & 3
+//     Okt–Des  → semua 4 triwulan
+//  4. [FIX v2.1] buildMergedList() selalu digunakan sebagai sumber data
+//     utama tabel — SEMUA nama dari PEGAWAI_LIST selalu tampil meskipun
+//     data server belum ada / kosong.
 // ============================================================
 (function () {
     'use strict';
@@ -8,13 +22,119 @@
     const API_URL = 'https://script.google.com/macros/s/AKfycbwjJwYtLjnhZ__smIDfVkLJTpu_m3rqvg4Sy1TSfyXvwA6_2FKrXGFgMUi4_MSMefpvtg/exec';
 
     const QUARTERS = [
-        { key: 'triwulan1', label: 'Triwulan I', sub: 'Jan – Mar', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '#3b82f6' },
-        { key: 'triwulan2', label: 'Triwulan II', sub: 'Apr – Jun', color: '#059669', bg: '#ecfdf5', border: '#6ee7b7', dot: '#10b981' },
+        { key: 'triwulan1', label: 'Triwulan I',   sub: 'Jan – Mar', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '#3b82f6' },
+        { key: 'triwulan2', label: 'Triwulan II',  sub: 'Apr – Jun', color: '#059669', bg: '#ecfdf5', border: '#6ee7b7', dot: '#10b981' },
         { key: 'triwulan3', label: 'Triwulan III', sub: 'Jul – Sep', color: '#b45309', bg: '#fffbeb', border: '#fcd34d', dot: '#f59e0b' },
-        { key: 'triwulan4', label: 'Triwulan IV', sub: 'Okt – Des', color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd', dot: '#8b5cf6' }
+        { key: 'triwulan4', label: 'Triwulan IV',  sub: 'Okt – Des', color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd', dot: '#8b5cf6' }
     ];
 
+    // ── Daftar pegawai (sama persis dengan penilaian-orang.js GROUPS) ──
+    const PEGAWAI_LIST = [
+        // Grup: agus (Kepala Bidang)
+        { nama: 'Ritaningrum, S.Sos., M.M.',                       unit: 'Sekretariat' },
+        { nama: 'Hellen Phornica, S.T.P., M.Si.',                  unit: 'Bidang UKM' },
+        { nama: 'Veronica Setioningtyas Prativi, S.Si., M.Si.',     unit: 'Bidang Usaha Mikro' },
+        { nama: 'Wisnu Hermawan, S.P., M.T.',                       unit: 'Balai Layanan Usaha Terpadu KUMKM' },
+        { nama: 'Ir. Setyo Hastuti, M.P.',                          unit: 'Bidang Koperasi' },
+        { nama: 'Hana Fais Prabowo, S.T.P., M.Si.',                 unit: 'Bidang Kewirausahaan' },
+        // Grup: sekretariat
+        { nama: 'Fuji Ippa Wati, S.E.',                    unit: 'Sekretariat' },
+        { nama: 'Winarto, S.E.',                            unit: 'Sekretariat' },
+        { nama: 'Ice Norawati, S.E., Akt.',                 unit: 'Sekretariat' },
+        { nama: 'Marselina Widaranti, S.T., M.T.',          unit: 'Sekretariat' },
+        { nama: 'Hana Kurniawati',                          unit: 'Sekretariat' },
+        { nama: 'Raden Bambang Bagus Tri Hantoro, S.M.',    unit: 'Sekretariat' },
+        { nama: 'Heru Wiranto, SIP',                        unit: 'Sekretariat' },
+        { nama: 'Septia Yudha Rennaningtyas, S.M.B.',       unit: 'Sekretariat' },
+        { nama: 'Dias Hartanto, S.M.',                      unit: 'Sekretariat' },
+        { nama: 'Anas Margono, S.Kom.',                     unit: 'Sekretariat' },
+        { nama: 'Joko Sambudi Raharjo',                     unit: 'Sekretariat' },
+        { nama: 'Luvianingsih, A.Md.',                      unit: 'Sekretariat' },
+        { nama: 'Hesti Ratnasari, A.Md.',                   unit: 'Sekretariat' },
+        { nama: 'Rana Salsabila Putri',                     unit: 'Sekretariat' },
+        { nama: 'Bob Prabowo, S.E.',                        unit: 'Sekretariat' },
+        { nama: 'Windu Wahyu Suryaningsih, S.E.',           unit: 'Sekretariat' },
+        { nama: 'Dhaniar Fitria Widyaningtyas, S.E.',       unit: 'Sekretariat' },
+        { nama: 'Nita Arum Sari, A.Md.Sek.',               unit: 'Sekretariat' },
+        // Grup: koperasi
+        { nama: 'Purnama Setiawan, S.T.',            unit: 'Bidang Koperasi' },
+        { nama: 'Fikri Muttaqin, S.A.B.',            unit: 'Bidang Koperasi' },
+        { nama: 'Rembranto Gusani Putro, S.A.B.',    unit: 'Bidang Koperasi' },
+        { nama: 'Faris Rizki Rahardian, S.H.',       unit: 'Bidang Koperasi' },
+        { nama: 'Anindya Putri Kusumaningrum, S.H.', unit: 'Bidang Koperasi' },
+        { nama: 'Firdha Ikhsania Fadilla, S.H.',     unit: 'Bidang Koperasi' },
+        { nama: 'Laura Nindya Khalista, S.H.',       unit: 'Bidang Koperasi' },
+        // Grup: ukm
+        { nama: 'Perpetua Windhy Harmonie, S.E., M.E.', unit: 'Bidang UKM' },
+        { nama: 'Yogie Krisnawangi Saifullah, S.A.B.',  unit: 'Bidang UKM' },
+        { nama: 'Ali Najmudin, S.A.B.',                 unit: 'Bidang UKM' },
+        { nama: 'Edi Susila',                           unit: 'Bidang UKM' },
+        { nama: 'Asyifa Dicha Firani, S.T.',            unit: 'Bidang UKM' },
+        { nama: 'Deni Wijayanto, S.Kom.',               unit: 'Bidang UKM' },
+        // Grup: usaha-mikro
+        { nama: 'Alexius Widhi Nur Pambudi, S.E., M.Sc.', unit: 'Bidang Usaha Mikro' },
+        { nama: 'Rizki Octaviani, S.T.',                  unit: 'Bidang Usaha Mikro' },
+        { nama: 'Desi Kurniawati, S.H., M.Acc.',          unit: 'Bidang Usaha Mikro' },
+        { nama: 'Asrindha Patriandina, S.STP.',           unit: 'Bidang Usaha Mikro' },
+        { nama: 'Bernadheta Gezia Arine, S.E.',           unit: 'Bidang Usaha Mikro' },
+        { nama: 'Gita Putri Andikawati, S.E.',            unit: 'Bidang Usaha Mikro' },
+        // Grup: kewirausahaan
+        { nama: 'Ratna Listiyani, S.Si.',          unit: 'Bidang Kewirausahaan' },
+        { nama: 'Muhammad Daud Ramadhan, S.H.',    unit: 'Bidang Kewirausahaan' },
+        { nama: 'Nanda Kesuma Devi, S.I.A.',       unit: 'Bidang Kewirausahaan' },
+        { nama: 'Rosalia Kurnia Handari, S.T.P.',  unit: 'Bidang Kewirausahaan' },
+        { nama: 'Pancais Meysir Kusdanarko, S.E.', unit: 'Bidang Kewirausahaan' },
+        { nama: 'Annisa Sulcha Afifah, S.Kom.',    unit: 'Bidang Kewirausahaan' },
+        { nama: 'Endah Febriasih, S.A.B.',         unit: 'Bidang Kewirausahaan' },
+        // Grup: blut
+        { nama: 'Aribowo, S.Pi., M.Eng.',    unit: 'Balai Layanan Usaha Terpadu KUMKM' },
+        { nama: 'Kuntarta, S.Sos., M.AP',    unit: 'Balai Layanan Usaha Terpadu KUMKM' },
+        { nama: 'Hana Budi Setyowati, S.T.', unit: 'Balai Layanan Usaha Terpadu KUMKM' },
+    ];
+
+    // ── Hitung triwulan yang boleh diupload berdasarkan bulan sekarang ──
+    function getMaxAllowedTriwulan() {
+        const month = new Date().getMonth() + 1;
+        if (month <= 3)  return 1;
+        if (month <= 6)  return 2;
+        if (month <= 9)  return 3;
+        return 4;
+    }
+
+    // ── Cek apakah triwulan ke-idx (0-based) boleh diakses ──
+    function isTriwulanAllowed(idx, existData) {
+        const maxIdx = getMaxAllowedTriwulan() - 1;
+        if (idx > maxIdx) return false;
+        if (idx === 0) return true;
+        for (let prev = 0; prev < idx; prev++) {
+            const qd = existData ? (existData[QUARTERS[prev].key] || {}) : {};
+            const hasPrev = !!(qd.link || qd.fileName || qd.fileDataUrl);
+            if (!hasPrev) return false;
+        }
+        return true;
+    }
+
+    // ── Label alasan kenapa triwulan dikunci ──
+    function getTriwulanLockReason(idx, existData) {
+        const maxIdx = getMaxAllowedTriwulan() - 1;
+        if (idx > maxIdx) {
+            const monthNames = ['','Januari','Februari','Maret','April','Mei','Juni',
+                                'Juli','Agustus','September','Oktober','November','Desember'];
+            const startMonth = [0,1,4,7,10][idx + 1];
+            return `Periode belum tiba (mulai ${monthNames[startMonth]})`;
+        }
+        if (idx > 0) {
+            const prevQ = QUARTERS[idx - 1];
+            const qd = existData ? (existData[prevQ.key] || {}) : {};
+            const hasPrev = !!(qd.link || qd.fileName || qd.fileDataUrl);
+            if (!hasPrev) return `Upload ${prevQ.label} terlebih dahulu`;
+        }
+        return 'Terkunci';
+    }
+
     let masterDiklat = [];
+    // [v2.1] allDiklat sekarang selalu berbasis buildMergedList(),
+    // bukan masterDiklat langsung — supaya semua nama PEGAWAI_LIST selalu muncul.
     let allDiklat = [];
     let diklatCurrentPage = 1;
     const itemsPerPage = 10;
@@ -32,6 +152,7 @@
         file: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
         img: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
         upload: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>`,
+        lock: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
         x: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     };
 
@@ -122,6 +243,11 @@
         return 'File';
     }
 
+    // ─── CEK APAKAH PEGAWAI SUDAH ADA DI masterDiklat ──────────
+    function findDiklatByNama(nama) {
+        return masterDiklat.find(d => (d.nama || '').toLowerCase().trim() === (nama || '').toLowerCase().trim());
+    }
+
     // ─── LOAD ────────────────────────────────────────────────────
     async function loadDiklat() {
         _setTableLoading(true);
@@ -137,12 +263,26 @@
             masterDiklat = [];
             _toast('Gagal terhubung ke server: ' + e.message, 'error');
         }
-        allDiklat = [...masterDiklat];
+
+        // [v2.1] allDiklat selalu dibangun dari merged list supaya semua
+        // nama PEGAWAI_LIST tampil walau belum ada data di server.
+        allDiklat = buildMergedList();
         diklatCurrentPage = 1;
         renderStats();
         renderPaginatedDiklat();
     }
     window.diklatLoad = loadDiklat;
+
+    // ── Expose masterDiklat agar penilaian-orang.js bisa akses ──
+    window.diklatGetMasterData = () => masterDiklat;
+    window.diklatHasUpload = (nama) => {
+        const d = findDiklatByNama(nama);
+        if (!d) return false;
+        return QUARTERS.some(q => {
+            const qd = d[q.key] || {};
+            return !!(qd.link || qd.fileName || qd.fileDataUrl);
+        });
+    };
 
     function _setTableLoading(on) {
         const tbody = document.getElementById('dklat-tbody');
@@ -154,7 +294,9 @@
     // ─── STATS ───────────────────────────────────────────────────
     function renderStats() {
         let lengkap = 0, sebagian = 0, kosong = 0;
-        masterDiklat.forEach(d => {
+        PEGAWAI_LIST.forEach(p => {
+            const d = findDiklatByNama(p.nama);
+            if (!d) { kosong++; return; }
             const filled = QUARTERS.filter(q => {
                 const qd = d[q.key] || {};
                 return qd.link || qd.fileName || qd.fileDataUrl;
@@ -164,16 +306,17 @@
             else kosong++;
         });
         const el = id => document.getElementById(id);
-        if (el('dklat-stat-total')) el('dklat-stat-total').textContent = masterDiklat.length;
-        if (el('dklat-stat-lengkap')) el('dklat-stat-lengkap').textContent = lengkap;
+        if (el('dklat-stat-total'))    el('dklat-stat-total').textContent    = PEGAWAI_LIST.length;
+        if (el('dklat-stat-lengkap'))  el('dklat-stat-lengkap').textContent  = lengkap;
         if (el('dklat-stat-sebagian')) el('dklat-stat-sebagian').textContent = sebagian;
-        if (el('dklat-stat-kosong')) el('dklat-stat-kosong').textContent = kosong;
+        if (el('dklat-stat-kosong'))   el('dklat-stat-kosong').textContent   = kosong;
     }
 
     // ─── FILTER ──────────────────────────────────────────────────
     function diklatApplyFilter() {
         const q = (document.getElementById('dklat-search')?.value || '').toLowerCase().trim();
-        allDiklat = masterDiklat.filter(d =>
+        // [v2.1] Filter selalu dari buildMergedList() agar semua nama tetap tersedia
+        allDiklat = buildMergedList().filter(d =>
             (d.nama || '').toLowerCase().includes(q) ||
             (d.unit || '').toLowerCase().includes(q)
         );
@@ -182,9 +325,39 @@
     }
     window.diklatApplyFilter = diklatApplyFilter;
 
+    // ─── Gabungkan PEGAWAI_LIST dengan data dari server ──────────
+    // [v2.1] Fungsi ini adalah SATU-SATUNYA sumber data tabel.
+    // Semua pegawai dari PEGAWAI_LIST selalu tampil.
+    // Pegawai yang sudah ada datanya di server → digabung.
+    // Pegawai yang belum ada → ditampilkan sebagai baris kosong.
+    function buildMergedList() {
+        const merged = PEGAWAI_LIST.map(p => {
+            const serverData = findDiklatByNama(p.nama);
+            if (serverData) return serverData;
+            // Baris kosong — belum ada di spreadsheet
+            const empty = { id: null, nama: p.nama, unit: p.unit };
+            QUARTERS.forEach(q => { empty[q.key] = { link: null, fileName: null, fileDataUrl: null }; });
+            return empty;
+        });
+        // Tambahkan data server yang namanya tidak ada di PEGAWAI_LIST (data lama/manual)
+        masterDiklat.forEach(d => {
+            const inList = PEGAWAI_LIST.some(p => p.nama.toLowerCase().trim() === (d.nama || '').toLowerCase().trim());
+            if (!inList) merged.push(d);
+        });
+        return merged;
+    }
+
     // ─── BADGE (table cell) ──────────────────────────────────────
-    function _qdBadge(qd, q) {
-        const hasImg = !!(qd.fileDataUrl && (qd.fileDataUrl.startsWith('data:image') || qd.fileDataUrl.includes('thumbnail')));
+    function _qdBadge(qd, q, locked) {
+        if (locked) {
+            return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
+                padding:3px 8px 3px 6px;border-radius:20px;
+                background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;white-space:nowrap;">
+                ${SVG.lock}&nbsp;Terkunci
+            </span>`;
+        }
+
+        const hasImg  = !!(qd.fileDataUrl && (qd.fileDataUrl.startsWith('data:image') || qd.fileDataUrl.includes('thumbnail')));
         const hasLink = !!qd.link;
         const hasFile = !!qd.fileName && !hasImg;
 
@@ -192,9 +365,9 @@
             return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e2e8f0;" title="Belum ada"></span>`;
         }
 
-        const icon = hasImg ? SVG.img : hasFile ? SVG.file : SVG.link;
+        const icon  = hasImg ? SVG.img : hasFile ? SVG.file : SVG.link;
         const label = hasImg ? 'Gambar' : hasFile ? 'File' : 'Link';
-        const url = hasLink ? qd.link : null;
+        const url   = hasLink ? qd.link : null;
 
         const inner = `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:500;
             padding:3px 9px 3px 7px;border-radius:20px;
@@ -203,9 +376,7 @@
             ${icon}&nbsp;${label}
         </span>`;
 
-        if (url) {
-            return `<a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;" title="Buka ${label}">${inner}</a>`;
-        }
+        if (url) return `<a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;" title="Buka ${label}">${inner}</a>`;
         return inner;
     }
 
@@ -213,27 +384,32 @@
     function renderPaginatedDiklat() {
         const tbody = document.getElementById('dklat-tbody');
         const cards = document.getElementById('dklat-cards');
-        const pgn = document.getElementById('dklat-pagination');
+        const pgn   = document.getElementById('dklat-pagination');
         if (!tbody) return;
 
-        if (allDiklat.length === 0) {
-            const msg = masterDiklat.length === 0
-                ? 'Belum ada data diklat. Klik <strong>+ Tambah Data</strong> untuk memulai.'
-                : 'Tidak ada data yang sesuai pencarian.';
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px;color:#94a3b8;font-size:14px;">${msg}</td></tr>`;
-            if (cards) cards.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;">${msg}</div>`;
-            if (pgn) pgn.innerHTML = '';
+        // [v2.1] Selalu gunakan allDiklat yang sudah diisi dari buildMergedList().
+        // allDiklat tidak pernah kosong selama PEGAWAI_LIST ada isinya.
+        const list = allDiklat.length > 0 ? allDiklat : buildMergedList();
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px;color:#94a3b8;font-size:14px;">Tidak ada data.</td></tr>`;
+            if (cards) cards.innerHTML = '';
+            if (pgn)   pgn.innerHTML   = '';
             return;
         }
 
-        const totalPages = Math.ceil(allDiklat.length / itemsPerPage);
+        const totalPages = Math.ceil(list.length / itemsPerPage);
         const start = (diklatCurrentPage - 1) * itemsPerPage;
-        const items = allDiklat.slice(start, start + itemsPerPage);
+        const items = list.slice(start, start + itemsPerPage);
 
         tbody.innerHTML = items.map((d, i) => {
-            const no = start + i + 1;
+            const no       = start + i + 1;
             const initials = (d.nama || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-            const qCells = QUARTERS.map(q => `<td style="text-align:center;vertical-align:middle;">${_qdBadge(d[q.key] || {}, q)}</td>`).join('');
+            const qCells   = QUARTERS.map((q, idx) => {
+                const locked = !isTriwulanAllowed(idx, d);
+                return `<td style="text-align:center;vertical-align:middle;">${_qdBadge(d[q.key] || {}, q, locked)}</td>`;
+            }).join('');
+            const hasId    = !!d.id;
             return `<tr>
                 <td style="color:#94a3b8;font-size:12px;font-weight:500;">${no}</td>
                 <td>
@@ -250,9 +426,9 @@
                 ${qCells}
                 <td>
                     <div class="action-buttons"><div class="btn-icon-group">
-                        <button onclick="diklatOpenDetail('${d.id}')"  class="btn-icon btn-icon-view"   title="Lihat detail">${SVG.eye}</button>
-                        <button onclick="diklatOpenEdit('${d.id}')"    class="btn-icon btn-icon-edit"   title="Edit data">${SVG.edit}</button>
-                        <button onclick="diklatDelete('${d.id}',this)" class="btn-icon btn-icon-delete" title="Hapus">${SVG.trash}</button>
+                        ${hasId ? `<button onclick="diklatOpenDetail('${d.id}')"  class="btn-icon btn-icon-view"   title="Lihat detail">${SVG.eye}</button>` : ''}
+                        <button onclick="diklatOpenEditByNama('${_escJs(d.nama)}','${_escJs(d.unit)}')"    class="btn-icon btn-icon-edit"   title="Upload bukti">${SVG.edit}</button>
+                        ${hasId ? `<button onclick="diklatDelete('${d.id}',this)" class="btn-icon btn-icon-delete" title="Hapus">${SVG.trash}</button>` : ''}
                     </div></div>
                 </td>
             </tr>`;
@@ -261,14 +437,15 @@
         // Mobile cards
         if (cards) {
             cards.innerHTML = items.map(d => {
-                const qRows = QUARTERS.map(q => {
-                    const qd = d[q.key] || {};
-                    const badge = _qdBadge(qd, q);
+                const qRows = QUARTERS.map((q, idx) => {
+                    const locked = !isTriwulanAllowed(idx, d);
+                    const badge  = _qdBadge(d[q.key] || {}, q, locked);
                     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;">
                         <span style="font-size:11.5px;font-weight:600;color:#94a3b8;">${q.label}</span>
                         ${badge}
                     </div>`;
                 }).join('');
+                const hasId = !!d.id;
                 return `<div class="krs-card" style="margin-bottom:10px;">
                     <div class="krs-card-top">
                         <div>
@@ -280,9 +457,9 @@
                     <div class="krs-card-footer">
                         <div></div>
                         <div class="btn-icon-group" style="margin:0;">
-                            <button onclick="diklatOpenDetail('${d.id}')"  class="btn-icon btn-icon-view">${SVG.eye}</button>
-                            <button onclick="diklatOpenEdit('${d.id}')"    class="btn-icon btn-icon-edit">${SVG.edit}</button>
-                            <button onclick="diklatDelete('${d.id}',this)" class="btn-icon btn-icon-delete">${SVG.trash}</button>
+                            ${hasId ? `<button onclick="diklatOpenDetail('${d.id}')"  class="btn-icon btn-icon-view">${SVG.eye}</button>` : ''}
+                            <button onclick="diklatOpenEditByNama('${_escJs(d.nama)}','${_escJs(d.unit)}')" class="btn-icon btn-icon-edit">${SVG.edit}</button>
+                            ${hasId ? `<button onclick="diklatDelete('${d.id}',this)" class="btn-icon btn-icon-delete">${SVG.trash}</button>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -291,30 +468,53 @@
 
         if (pgn) pgn.innerHTML = `
             <button onclick="diklatChangePage(${diklatCurrentPage - 1})" ${diklatCurrentPage === 1 ? 'disabled' : ''}>&#8249; Prev</button>
-            <span class="pagination-info">Halaman ${diklatCurrentPage} dari ${totalPages} &nbsp;·&nbsp; ${allDiklat.length} data</span>
+            <span class="pagination-info">Halaman ${diklatCurrentPage} dari ${totalPages} &nbsp;·&nbsp; ${list.length} pegawai</span>
             <button onclick="diklatChangePage(${diklatCurrentPage + 1})" ${diklatCurrentPage === totalPages ? 'disabled' : ''}>Next &#8250;</button>`;
     }
 
     window.diklatChangePage = (page) => {
-        const t = Math.ceil(allDiklat.length / itemsPerPage);
+        const list = allDiklat.length > 0 ? allDiklat : buildMergedList();
+        const t = Math.ceil(list.length / itemsPerPage);
         if (page < 1 || page > t) return;
         diklatCurrentPage = page;
         renderPaginatedDiklat();
     };
 
+    function _escJs(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
     // ─── MODAL HELPERS ───────────────────────────────────────────
-    function _openModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
+    function _openModal(id)  { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
     function _closeModal(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
     window.diklatCloseModal = (id) => _closeModal(id);
+
+    // ─── FORM — EDIT BY NAMA (dari tabel utama) ──────────────────
+    window.diklatOpenEditByNama = function (nama, unit) {
+        const existing = findDiklatByNama(nama);
+        if (existing) {
+            diklatOpenEdit(existing.id);
+        } else {
+            editingId = null;
+            fileData  = [{}, {}, {}, {}];
+            document.getElementById('dklat-modal-title').textContent = 'Upload Bukti Diklat';
+            document.getElementById('dklat-form-nama').value = nama;
+            const unitSel = document.getElementById('dklat-form-unit');
+            if (unitSel) unitSel.value = unit || '';
+            document.getElementById('dklat-form-nama').readOnly = true;
+            if (unitSel) unitSel.disabled = true;
+            _buildQuarterForms(null);
+            _openModal('dklat-formModal');
+        }
+    };
 
     // ─── FORM — ADD ──────────────────────────────────────────────
     window.diklatOpenAdd = function () {
         editingId = null;
-        fileData = [{}, {}, {}, {}];
+        fileData  = [{}, {}, {}, {}];
         document.getElementById('dklat-modal-title').textContent = 'Tambah Data Diklat';
         document.getElementById('dklat-form-nama').value = '';
+        document.getElementById('dklat-form-nama').readOnly = false;
         const unitSel = document.getElementById('dklat-form-unit');
-        if (unitSel) unitSel.value = '';
+        if (unitSel) { unitSel.value = ''; unitSel.disabled = false; }
         _buildQuarterForms(null);
         _openModal('dklat-formModal');
     };
@@ -324,11 +524,12 @@
         const d = masterDiklat.find(x => x.id === id);
         if (!d) return;
         editingId = id;
-        fileData = QUARTERS.map(q => ({ ...(d[q.key] || {}) }));
-        document.getElementById('dklat-modal-title').textContent = 'Edit Data Diklat';
+        fileData  = QUARTERS.map(q => ({ ...(d[q.key] || {}) }));
+        document.getElementById('dklat-modal-title').textContent = 'Upload Bukti Diklat';
         document.getElementById('dklat-form-nama').value = d.nama || '';
+        document.getElementById('dklat-form-nama').readOnly = true;
         const unitSel = document.getElementById('dklat-form-unit');
-        if (unitSel) unitSel.value = d.unit || '';
+        if (unitSel) { unitSel.value = d.unit || ''; unitSel.disabled = true; }
         _buildQuarterForms(d);
         _openModal('dklat-formModal');
     };
@@ -336,7 +537,8 @@
     // ─── SUBMIT ──────────────────────────────────────────────────
     window.diklatSubmitForm = async function () {
         const nama = document.getElementById('dklat-form-nama').value.trim();
-        const unit = document.getElementById('dklat-form-unit').value.trim();
+        const unitEl = document.getElementById('dklat-form-unit');
+        const unit = (unitEl.value || '').trim();
         if (!nama || !unit) {
             _toast('Nama Peserta dan Unit harus diisi', 'error');
             return;
@@ -344,7 +546,7 @@
 
         const qPayload = {};
         QUARTERS.forEach((q, idx) => {
-            const linkEl = document.getElementById(`dklat-link-${idx}`);
+            const linkEl  = document.getElementById(`dklat-link-${idx}`);
             const linkVal = linkEl ? linkEl.value.trim() : '';
             const isLinkPane = document.getElementById(`dklat-pane-link-${idx}`)?.style.display !== 'none';
             const hasNewFile = !!(fileData[idx]?.fileDataUrl && fileData[idx].fileDataUrl.startsWith('data:'));
@@ -482,9 +684,29 @@
         if (!grid) return;
 
         grid.innerHTML = QUARTERS.map((q, idx) => {
-            const saved = existData ? (existData[q.key] || {}) : {};
-            const isLink = !!(saved.link && !saved.fileDataUrl);
-            const hasImg = !!(saved.fileDataUrl &&
+            const saved   = existData ? (existData[q.key] || {}) : {};
+            const allowed = isTriwulanAllowed(idx, existData);
+            const reason  = allowed ? '' : getTriwulanLockReason(idx, existData);
+
+            if (!allowed) {
+                return `
+                <div id="dklat-qcard-${idx}" style="border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;padding:14px;opacity:.65;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#cbd5e1;flex-shrink:0;"></span>
+                        <div>
+                            <div style="font-size:13px;font-weight:600;color:#94a3b8;">${q.label}</div>
+                            <div style="font-size:11px;color:#cbd5e1;">${q.sub}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;padding:12px;background:#f1f5f9;border-radius:7px;border:1px dashed #e2e8f0;">
+                        <span style="color:#94a3b8;">${SVG.lock}</span>
+                        <span style="font-size:12px;color:#94a3b8;">${reason}</span>
+                    </div>
+                </div>`;
+            }
+
+            const isLink  = !!(saved.link && !saved.fileDataUrl);
+            const hasImg  = !!(saved.fileDataUrl &&
                 (saved.fileDataUrl.startsWith('data:image') ||
                     saved.fileDataUrl.includes('thumbnail') ||
                     saved.fileDataUrl.includes('googleusercontent')));
@@ -579,7 +801,7 @@
 
     window.diklatHandleFile = function (idx) {
         const input = document.getElementById(`dklat-file-${idx}`);
-        const file = input?.files?.[0];
+        const file  = input?.files?.[0];
         if (!file) return;
 
         if (file.size > 10 * 1024 * 1024) {
@@ -589,7 +811,7 @@
         }
 
         const isImage = file.type.startsWith('image/');
-        const reader = new FileReader();
+        const reader  = new FileReader();
         reader.onload = function (e) {
             fileData[idx] = { fileName: file.name, fileDataUrl: e.target.result, fileType: file.type };
             const area = document.getElementById(`dklat-file-area-${idx}`);
@@ -616,7 +838,7 @@
     };
 
     window.diklatOnLinkInput = function (idx) {
-        const val = document.getElementById(`dklat-link-${idx}`)?.value.trim() || '';
+        const val     = document.getElementById(`dklat-link-${idx}`)?.value.trim() || '';
         const preview = document.getElementById(`dklat-link-preview-${idx}`);
         if (preview) preview.innerHTML = val
             ? `<a href="${val}" target="_blank" style="font-size:12px;color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">${SVG.link}&nbsp;Buka link</a>`
@@ -625,7 +847,7 @@
 
     // ─── DETAIL MODAL ────────────────────────────────────────────
     window.diklatOpenDetail = function (id) {
-        const d = masterDiklat.find(x => x.id === id);
+        const d    = masterDiklat.find(x => x.id === id);
         if (!d) return;
         const body = document.getElementById('dklat-detail-body');
         if (!body) return;
@@ -645,9 +867,10 @@
 
             <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:12px;">Bukti Keikutsertaan Diklat</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" class="dklat-detail-qgrid">
-                ${QUARTERS.map(q => {
-            const qd = d[q.key] || {};
-            const hasImg = !!(qd.fileDataUrl &&
+                ${QUARTERS.map((q, idx) => {
+            const qd      = d[q.key] || {};
+            const locked  = !isTriwulanAllowed(idx, d);
+            const hasImg  = !!(qd.fileDataUrl &&
                 (qd.fileDataUrl.startsWith('data:image') ||
                     qd.fileDataUrl.includes('thumbnail') ||
                     qd.fileDataUrl.includes('googleusercontent')));
@@ -655,51 +878,53 @@
             const hasFile = !!qd.fileName && !hasImg;
 
             let content;
-            if (hasImg) {
+            if (locked && !hasImg && !hasFile && !hasLink) {
+                content = `<div style="text-align:center;padding:16px;color:#cbd5e1;font-size:12px;display:flex;align-items:center;gap:6px;justify-content:center;">${SVG.lock}&nbsp;${getTriwulanLockReason(idx, d)}</div>`;
+            } else if (hasImg) {
                 content = `
-                            <img src="${qd.fileDataUrl}" alt="${q.label}"
-                                style="width:100%;border-radius:6px;object-fit:cover;max-height:110px;display:block;border:1px solid ${q.border};cursor:zoom-in;margin-bottom:6px;"
-                                onclick="diklatZoomImg('${qd.fileDataUrl}')">
-                            <div style="display:flex;align-items:center;gap:5px;padding:5px 8px;background:#f8fafc;border-radius:5px;font-size:12px;color:#475569;border:1px solid #e2e8f0;">
-                                ${SVG.img}&nbsp;<span style="flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${qd.fileName || 'Gambar'}</span>
-                                ${hasLink ? `<a href="${qd.link}" target="_blank" style="color:#2563eb;font-size:11px;white-space:nowrap;">Buka ↗</a>` : ''}
-                                <button onclick="diklatDeleteFile('${d.id}','${q.key}',this)"
-                                    style="background:none;border:none;cursor:pointer;color:#ef4444;display:flex;align-items:center;padding:2px 4px;" title="Hapus">${SVG.trash}</button>
-                            </div>`;
+                    <img src="${qd.fileDataUrl}" alt="${q.label}"
+                        style="width:100%;border-radius:6px;object-fit:cover;max-height:110px;display:block;border:1px solid ${q.border};cursor:zoom-in;margin-bottom:6px;"
+                        onclick="diklatZoomImg('${qd.fileDataUrl}')">
+                    <div style="display:flex;align-items:center;gap:5px;padding:5px 8px;background:#f8fafc;border-radius:5px;font-size:12px;color:#475569;border:1px solid #e2e8f0;">
+                        ${SVG.img}&nbsp;<span style="flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${qd.fileName || 'Gambar'}</span>
+                        ${hasLink ? `<a href="${qd.link}" target="_blank" style="color:#2563eb;font-size:11px;white-space:nowrap;">Buka ↗</a>` : ''}
+                        <button onclick="diklatDeleteFile('${d.id}','${q.key}',this)"
+                            style="background:none;border:none;cursor:pointer;color:#ef4444;display:flex;align-items:center;padding:2px 4px;" title="Hapus">${SVG.trash}</button>
+                    </div>`;
             } else if (hasFile) {
                 content = `
-                            <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;background:#f8fafc;border-radius:6px;font-size:13px;color:#475569;border:1px solid #e2e8f0;">
-                                ${SVG.file}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${qd.fileName}</span>
-                                ${hasLink ? `<a href="${qd.link}" target="_blank" style="color:#2563eb;font-size:11px;white-space:nowrap;">Buka ↗</a>` : ''}
-                                <button onclick="diklatDeleteFile('${d.id}','${q.key}',this)"
-                                    style="background:none;border:none;cursor:pointer;color:#ef4444;display:flex;align-items:center;padding:2px 4px;" title="Hapus">${SVG.trash}</button>
-                            </div>`;
+                    <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;background:#f8fafc;border-radius:6px;font-size:13px;color:#475569;border:1px solid #e2e8f0;">
+                        ${SVG.file}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${qd.fileName}</span>
+                        ${hasLink ? `<a href="${qd.link}" target="_blank" style="color:#2563eb;font-size:11px;white-space:nowrap;">Buka ↗</a>` : ''}
+                        <button onclick="diklatDeleteFile('${d.id}','${q.key}',this)"
+                            style="background:none;border:none;cursor:pointer;color:#ef4444;display:flex;align-items:center;padding:2px 4px;" title="Hapus">${SVG.trash}</button>
+                    </div>`;
             } else if (hasLink) {
                 const short = qd.link.length > 40 ? qd.link.slice(0, 40) + '…' : qd.link;
                 content = `
-                            <div style="display:flex;flex-direction:column;gap:6px;">
-                                <a href="${qd.link}" target="_blank" rel="noopener"
-                                    style="display:flex;align-items:center;gap:6px;padding:10px 12px;
-                                    background:#eff6ff;border-radius:6px;color:#2563eb;font-size:12px;
-                                    font-weight:500;text-decoration:none;word-break:break-all;border:1px solid #bfdbfe;">
-                                    ${SVG.link}&nbsp;${short}
-                                </a>
-                                <button onclick="diklatDeleteFile('${d.id}','${q.key}',this)"
-                                    style="background:none;border:1px solid #fca5a5;cursor:pointer;color:#ef4444;
-                                    font-size:11.5px;font-weight:500;padding:4px 10px;border-radius:5px;
-                                    align-self:flex-end;display:flex;align-items:center;gap:4px;">
-                                    ${SVG.trash}&nbsp;Hapus Link
-                                </button>
-                            </div>`;
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <a href="${qd.link}" target="_blank" rel="noopener"
+                            style="display:flex;align-items:center;gap:6px;padding:10px 12px;
+                            background:#eff6ff;border-radius:6px;color:#2563eb;font-size:12px;
+                            font-weight:500;text-decoration:none;word-break:break-all;border:1px solid #bfdbfe;">
+                            ${SVG.link}&nbsp;${short}
+                        </a>
+                        <button onclick="diklatDeleteFile('${d.id}','${q.key}',this)"
+                            style="background:none;border:1px solid #fca5a5;cursor:pointer;color:#ef4444;
+                            font-size:11.5px;font-weight:500;padding:4px 10px;border-radius:5px;
+                            align-self:flex-end;display:flex;align-items:center;gap:4px;">
+                            ${SVG.trash}&nbsp;Hapus Link
+                        </button>
+                    </div>`;
             } else {
                 content = `<div style="text-align:center;padding:20px;color:#cbd5e1;font-size:13px;">Belum ada data</div>`;
             }
 
-            return `<div style="border-radius:10px;border:1px solid ${q.border};background:${q.bg};padding:12px;">
+            return `<div style="border-radius:10px;border:1px solid ${locked && !hasImg && !hasFile && !hasLink ? '#e2e8f0' : q.border};background:${locked && !hasImg && !hasFile && !hasLink ? '#f8fafc' : q.bg};padding:12px;">
                         <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
-                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${q.dot};"></span>
+                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${locked && !hasImg && !hasFile && !hasLink ? '#cbd5e1' : q.dot};"></span>
                             <div>
-                                <div style="font-size:12.5px;font-weight:700;color:#1e293b;">${q.label}</div>
+                                <div style="font-size:12.5px;font-weight:700;color:${locked && !hasImg && !hasFile && !hasLink ? '#94a3b8' : '#1e293b'};">${q.label}</div>
                                 <div style="font-size:11px;color:#94a3b8;">${q.sub}</div>
                             </div>
                         </div>
@@ -715,7 +940,7 @@
         const el = document.createElement('div');
         el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:24px;';
         el.innerHTML = `<img src="${src}" style="max-width:90vw;max-height:90vh;border-radius:8px;">`;
-        el.onclick = () => document.body.removeChild(el);
+        el.onclick   = () => document.body.removeChild(el);
         document.body.appendChild(el);
     };
 
@@ -730,6 +955,12 @@
     window.sectionInits['diklat'] = function () {
         const section = document.getElementById('section-diklat');
         if (!section) return;
+
+        const maxTw   = getMaxAllowedTriwulan();
+        const twNames = ['', 'Triwulan I (Jan–Mar)', 'Triwulan II (Apr–Jun)', 'Triwulan III (Jul–Sep)', 'Triwulan IV (Okt–Des)'];
+        const periodBadge = `<span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">
+            Periode aktif: ${twNames[maxTw]}
+        </span>`;
 
         section.innerHTML = `
 <style>
@@ -746,7 +977,6 @@
 .dklat-qgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 @media (max-width: 520px) { .dklat-qgrid { grid-template-columns:1fr; } }
 
-/* Stat cards override */
 .dklat-stat {
     display:flex;flex-direction:column;gap:4px;
     padding:16px 18px;border-radius:10px;
@@ -760,16 +990,29 @@
 <div class="container">
 
     <div class="section-page-header">
-        <h1 class="section-page-title">Diklat</h1>
-        <p class="section-page-subtitle">Manajemen data pelatihan pegawai per triwulan</p>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div>
+                <h1 class="section-page-title">Diklat</h1>
+                <p class="section-page-subtitle">Upload bukti pelatihan pegawai per triwulan</p>
+            </div>
+            ${periodBadge}
+        </div>
+    </div>
+
+    <!-- Keterangan periode -->
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:18px;font-size:12.5px;color:#0369a1;display:flex;gap:8px;align-items:flex-start;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Upload triwulan bersifat <strong>berurutan</strong> — triwulan berikutnya baru bisa diupload setelah triwulan sebelumnya sudah terisi.
+        Upload juga disesuaikan dengan <strong>periode saat ini</strong>: Jan–Mar hanya Tw I · Apr–Jun Tw I & II · Jul–Sep Tw I–III · Okt–Des semua.
+        <strong>Semua nama pegawai selalu tampil</strong> meskipun belum ada data — klik ikon pensil untuk upload.</span>
     </div>
 
     <!-- Stats -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;" class="dklat-stats-row">
         <div class="dklat-stat">
-            <div class="dklat-stat-label">Total Peserta</div>
+            <div class="dklat-stat-label">Total Pegawai</div>
             <div class="dklat-stat-val" id="dklat-stat-total" style="color:#1e293b;">0</div>
-            <div class="dklat-stat-sub">Data terdaftar</div>
+            <div class="dklat-stat-sub">Daftar resmi</div>
         </div>
         <div class="dklat-stat">
             <div class="dklat-stat-label">Lengkap</div>
@@ -791,14 +1034,12 @@
     <!-- Table card -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Data Diklat Pegawai</h2>
+            <h2 class="card-title">Daftar Pegawai — Bukti Diklat</h2>
             <div class="dklat-filter-row">
                 <input type="text" class="search-input" id="dklat-search"
                     placeholder="Cari nama atau unit…" oninput="diklatApplyFilter()">
                 <button onclick="diklatLoad()" class="btn btn-sm"
                     style="display:inline-flex;align-items:center;gap:5px;">${SVG.refresh} Refresh</button>
-                <button onclick="diklatOpenAdd()" class="btn btn-sm btn-primary"
-                    style="display:inline-flex;align-items:center;gap:5px;">${SVG.plus} Tambah Data</button>
             </div>
         </div>
 
@@ -807,7 +1048,7 @@
                 <thead>
                     <tr>
                         <th style="width:36px;">#</th>
-                        <th>Nama Peserta</th>
+                        <th>Nama Pegawai</th>
                         <th>Unit / Bagian</th>
                         <th style="text-align:center;">Triwulan I</th>
                         <th style="text-align:center;">Triwulan II</th>
@@ -826,23 +1067,23 @@
     </div>
 </div>
 
-<!-- ── MODAL: FORM ADD / EDIT ───────────────────────────── -->
+<!-- ── MODAL: FORM UPLOAD ───────────────────────────── -->
 <div id="dklat-formModal" class="modal-overlay" onclick="if(event.target===this)diklatCloseModal('dklat-formModal')">
     <div class="modal" style="max-width:680px;">
         <div class="modal-header">
-            <h2 class="modal-title" id="dklat-modal-title">Tambah Data Diklat</h2>
+            <h2 class="modal-title" id="dklat-modal-title">Upload Bukti Diklat</h2>
         </div>
         <div class="modal-content">
 
-            <!-- Identitas -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
                 <div class="form-group" style="margin:0;">
                     <label class="input-label">Nama Peserta <span style="color:#ef4444;">*</span></label>
-                    <input type="text" class="form-input" id="dklat-form-nama" placeholder="Nama lengkap pegawai">
+                    <input type="text" class="form-input" id="dklat-form-nama" placeholder="Nama lengkap pegawai"
+                        style="background:#f8fafc;">
                 </div>
                 <div class="form-group" style="margin:0;">
                     <label class="input-label">Unit / Bagian <span style="color:#ef4444;">*</span></label>
-                    <select class="form-input" id="dklat-form-unit">
+                    <select class="form-input" id="dklat-form-unit" style="background:#f8fafc;">
                         <option value="">— Pilih Unit —</option>
                         <option value="Sekretariat">Sekretariat</option>
                         <option value="Bidang Koperasi">Bidang Koperasi</option>
@@ -854,10 +1095,10 @@
                 </div>
             </div>
 
-            <!-- Divider -->
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                 <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;white-space:nowrap;">Bukti per Triwulan</span>
                 <span style="flex:1;height:1px;background:#e2e8f0;"></span>
+                <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">Periode aktif: ${twNames[maxTw]}</span>
             </div>
 
             <div class="dklat-qgrid" id="dklat-quarters-grid"></div>
@@ -865,10 +1106,11 @@
             <div style="margin-top:14px;padding:10px 14px;background:#f0f9ff;border-radius:7px;
                 border:1px solid #bae6fd;font-size:12px;color:#0369a1;">
                 Upload langsung maks <strong>10 MB</strong>, atau tempelkan link Google Drive di tab Tempel Link.
+                Triwulan yang terkunci tidak dapat diisi sampai triwulan sebelumnya terisi.
             </div>
         </div>
         <div class="modal-footer">
-            <button onclick="diklatCloseModal('dklat-formModal')" class="btn" style="flex:1;">Batal</button>
+            <button onclick="diklatCloseModal('dklat-formModal');document.getElementById('dklat-form-nama').readOnly=false;document.getElementById('dklat-form-unit').disabled=false;" class="btn" style="flex:1;">Batal</button>
             <button id="dklat-btn-save" onclick="diklatSubmitForm()" class="btn btn-success" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
                 ${SVG.check} Simpan Data
             </button>
@@ -889,6 +1131,13 @@
     </div>
 </div>`;
 
+        // [v2.1] Render daftar kosong dulu dari PEGAWAI_LIST sebelum fetch server
+        // supaya tabel langsung tampil semua nama tanpa menunggu network.
+        allDiklat = buildMergedList();
+        renderStats();
+        renderPaginatedDiklat();
+
+        // Baru kemudian fetch data dari server (akan update badge triwulan)
         loadDiklat();
     };
 

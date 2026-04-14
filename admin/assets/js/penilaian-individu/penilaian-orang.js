@@ -1,20 +1,16 @@
 // ============================================================
-// penilaian-orang.js — Penilaian Per Orang section (SPA) v3.1
+// penilaian-orang.js — Penilaian Per Orang section (SPA) v3.3
 // Admin Panel — Dinas Koperasi UKM
 //
-// PERUBAHAN v3.1:
-//  1. Akses berbasis role penilai — setiap role penilai hanya
-//     bisa melihat & menilai kelompok/orang yang sesuai:
-//     - penilai_sekretariat  → hanya orang di grup 'sekretariat'
-//     - penilai_ketua        → hanya grup 'agus' (6 kepala bidang)
-//     - penilai_koperasi     → hanya grup 'koperasi'
-//     - penilai_ukm          → hanya grup 'ukm'
-//     - penilai_usaha_mikro  → hanya grup 'usaha-mikro'
-//     - penilai_kewirausahaan→ hanya grup 'kewirausahaan'
-//     - penilai_blut         → hanya grup 'blut'
-//     - program / superadmin → semua grup
-//  2. canEditGroup() menggunakan peta ROLE_TO_GID
-//  3. visibleGroups() menggunakan peta ROLE_TO_GID
+// PERUBAHAN v3.3 (dari v3.2):
+//  1. AUTO-LOAD skor tim saat halaman dibuka — tidak perlu klik
+//     "Ambil Skor Tim" lagi. loadFromGAS() sekarang memanggil
+//     fetchAllTeamScores() secara otomatis bersamaan dengan
+//     fetch data penilaian & diklat.
+//  2. AUTO-LOAD nilai diklat saat halaman dibuka — langsung
+//     diambil dari GAS operasional tanpa klik tombol apapun.
+//  3. Tombol "Refresh Diklat" tetap tersedia untuk refresh manual.
+//  4. Semua perubahan dari v3.2 tetap berlaku.
 // ============================================================
 (function () {
     'use strict';
@@ -22,10 +18,16 @@
     var SECTION_ID     = 'penilaian-orang';
     var DATA_KEY       = 'penilaian_orang_v2';
     var TEAM_CACHE_KEY = 'penilaian_orang_team_cache_v1';
+    var DIKLAT_CACHE_KEY = 'penilaian_orang_diklat_cache_v1';
 
     function getGasUrl() {
         return (window.PPO_GAS_CONFIG && window.PPO_GAS_CONFIG.url)
             ? window.PPO_GAS_CONFIG.url : '';
+    }
+
+    function getOperasionalUrl() {
+        return (window.PPO_GAS_CONFIG && window.PPO_GAS_CONFIG.urlOperasional)
+            ? window.PPO_GAS_CONFIG.urlOperasional : '';
     }
 
     var MONTHS = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI',
@@ -59,11 +61,9 @@
           desc:'Memberi kesempatan kontribusi; terbuka bekerja sama; menggerakkan pemanfaatan sumber daya bersama.' }
     ];
 
-    // ── Peta role penilai → gid grup yang boleh dinilai ──────
-    // 'program' dan 'superadmin' → semua (null = akses semua)
     var ROLE_TO_GID = {
         penilai_sekretariat:  'sekretariat',
-        penilai_ketua:        'agus',          // 6 kepala bidang
+        penilai_ketua:        'agus',
         penilai_koperasi:     'koperasi',
         penilai_ukm:          'ukm',
         penilai_usaha_mikro:  'usaha-mikro',
@@ -167,6 +167,8 @@
         month: MONTHS[new Date().getMonth()],
         search: '', groupFilter: '', statusFilter: '',
         records: {}, teamScores: {},
+        diklatScores: {},
+        diklatLoaded: false,
         currentUser: null, loading: false
     };
 
@@ -193,6 +195,102 @@
     }
     function getCurrentYearString() { return String(new Date().getFullYear()); }
 
+    // ── DIKLAT CACHE ──
+    function saveDiklatCache(scores) {
+        try {
+            var cache = { scores: scores, timestamp: Date.now() };
+            localStorage.setItem(DIKLAT_CACHE_KEY, JSON.stringify(cache));
+        } catch(e) {}
+    }
+    function loadDiklatCache() {
+        try {
+            var raw = JSON.parse(localStorage.getItem(DIKLAT_CACHE_KEY) || 'null');
+            if (!raw || !raw.scores) return null;
+            // Cache berlaku 1 jam
+            if (Date.now() - (raw.timestamp || 0) > 3600000) return null;
+            return raw.scores;
+        } catch(e) { return null; }
+    }
+
+    // ── AMBIL NILAI DIKLAT ──
+    function fetchDiklatScores() {
+        // Prioritas 1: ambil dari modul diklat yang sudah load (real-time)
+        if (window.diklatGetMasterData) {
+            var masterData = window.diklatGetMasterData();
+            if (masterData && masterData.length > 0) {
+                return Promise.resolve(_buildDiklatMap(masterData));
+            }
+        }
+
+        // Prioritas 2: cache lokal (max 1 jam)
+        var cached = loadDiklatCache();
+        if (cached) return Promise.resolve(cached);
+
+        // Prioritas 3: fetch langsung dari GAS operasional
+        var urlOp = getOperasionalUrl();
+        if (!urlOp) {
+            console.warn('[PPO Diklat] URL operasional belum dikonfigurasi');
+            return Promise.resolve({});
+        }
+
+        return new Promise(function(resolve) {
+            var cb     = '__ppoDiklat_' + Date.now() + '_' + Math.floor(Math.random() * 99999);
+            var done   = false;
+            var script = document.createElement('script');
+            var timer  = setTimeout(function() {
+                if (done) return;
+                cleanup();
+                console.warn('[PPO Diklat] Timeout fetch diklat scores');
+                resolve({});
+            }, 15000);
+
+            function cleanup() {
+                done = true; clearTimeout(timer);
+                try { delete window[cb]; } catch(e) {}
+                if (script.parentNode) script.parentNode.removeChild(script);
+            }
+
+            window[cb] = function(data) {
+                cleanup();
+                if (data && data.status === 'success' && Array.isArray(data.diklat)) {
+                    var scores = _buildDiklatMap(data.diklat);
+                    saveDiklatCache(scores);
+                    resolve(scores);
+                } else {
+                    resolve({});
+                }
+            };
+            script.onerror = function() { if (done) return; cleanup(); resolve({}); };
+            script.src = urlOp + '?action=getDiklat&callback=' + cb;
+            document.head.appendChild(script);
+        });
+    }
+
+    function _buildDiklatMap(diklatList) {
+        var TRIWULAN_KEYS = ['triwulan1','triwulan2','triwulan3','triwulan4'];
+        var map = {};
+        diklatList.forEach(function(d) {
+            var nama = (d.nama || '').toLowerCase().trim();
+            if (!nama) return;
+            var hasAny = TRIWULAN_KEYS.some(function(k) {
+                var val = d[k];
+                if (!val) return false;
+                if (typeof val === 'object') return !!(val.link || val.fileName || val.fileDataUrl);
+                return String(val).trim() !== '';
+            });
+            map[nama] = hasAny;
+        });
+        return map;
+    }
+
+    function getDiklatValue(personName) {
+        if (!state.diklatLoaded) return null;
+        var key = (personName || '').toLowerCase().trim();
+        if (state.diklatScores[key] === true)  return 10;
+        if (state.diklatScores[key] === false) return 0;
+        return 0;
+    }
+
     // ── TEAM CACHE ──
     function loadTeamCacheMonth(month) {
         try {
@@ -212,7 +310,7 @@
         }
     }
 
-    // ── JSONP UNTUK PENILAIAN ──
+    // ── JSONP ──
     function gasJsonp(params) {
         return new Promise(function(resolve, reject) {
             var gasUrl = getGasUrl();
@@ -256,11 +354,11 @@
 
     function mapGasRecordToLocal(rec) {
         var criteria = (rec.criteria && typeof rec.criteria === 'object') ? rec.criteria : {};
-        var diklat    = parseFloat(rec.diklat)    || 7;
+        var diklatFromGas = parseFloat(rec.diklat) || 0;
         var skorTim   = parseFloat(rec.skorTim)   || 0;
         var bobotTim  = parseFloat(rec.bobotTim)  || +(skorTim * 0.60).toFixed(2);
         var nilaiAkhlak = parseFloat(rec.nilaiAkhlak) || 0;
-        var total     = parseFloat(rec.total)     || +(bobotTim + nilaiAkhlak + diklat).toFixed(2);
+        var total     = parseFloat(rec.total)     || +(bobotTim + nilaiAkhlak + diklatFromGas).toFixed(2);
         return {
             month: rec.bulan || state.month,
             gid: rec.gid || '',
@@ -268,15 +366,18 @@
             name: rec.nama || '',
             unit: rec.unit || '',
             criteria: criteria,
-            diklat: diklat,
+            diklat: diklatFromGas,
             teamScore: skorTim,
-            summary: { teamW: bobotTim, akhlakW: nilaiAkhlak, diklatW: diklat, total: total },
+            summary: { teamW: bobotTim, akhlakW: nilaiAkhlak, diklatW: diklatFromGas, total: total },
             updatedAt: rec.updatedAt || new Date().toISOString(),
             updatedBy: rec.updatedBy || 'Admin'
         };
     }
 
-    // ── LOAD DARI GAS ──
+    // ══════════════════════════════════════════════════════════
+    // [v3.3] loadFromGAS — AUTO-LOAD skor tim + diklat + penilaian
+    // semuanya berjalan paralel saat halaman dibuka.
+    // ══════════════════════════════════════════════════════════
     function loadFromGAS() {
         var gasUrl = getGasUrl();
         if (!gasUrl) { console.warn('[PPO] GAS URL belum tersedia'); return Promise.resolve(); }
@@ -284,41 +385,89 @@
         var bulan = state.month;
         var tahun = getCurrentYearString();
 
-        return Promise.all([
-            gasJsonp({ action: 'getAllPenilaian', bulan: bulan, tahun: tahun }),
-            gasJsonp({ action: 'getTeamScores',   bulan: bulan, tahun: tahun })
-        ]).then(function(results) {
-            var penilaianRes = results[0] || {};
-            var teamRes      = results[1] || {};
-
-            if (penilaianRes.status === 'success' && Array.isArray(penilaianRes.records)) {
-                if (!state.records[bulan]) state.records[bulan] = {};
-                penilaianRes.records.forEach(function(rec) {
-                    if (!rec.gid || !rec.nama) return;
-                    var recPid = pid(rec.gid, rec.nama);
-                    state.records[bulan][recPid] = mapGasRecordToLocal(rec);
-                });
-                saveRecords();
-            }
-
-            if (teamRes.status === 'success' && teamRes.scores && typeof teamRes.scores === 'object') {
-                state.teamScores = teamRes.scores;
-                saveTeamCacheMonth(bulan, teamRes.scores);
-            }
-        }).catch(function(err) {
-            console.warn('[PPO] loadFromGAS gagal:', err.message);
-            if (window.showToast) showToast('Gagal sinkronisasi: ' + err.message, 'error');
-        }).finally(function() {
-            setLoadingState(false);
-            render();
+        // ── 1. Fetch nilai diklat ──────────────────────────────
+        var pDiklat = fetchDiklatScores().then(function(scores) {
+            state.diklatScores = scores || {};
+            state.diklatLoaded = true;
+        }).catch(function() {
+            state.diklatLoaded = true;
         });
+
+        // ── 2. Fetch skor tim OTOMATIS (jika tersedia) ─────────
+        var pTeam;
+        if (window.PPO_GAS_CONFIG && window.PPO_GAS_CONFIG.fetchAllTeamScores) {
+            pTeam = window.PPO_GAS_CONFIG.fetchAllTeamScores(bulan)
+                .then(function(allScores) {
+                    state.teamScores = allScores || {};
+                    saveTeamCacheMonth(bulan, state.teamScores);
+                    _updateAutoLoadStatus('✓ Skor tim berhasil dimuat otomatis', '#059669');
+                })
+                .catch(function(err) {
+                    console.warn('[PPO] Auto-load skor tim gagal:', err.message);
+                    // Fallback ke cache
+                    var cached = loadTeamCacheMonth(bulan);
+                    if (Object.keys(cached).length > 0) {
+                        state.teamScores = cached;
+                        _updateAutoLoadStatus('Skor tim dari cache lokal', '#f59e0b');
+                    } else {
+                        _updateAutoLoadStatus('Skor tim belum tersedia — input manual di modal penilaian', '#94a3b8');
+                    }
+                });
+        } else {
+            // Tidak ada fetchAllTeamScores — pakai GAS getTeamScores biasa
+            pTeam = gasJsonp({ action: 'getTeamScores', bulan: bulan, tahun: tahun })
+                .then(function(teamRes) {
+                    if (teamRes && teamRes.status === 'success' && teamRes.scores) {
+                        state.teamScores = teamRes.scores;
+                        saveTeamCacheMonth(bulan, teamRes.scores);
+                        _updateAutoLoadStatus('✓ Skor tim berhasil dimuat', '#059669');
+                    }
+                })
+                .catch(function() {
+                    var cached = loadTeamCacheMonth(bulan);
+                    if (Object.keys(cached).length > 0) state.teamScores = cached;
+                });
+        }
+
+        // ── 3. Fetch data penilaian ────────────────────────────
+        var pData = gasJsonp({ action: 'getAllPenilaian', bulan: bulan, tahun: tahun })
+            .then(function(penilaianRes) {
+                if (penilaianRes && penilaianRes.status === 'success' && Array.isArray(penilaianRes.records)) {
+                    if (!state.records[bulan]) state.records[bulan] = {};
+                    penilaianRes.records.forEach(function(rec) {
+                        if (!rec.gid || !rec.nama) return;
+                        var recPid = pid(rec.gid, rec.nama);
+                        state.records[bulan][recPid] = mapGasRecordToLocal(rec);
+                    });
+                    saveRecords();
+                }
+            })
+            .catch(function(err) {
+                console.warn('[PPO] loadFromGAS penilaian gagal:', err.message);
+                if (window.showToast) showToast('Gagal sinkronisasi penilaian: ' + err.message, 'error');
+            });
+
+        // ── Jalankan semua paralel ─────────────────────────────
+        return Promise.all([pDiklat, pTeam, pData])
+            .finally(function() {
+                setLoadingState(false);
+                render();
+            });
+    }
+
+    // Helper update status bar auto-load skor tim
+    function _updateAutoLoadStatus(msg, color) {
+        var el = document.getElementById('ppo-autoload-status');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = color || '#64748b';
     }
 
     function setLoadingState(on) {
         state.loading = on;
         var btn = document.getElementById('ppo-btn-refresh');
         if (!btn) return;
-        btn.disabled  = on;
+        btn.disabled    = on;
         btn.textContent = on ? 'Memuat...' : '↻ Refresh Data';
     }
 
@@ -335,7 +484,7 @@
             namaPegawai: found.person.name,
             unit:        found.person.unit,
             criteria:    rec.criteria || {},
-            diklat:      rec.diklat || 7,
+            diklat:      rec.diklat || 0,
             skorTim:     rec.teamScore || 0,
             updatedBy:   state.currentUser ? (state.currentUser.name || 'Admin') : 'Admin',
             catatan:     ''
@@ -439,24 +588,17 @@
         return u;
     }
 
-    function isAdmin() { var u = state.currentUser; return !!(u && u._role === 'superadmin'); }
+    function isAdmin()   { var u = state.currentUser; return !!(u && u._role === 'superadmin'); }
     function isProgram() { var u = state.currentUser; return !!(u && u._role === 'program'); }
 
-    // ── AMBIL GID YANG BOLEH DIAKSES OLEH USER ──
-    // Mengembalikan array gid yang boleh dilihat/dinilai, atau null = semua
     function getAllowedGids() {
         var u = state.currentUser;
         if (!u) return [];
         var role = u._role;
-        if (role === 'superadmin' || role === 'program') return null; // akses semua
-
-        // Role penilai dengan peta tetap
+        if (role === 'superadmin' || role === 'program') return null;
         if (ROLE_TO_GID[role]) return [ROLE_TO_GID[role]];
-
-        // Backward compat: cari berdasarkan nama evaluator
         var derived = deriveGidFromUser(u);
         if (derived) return [derived];
-
         return [];
     }
 
@@ -501,6 +643,7 @@
         keys.forEach(function(k) { var v = parseFloat(s[k]); if (!isNaN(v)) { total += v; hasAny = true; } });
         return hasAny ? +total.toFixed(2) : null;
     }
+
     function calcAkhlak(criteria) {
         var vals = AKHLAK.map(function(a) {
             var v = parseFloat(criteria && criteria[a.key]);
@@ -509,10 +652,11 @@
         var avg = vals.reduce(function(a,b){return a+b;},0) / AKHLAK.length;
         return { avg: +avg.toFixed(2), weighted: +(avg * 3).toFixed(2) };
     }
+
     function calcFinal(teamScore, akhlakAvg, diklat) {
         var t = parseFloat(teamScore) || 0;
         var a = parseFloat(akhlakAvg) || 7;
-        var d = parseFloat(diklat)    || 7;
+        var d = parseFloat(diklat)    || 0;
         return {
             teamW:   +(t * 0.60).toFixed(2),
             akhlakW: +(a * 3).toFixed(2),
@@ -520,29 +664,32 @@
             total:   +(t * 0.60 + a * 3 + d).toFixed(2)
         };
     }
+
     function statusOf(total) {
         if (total >= 90) return { label:'Amat Baik',       cls:'badge-assessed', boxCls:'great' };
         if (total >= 80) return { label:'Baik',            cls:'badge-good',     boxCls:'good'  };
         if (total >= 70) return { label:'Cukup Baik',      cls:'badge-mid',      boxCls:'fair'  };
         return                  { label:'Perlu Pembinaan', cls:'badge-bad',      boxCls:'low'   };
     }
-    function snap(personPid, unit) {
+
+    function snap(personPid, personName, unit) {
         var rec      = getRec(personPid);
         var ts       = getTeamScore(unit);
         var criteria = rec && rec.criteria ? rec.criteria : {};
         var akhlak   = calcAkhlak(criteria);
-        var diklat   = rec && rec.diklat != null ? rec.diklat : 7;
+        var diklatVal = getDiklatValue(personName);
+        var diklat   = diklatVal !== null ? diklatVal : (rec && rec.diklat != null ? rec.diklat : 0);
         var final    = calcFinal(ts, akhlak.avg, diklat);
         return {
-            rec: rec, ts: ts, akhlak: akhlak, diklat: diklat, final: final,
+            rec: rec, ts: ts, akhlak: akhlak, diklat: diklat, diklatLoaded: state.diklatLoaded, final: final,
             status: rec ? statusOf(final.total) : { label:'Belum Dinilai', cls:'badge-pending', boxCls:'draft' }
         };
     }
 
-    // ── VISIBLE GROUPS — berdasarkan role ──
+    // ── VISIBLE GROUPS ──
     function visibleGroups() {
         var allowedGids = getAllowedGids();
-        if (allowedGids === null) return GROUPS; // superadmin / program: semua
+        if (allowedGids === null) return GROUPS;
         if (allowedGids.length === 0) return [];
         return GROUPS.filter(function(g) { return allowedGids.indexOf(g.id) !== -1; });
     }
@@ -556,6 +703,7 @@
         });
         return rows;
     }
+
     function filteredPeople() {
         var q  = (state.search  || '').toLowerCase();
         var gf = state.groupFilter  || '';
@@ -571,9 +719,9 @@
     }
 
     var ICONS = {
-        edit: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        edit:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
         trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>',
-        eye: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+        eye:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
     };
 
     // ── RENDER STATS ──
@@ -581,7 +729,7 @@
         var people = allVisiblePeople();
         var done = 0, totals = [], akhlaks = [];
         people.forEach(function(p) {
-            var s = snap(p.pid, p.unit);
+            var s = snap(p.pid, p.name, p.unit);
             if (s.rec) { done++; if (!isNaN(s.final.total)) totals.push(s.final.total); akhlaks.push(s.akhlak.avg); }
         });
         var avgT = totals.length  ? +(totals.reduce(function(a,b){return a+b;},0) /totals.length).toFixed(1)  : 0;
@@ -622,15 +770,21 @@
         var tbody   = document.getElementById('ppo-tbody');
         var colEval = document.getElementById('ppo-col-evaluator');
         if (!tbody) return;
-        // Tampilkan kolom evaluator hanya untuk admin/program yang lihat banyak grup
         var showEvalCol = isAdmin() || isProgram();
         if (colEval) colEval.style.display = showEvalCol ? '' : 'none';
         var html = '', lastEval = '';
         people.forEach(function(p, i) {
-            var s       = snap(p.pid, p.unit);
+            var s       = snap(p.pid, p.name, p.unit);
             var ts      = s.ts !== null ? s.ts.toFixed(1) : '—';
             var ak      = s.rec ? s.akhlak.avg.toFixed(1) : '—';
-            var dk      = s.rec ? s.diklat : '—';
+            var dkDisplay;
+            if (!s.diklatLoaded) {
+                dkDisplay = '<span style="color:#94a3b8;font-size:11px;">…</span>';
+            } else {
+                dkDisplay = s.diklat + ' ' + (s.diklat === 10
+                    ? '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:10px;">✓</span>'
+                    : '<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:10px;">✗</span>');
+            }
             var tot     = s.rec ? s.final.total.toFixed(1) : '—';
             var canEdit = canEditGroup(p.gid);
             if (showEvalCol && p.evaluator !== lastEval) {
@@ -658,7 +812,7 @@
                 (showEvalCol ? '<td style="font-size:11px;color:#94a3b8;">' + esc(p.evaluator.split(',')[0]) + '</td>' : '') +
                 '<td style="text-align:center;font-family:monospace;">' + ts  + '</td>' +
                 '<td style="text-align:center;font-family:monospace;">' + ak  + '</td>' +
-                '<td style="text-align:center;font-family:monospace;">' + dk  + '</td>' +
+                '<td style="text-align:center;font-family:monospace;">' + dkDisplay + '</td>' +
                 '<td style="text-align:center;font-weight:700;font-family:monospace;">' + tot + '</td>' +
                 '<td style="text-align:center;"><span class="badge ' + s.status.cls + '">' + s.status.label + '</span></td>' +
                 '<td><div class="action-buttons"><div class="btn-icon-group">' + actionBtns + '</div></div></td>' +
@@ -680,7 +834,7 @@
             if (!people.length) return;
             var done = 0, tots = [], akhs = [], dks = [];
             people.forEach(function(p) {
-                var s = snap(p.pid, p.unit);
+                var s = snap(p.pid, p.name, p.unit);
                 if (s.rec) { done++; if (!isNaN(s.final.total)) tots.push(s.final.total); akhs.push(s.akhlak.avg); dks.push(s.diklat); }
             });
             var avgT = tots.length ? +(tots.reduce(function(a,b){return a+b;},0)/tots.length).toFixed(1) : '—';
@@ -710,7 +864,7 @@
         if (!el) return;
         var ranked = [];
         allVisiblePeople().forEach(function(p) {
-            var s = snap(p.pid, p.unit);
+            var s = snap(p.pid, p.name, p.unit);
             if (s.rec && !isNaN(s.final.total)) ranked.push({ name:p.name, unit:p.unit, total:s.final.total, status:s.status });
         });
         ranked.sort(function(a,b){ return b.total - a.total; });
@@ -726,7 +880,12 @@
         }).join('');
     }
 
-    function render() { renderStats(); renderTable(); var rp = document.getElementById('ppo-panel-rekap'); if (rp && rp.style.display !== 'none') renderRekap(); var rnk = document.getElementById('ppo-panel-ranking'); if (rnk && rnk.style.display !== 'none') renderRanking(); }
+    function render() {
+        renderStats();
+        renderTable();
+        var rp = document.getElementById('ppo-panel-rekap');   if (rp  && rp.style.display  !== 'none') renderRekap();
+        var rnk = document.getElementById('ppo-panel-ranking'); if (rnk && rnk.style.display !== 'none') renderRanking();
+    }
 
     // ══════════════════════════════════════════════════════════
     // MODAL PENILAIAN
@@ -758,12 +917,19 @@
 
         var rec      = getRec(personPid);
         var criteria = rec && rec.criteria ? rec.criteria : {};
-        var diklat   = rec && rec.diklat != null ? rec.diklat : 7;
-        var ts       = getTeamScore(person.unit);
-        var akhlak   = calcAkhlak(criteria);
-        var final    = calcFinal(ts, akhlak.avg, diklat);
-        var sts      = rec ? statusOf(final.total) : { label:'Belum Dinilai', boxCls:'draft' };
-        var bc       = BOX_COLORS[sts.boxCls] || BOX_COLORS.draft;
+        var diklatVal = getDiklatValue(person.name);
+        var diklat    = diklatVal !== null ? diklatVal : (rec && rec.diklat != null ? rec.diklat : 0);
+        var ts        = getTeamScore(person.unit);
+        var akhlak    = calcAkhlak(criteria);
+        var final     = calcFinal(ts, akhlak.avg, diklat);
+        var sts       = rec ? statusOf(final.total) : { label:'Belum Dinilai', boxCls:'draft' };
+        var bc        = BOX_COLORS[sts.boxCls] || BOX_COLORS.draft;
+
+        var diklatSource = diklatVal !== null
+            ? (diklatVal === 10
+                ? '<span style="color:#059669;font-size:11px;font-weight:600;">✓ Ada upload diklat → nilai 10</span>'
+                : '<span style="color:#ef4444;font-size:11px;font-weight:600;">✗ Belum ada upload diklat → nilai 0</span>')
+            : '<span style="color:#94a3b8;font-size:11px;">Memuat data diklat…</span>';
 
         var akhlakFields = AKHLAK.map(function(a) {
             var v = parseFloat(criteria[a.key]) || 7;
@@ -791,19 +957,18 @@
                 '<span style="font-family:monospace;font-weight:700;color:#1e293b;">' + v.toFixed(1) + '</span></div>';
         }).join('') : '';
 
+        // [v3.3] Tombol ambil skor tim tetap ada di modal untuk refresh manual
         var fetchBtnHtml = !isReadOnly ? (
             '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
                 '<button id="ppo-btn-fetch-direct" onclick="ppoFetchTeamScoreDirect(\'' + escJs(person.unit) + '\')" ' +
-                    'title="Ambil skor tim langsung dari semua database" ' +
                     'style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #a7f3d0;' +
                     'background:#d1fae5;color:#065f46;font-size:12px;font-weight:600;cursor:pointer;' +
                     'font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;">' +
                     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
                     '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
-                    'Ambil Skor Tim' +
+                    'Refresh Skor Tim' +
                 '</button>' +
                 '<button onclick="ppoShowTeamScoreInput(\'' + escJs(person.unit) + '\')" ' +
-                    'title="Input nilai tiap komponen secara manual" ' +
                     'style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #e5e7eb;' +
                     'background:white;color:#374151;font-size:12px;font-weight:600;cursor:pointer;' +
                     'font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;">' +
@@ -814,9 +979,10 @@
                 '</button>' +
             '</div>' +
             '<div id="ppo-ts-fetch-status" style="font-size:11px;color:#94a3b8;margin-top:5px;">' +
-                (tsRaw ? 'Skor tim sudah ada di cache. Klik "Ambil Skor Tim" untuk memperbarui.' :
-                 'Belum ada skor tim. Klik "Ambil Skor Tim" untuk mengambil dari database.') +
-            '</div>'
+                (tsRaw
+                    ? '✓ Skor tim sudah dimuat otomatis. Klik "Refresh Skor Tim" untuk memperbarui.'
+                    : 'Skor tim belum tersedia untuk unit ini. Coba "Refresh Skor Tim" atau "Input Manual".')
+            + '</div>'
         ) : '';
 
         var tsSectionHtml;
@@ -853,10 +1019,13 @@
                   '<div class="ppo-score-detail" style="color:#f59e0b;">Data skor tim tidak tersedia.</div>';
         }
 
-        var diklatInput = isReadOnly
-            ? '<div style="font-size:14px;font-weight:700;color:#1e293b;padding:8px;background:#f1f5f9;border-radius:8px;margin-top:4px;">' + diklat + ' — ' + {7:'Kurang',8:'Cukup Baik',9:'Baik',10:'Amat Baik'}[diklat] + '</div>'
-            : '<select id="ppo-diklat-sel" onchange="ppoUpdatePreview()" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;margin-top:4px;">' +
-              [7,8,9,10].map(function(opt) { return '<option value="' + opt + '"' + (diklat==opt?' selected':'') + '>' + opt + ' — ' + {7:'Kurang',8:'Cukup Baik',9:'Baik',10:'Amat Baik'}[opt] + '</option>'; }).join('') + '</select>';
+        var diklatPanel =
+            '<div style="padding:10px 12px;background:' + (diklat === 10 ? '#ecfdf5' : '#fef2f2') + ';' +
+            'border-radius:8px;border:1px solid ' + (diklat === 10 ? '#6ee7b7' : '#fca5a5') + ';margin-top:4px;">' +
+                '<div style="font-size:22px;font-weight:700;font-family:monospace;color:' + (diklat === 10 ? '#065f46' : '#991b1b') + ';">' + diklat + '</div>' +
+                '<div style="margin-top:4px;">' + diklatSource + '</div>' +
+                '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Nilai diambil otomatis dari data Diklat. Tidak dapat diubah manual.</div>' +
+            '</div>';
 
         var presetRow = isReadOnly ? '' :
             '<div class="ppo-preset-row"><span style="font-size:11px;color:#94a3b8;align-self:center;">Isi semua:</span>' +
@@ -880,8 +1049,8 @@
                         '<div class="ppo-score-big" id="ppo-prev-akhlak-w">' + akhlak.weighted.toFixed(2) + '</div>' +
                         '<div class="ppo-score-detail">Rata-rata <span id="ppo-prev-akhlak-avg">' + akhlak.avg.toFixed(2) + '</span> × 3</div>' +
                     '</div>' +
-                    '<div class="ppo-score-box"><div class="ppo-score-box-label">Diklat — 10% (maks 10 poin)</div>' + diklatInput +
-                        '<div class="ppo-score-detail" style="margin-top:6px;">Input manual berdasarkan data diklat pegawai.</div>' +
+                    '<div class="ppo-score-box"><div class="ppo-score-box-label">Diklat — 10% (maks 10 poin) 🔒 Otomatis</div>' +
+                        diklatPanel +
                     '</div>' +
                     '<div id="ppo-total-box" style="border-radius:14px;padding:16px;margin-top:12px;text-align:center;background:' + bc.bg + ';border:2px solid ' + bc.border + ';">' +
                         '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + bc.text + ';margin-bottom:6px;">Nilai Akhir</div>' +
@@ -909,20 +1078,20 @@
 
     function updatePreview() {
         if (!_activePid || _modalReadOnly) return;
-        var unit = '';
+        var personName = '', unit = '';
         GROUPS.some(function(g) {
             var p = g.people.find(function(pp){ return pid(g.id,pp.name) === _activePid; });
-            if (p) { unit = p.unit; return true; }
+            if (p) { unit = p.unit; personName = p.name; return true; }
         });
         var criteria = {};
         document.querySelectorAll('#ppo-modal-box [data-key]').forEach(function(sel) { criteria[sel.dataset.key] = parseFloat(sel.value) || 7; });
-        var diklatEl = document.getElementById('ppo-diklat-sel');
-        var diklat   = diklatEl ? (parseFloat(diklatEl.value) || 7) : 7;
-        var ts       = getTeamScore(unit);
-        var akhlak   = calcAkhlak(criteria);
-        var final    = calcFinal(ts, akhlak.avg, diklat);
-        var sts      = statusOf(final.total);
-        var bc       = BOX_COLORS[sts.boxCls] || BOX_COLORS.draft;
+        var diklatVal = getDiklatValue(personName);
+        var diklat    = diklatVal !== null ? diklatVal : 0;
+        var ts        = getTeamScore(unit);
+        var akhlak    = calcAkhlak(criteria);
+        var final     = calcFinal(ts, akhlak.avg, diklat);
+        var sts       = statusOf(final.total);
+        var bc        = BOX_COLORS[sts.boxCls] || BOX_COLORS.draft;
         function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
         setText('ppo-prev-akhlak-w',   akhlak.weighted.toFixed(2));
         setText('ppo-prev-akhlak-avg', akhlak.avg.toFixed(2));
@@ -941,24 +1110,44 @@
         updatePreview();
     }
 
-    // ── FETCH SKOR TIM LANGSUNG DARI SEMUA API ──
+    // ── FETCH SKOR TIM (manual refresh dari modal) ──
     function fetchTeamScoreDirect(unit) {
-        var btn = document.getElementById('ppo-btn-fetch-direct');
+        var btn      = document.getElementById('ppo-btn-fetch-direct');
         var statusEl = document.getElementById('ppo-ts-fetch-status');
         if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Mengambil...'; }
-        if (statusEl) statusEl.textContent = 'Mengambil skor dari semua database...';
+        if (statusEl) statusEl.textContent = 'Mengambil skor dari database...';
 
         function restoreBtn() {
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
-                    '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Ambil Skor Tim';
+                    '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh Skor Tim';
             }
         }
 
         if (!window.PPO_GAS_CONFIG || !window.PPO_GAS_CONFIG.fetchAllTeamScores) {
-            if (statusEl) statusEl.textContent = '⚠ fetchAllTeamScores belum dikonfigurasi di integration.js. Gunakan Input Manual.';
-            restoreBtn();
+            // Fallback: pakai GAS getTeamScores
+            gasJsonp({ action: 'getTeamScores', bulan: state.month, tahun: getCurrentYearString() })
+                .then(function(teamRes) {
+                    if (teamRes && teamRes.status === 'success' && teamRes.scores) {
+                        state.teamScores = teamRes.scores;
+                        saveTeamCacheMonth(state.month, teamRes.scores);
+                        var unitScore = teamRes.scores[unit];
+                        if (unitScore) {
+                            var total = parseFloat(unitScore.total) || 0;
+                            _applyTeamScoreToModal(unit, total, unitScore);
+                            if (statusEl) { statusEl.textContent = '✓ Total ' + total.toFixed(1) + '/100'; statusEl.style.color = '#059669'; }
+                            if (window.showToast) showToast('Skor tim berhasil diperbarui.', 'success');
+                        } else {
+                            if (statusEl) { statusEl.textContent = '⚠ Skor unit ' + unit + ' belum tersedia.'; statusEl.style.color = '#d97706'; }
+                        }
+                        render();
+                    }
+                })
+                .catch(function(err) {
+                    if (statusEl) { statusEl.textContent = '✗ Gagal: ' + err.message; statusEl.style.color = '#dc2626'; }
+                })
+                .finally(restoreBtn);
             return;
         }
 
@@ -966,7 +1155,6 @@
             .then(function(allScores) {
                 state.teamScores = allScores;
                 saveTeamCacheMonth(state.month, allScores);
-
                 var unitScore = allScores[unit];
                 if (unitScore) {
                     var total = parseFloat(unitScore.total) || 0;
@@ -981,8 +1169,8 @@
                     if (window.showToast) showToast('Skor tim ' + unit.split(' ')[0] + ': ' + total.toFixed(1) + '/100', 'success');
                     render();
                 } else {
-                    if (statusEl) { statusEl.textContent = '⚠ Skor unit ' + unit + ' belum tersedia di database.'; statusEl.style.color = '#d97706'; }
-                    if (window.showToast) showToast('Skor ' + unit + ' bulan ' + monthLabel(state.month) + ' belum ada di database.', 'error');
+                    if (statusEl) { statusEl.textContent = '⚠ Skor unit ' + unit + ' belum tersedia.'; statusEl.style.color = '#d97706'; }
+                    if (window.showToast) showToast('Skor ' + unit + ' bulan ' + monthLabel(state.month) + ' belum ada.', 'error');
                 }
             })
             .catch(function(err) {
@@ -992,8 +1180,6 @@
             .finally(restoreBtn);
     }
 
-    function fetchTeamScore(unit) { fetchTeamScoreDirect(unit); }
-
     function showTeamScoreInput(unit) {
         var panel = document.getElementById('ppo-ts-input-panel');
         if (!panel) return;
@@ -1002,7 +1188,7 @@
     }
 
     function updateTeamScoreTotal() {
-        var keys = ['bbm','kendaraan','ruang','kearsipan','spj','monev'];
+        var keys  = ['bbm','kendaraan','ruang','kearsipan','spj','monev'];
         var total = 0;
         keys.forEach(function(k) { var el = document.getElementById('ppo-ts-' + k); if (el) total += parseFloat(el.value) || 0; });
         total = Math.min(100, Math.max(0, total));
@@ -1059,11 +1245,13 @@
         if (!found) return;
         var criteria = {};
         document.querySelectorAll('#ppo-modal-box [data-key]').forEach(function(sel) { criteria[sel.dataset.key] = parseFloat(sel.value) || 7; });
-        var diklatEl = document.getElementById('ppo-diklat-sel');
-        var diklat   = diklatEl ? (parseFloat(diklatEl.value) || 7) : 7;
-        var ts       = getTeamScore(found.person.unit);
-        var akhlak   = calcAkhlak(criteria);
-        var final    = calcFinal(ts, akhlak.avg, diklat);
+
+        var diklatVal = getDiklatValue(found.person.name);
+        var diklat    = diklatVal !== null ? diklatVal : 0;
+
+        var ts      = getTeamScore(found.person.unit);
+        var akhlak  = calcAkhlak(criteria);
+        var final   = calcFinal(ts, akhlak.avg, diklat);
 
         var saveBtn = document.getElementById('ppo-save-btn');
         if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan...'; }
@@ -1136,7 +1324,7 @@
     window.ppoSaveModal             = saveModal;
     window.ppoResetModal            = resetModal;
     window.ppoLoadFromGAS           = loadFromGAS;
-    window.ppoFetchTeamScore        = fetchTeamScore;
+    window.ppoFetchTeamScore        = fetchTeamScoreDirect;
     window.ppoFetchTeamScoreDirect  = fetchTeamScoreDirect;
     window.ppoShowTeamScoreInput    = showTeamScoreInput;
     window.ppoUpdateTeamScoreTotal  = updateTeamScoreTotal;
@@ -1227,7 +1415,6 @@
         var prog  = isProgram();
         var showAllGroups = admin || prog;
 
-        // Label role yang ramah untuk header
         var roleLabel = u && u._role ? (
             window.AUTH && AUTH.ROLE_LABELS ? (AUTH.ROLE_LABELS[u._role] || u._role) : u._role
         ) : '';
@@ -1247,32 +1434,23 @@
                '<button class="ppo-tab-btn" onclick="ppoSwitchTab(\'ranking\',this)">Ranking</button>')
             : '';
 
-        var hasIntegration = !!(window.PPO_GAS_CONFIG && window.PPO_GAS_CONFIG.fetchAllTeamScores);
-        var integrationStatus = hasIntegration
-            ? '<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#065f46;display:flex;gap:8px;align-items:center;">' +
-              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-              '<span>Skor Tim dapat diambil langsung dari database. Buka modal penilaian dan klik <strong>"Ambil Skor Tim"</strong>.</span></div>'
-            : '<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;display:flex;gap:8px;align-items:center;">' +
-              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
-              '<span>Isi URL di <code>penilaian-orang-gas-integration.js</code> agar Skor Tim bisa diambil otomatis.</span></div>';
-
         function thStyle(align) { return ' style="text-align:' + (align||'left') + ';padding:10px 14px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc;border-bottom:1px solid #e5e7eb;"'; }
         function thCell(label, align) { return '<th' + thStyle(align) + '>' + label + '</th>'; }
 
         section.innerHTML = [
             '<div class="container">',
             '<div class="section-page-header"><h1 class="section-page-title">Penilaian Per Orang</h1><p class="section-page-subtitle">' + heroSub + '</p></div>',
-            integrationStatus,
-            '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#1e40af;">' +
-                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-                '<span>Formula: <strong>(Skor Tim × 0.60) + (Rata BerAKHLAK × 3) + (Diklat × 1)</strong> · Skala BerAKHLAK & Diklat: 7–10.</span>' +
-            '</div>',
+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">',
                 '<div style="display:flex;align-items:center;gap:8px;"><label style="font-size:12px;font-weight:600;color:#64748b;">Bulan</label>',
                 '<select id="ppo-month-sel" onchange="(function(){var v=document.getElementById(\'ppo-month-sel\').value;if(!v)return;window._ppoState.month=v;window._ppoState.teamScores=window._ppoLoadTeamCacheMonth(v);var ml=document.getElementById(\'ppo-active-month\');if(ml)ml.textContent=window._ppoMonthLabel(v);window._ppoRender();if(window.ppoLoadFromGAS)window.ppoLoadFromGAS();})()" style="padding:7px 28px 7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:13px;">' +
                     MONTHS.map(function(m) { return '<option value="' + m + '">' + monthLabel(m) + '</option>'; }).join('') + '</select>',
                 '<span id="ppo-active-month" style="font-size:12px;color:#94a3b8;"></span></div>',
-                '<button id="ppo-btn-refresh" onclick="window.ppoLoadFromGAS()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">↻ Refresh Data</button>',
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">',
+                    // Tombol refresh diklat manual
+                    '<button onclick="(function(){window._ppoState.diklatLoaded=false;window._ppoState.diklatScores={};try{localStorage.removeItem(\'' + DIKLAT_CACHE_KEY + '\');}catch(e){}return window.ppoLoadFromGAS();})()" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #bae6fd;background:#f0f9ff;color:#0369a1;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;" title="Paksa ambil ulang nilai diklat dari server">🔄 Refresh Diklat</button>',
+                    '<button id="ppo-btn-refresh" onclick="window.ppoLoadFromGAS()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">↻ Refresh Semua</button>',
+                '</div>',
             '</div>',
             '<div class="stats-grid" id="ppo-stat-grid"></div>',
             '<div style="display:flex;gap:0;border-bottom:1px solid #e5e7eb;margin-bottom:18px;"><button class="ppo-tab-btn active" onclick="ppoSwitchTab(\'daftar\',this)">Daftar Pegawai</button>' + adminTabs + '</div>',
@@ -1285,7 +1463,8 @@
                 '<div class="card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>' +
                     thCell('#') + thCell('Nama Pegawai') + thCell('Unit / Bidang') +
                     '<th id="ppo-col-evaluator"' + thStyle() + '>Penilai</th>' +
-                    thCell('Tim (60%)','center') + thCell('BerAKHLAK (30%)','center') + thCell('Diklat (10%)','center') +
+                    thCell('Tim (60%)','center') + thCell('BerAKHLAK (30%)','center') +
+                    thCell('Diklat 🔒','center') +
                     thCell('Total','center') + thCell('Status','center') + '<th style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;"></th>' +
                     '</tr></thead><tbody id="ppo-tbody"></tbody></table></div></div>',
             '</div>',
@@ -1308,7 +1487,6 @@
     window.sectionInits[SECTION_ID] = function () {
         state.currentUser = getUser();
         if (state.currentUser && !state.currentUser.gid) {
-            // Untuk role penilai dengan peta tetap, tidak perlu derive dari nama
             var role = state.currentUser._role;
             if (ROLE_TO_GID[role]) {
                 state.currentUser.gid = ROLE_TO_GID[role];
@@ -1323,9 +1501,24 @@
         window._ppoState      = state;
         window._ppoRender     = render;
         window._ppoMonthLabel = monthLabel;
+
+        // Load skor tim dari cache dulu — render segera
         state.teamScores = loadTeamCacheMonth(state.month);
+
+        // Load cache diklat — render segera jika ada
+        var cachedDiklat = loadDiklatCache();
+        if (cachedDiklat) {
+            state.diklatScores = cachedDiklat;
+            state.diklatLoaded = true;
+            _updateAutoLoadStatus('Nilai diklat dari cache lokal. Menyinkronisasi...', '#f59e0b');
+        }
+
+        // Render awal dengan data cache yang sudah ada
         render();
-        setTimeout(function() { loadFromGAS(); }, 300);
+
+        // [v3.3] Auto-load SEMUA data dari server secara paralel
+        // (penilaian + skor tim + diklat) tanpa perlu klik tombol apapun.
+        setTimeout(function() { loadFromGAS(); }, 200);
     };
 
 })();
