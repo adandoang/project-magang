@@ -193,11 +193,13 @@
                 <td>Rp ${fmtNum(item.nominalPengajuan)}</td>
                 <td style="text-align:center;vertical-align:middle;">${statusCell}</td>
                 <td>
+                    <td>
                     <div class="action-buttons"><div class="btn-icon-group">
-                        ${!isPending ? `<button onclick="pdViewDetail('${item.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>` : ''}
-                        <button onclick="pdOpenEditModal('${item.id}')" class="btn-icon btn-icon-edit" title="Edit Status">${ICONS.edit}</button>
+                        <button onclick="pdViewDetail('${item.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>
+                        <button onclick="pdOpenEditModal('${item.id}')"   class="btn-icon btn-icon-edit"   title="Edit Status">${ICONS.edit}</button>
                         <button onclick="pdOpenDeleteModal('${item.id}')" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
                     </div></div>
+                </td>
                 </td>
             </tr>`;
         }).join('');

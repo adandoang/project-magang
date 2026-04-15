@@ -26,7 +26,7 @@
     let selectedApprovedReq = null;
     let violationSource = 'approved';
 
-    // ── State upload foto (sama persis seperti monev) ──────────
+    // ── State upload foto
     let selectedBuktiFotoFile = null;
     let selectedBuktiFotoBase64 = null;
 
@@ -159,13 +159,11 @@
         });
     }
 
-    // ── API POST — sama persis seperti monev ──────────────────
+    // ── API POST ───────────────────────────────────────────────
     function callAPIPost(params) {
         return new Promise((resolve, reject) => {
             const t = setTimeout(() => reject(new Error('timeout')), 60000);
 
-            // Kirim sebagai text/plain agar tidak trigger CORS preflight
-            // tapi body tetap sampai utuh ke doPost
             fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -207,8 +205,6 @@
         });
     }
 
-    // ── Helper: baca file sebagai base64 (Promise) ─────────────
-    // Sama persis dengan mnvReadFileAsBase64 di monev.js
     function bbmReadFileAsBase64(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -218,30 +214,47 @@
         });
     }
 
-    // ── Date helpers ──────────────────────────────────────────
+    // ── Date helpers (FIXED) ──────────────────────────────────
     function normalizeDisplayDate(val) {
         if (!val || val === '-') return '-';
         const s = String(val).trim();
-        if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(s)) return s;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-            const [y, m, d] = s.split('-');
-            return `${parseInt(d)}-${parseInt(m)}-${y}`;
-        }
-        try { const dt = new Date(s); if (!isNaN(dt)) return `${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear()}`; } catch (e) { }
+
+        // Bila data dari backend sudah rapi (misal: 14/04/2026 23:52)
+        if (s.includes('/')) return s;
+
+        // Coba parsing standar
+        try {
+            const dt = new Date(s);
+            if (!isNaN(dt)) {
+                const pad = n => String(n).padStart(2, '0');
+                const hasTime = s.includes('T') || s.includes(':');
+                const datePart = `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}`;
+                // Jika waktu tercatat sebagai tengah malam (00:00), tampilkan tanggal saja
+                if (hasTime && dt.getHours() === 0 && dt.getMinutes() === 0) return datePart;
+                return hasTime ? `${datePart} ${pad(dt.getHours())}:${pad(dt.getMinutes())}` : datePart;
+            }
+        } catch (e) { }
         return s;
     }
+
     function storageToInputDate(str) {
-        const n = normalizeDisplayDate(str);
-        if (n === '-' || !n) return '';
-        const p = n.split('-');
-        if (p.length === 3 && p[2].length === 4) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        if (!str || str === '-') return '';
+        try {
+            let dtStr = str;
+            // Jika format DD/MM/YYYY HH:mm
+            if (str.includes('/')) {
+                const parts = str.split(/[\s/:]+/); // [14, 04, 2026, 23, 52]
+                if (parts.length >= 3) {
+                    dtStr = `${parts[2]}-${parts[1]}-${parts[0]}T${parts[3] || '00'}:${parts[4] || '00'}`;
+                }
+            }
+            const dt = new Date(dtStr);
+            if (!isNaN(dt)) {
+                const pad = n => String(n).padStart(2, '0');
+                return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+            }
+        } catch (e) { }
         return '';
-    }
-    function inputDateToStorage(str) {
-        if (!str) return '';
-        const p = str.split('-');
-        if (p.length === 3 && p[0].length === 4) return `${parseInt(p[2])}-${parseInt(p[1])}-${p[0]}`;
-        return str;
     }
 
     function getIdOrderValue(rawId) {
@@ -382,7 +395,7 @@
                 <td style="font-family:monospace;font-weight:600;">${req.nomor_kendaraan || '—'}</td>
                 <td>${jenisBadge}</td>
                 <td style="font-size:13px;">${formatRupiah(req.nominal_diajukan)}</td>
-                <td style="font-size:12px;color:#64748b;">${req.tgl_pengambilan || '—'}</td>
+                <td style="font-size:12px;color:#64748b;">${normalizeDisplayDate(req.tgl_pengambilan)}</td>
                 <td style="min-width:110px;text-align:center;">
                     ${isPending
                     ? `<div class="btn-icon-group" style="margin:0;">
@@ -425,8 +438,8 @@
                     <div class="requests-card-row"><span class="requests-card-label">No. Kendaraan</span><span class="requests-card-value" style="font-family:monospace;">${req.nomor_kendaraan || '—'}</span></div>
                     <div class="requests-card-row"><span class="requests-card-label">Jenis Voucher</span><span class="requests-card-value">${req.jenis_voucher || '—'}</span></div>
                     <div class="requests-card-row"><span class="requests-card-label">Nominal Diajukan</span><span class="requests-card-value">${formatRupiah(req.nominal_diajukan)}</span></div>
-                    ${req.tgl_pengambilan ? `<div class="requests-card-row"><span class="requests-card-label">Tgl Pengambilan</span><span class="requests-card-value">${req.tgl_pengambilan}</span></div>` : ''}
-                    ${req.tgl_pengembalian ? `<div class="requests-card-row"><span class="requests-card-label">Tgl Pengembalian</span><span class="requests-card-value">${req.tgl_pengembalian}</span></div>` : ''}
+                    ${req.tgl_pengambilan ? `<div class="requests-card-row"><span class="requests-card-label">Tgl Pengambilan</span><span class="requests-card-value">${normalizeDisplayDate(req.tgl_pengambilan)}</span></div>` : ''}
+                    ${req.tgl_pengembalian ? `<div class="requests-card-row"><span class="requests-card-label">Tgl Pengembalian</span><span class="requests-card-value">${normalizeDisplayDate(req.tgl_pengembalian)}</span></div>` : ''}
                 </div>
                 <div class="requests-card-footer">
                     <div class="action-buttons" style="justify-content:flex-end;"><div class="btn-icon-group">
@@ -519,7 +532,7 @@
                     </div>
                     <div class="req-detail-field">
                         <div class="req-detail-field-icon" style="background:#fef3c7;color:#d97706;">${ICONS.calendar}</div>
-                        <div><div class="req-detail-field-label">Tgl Pengambilan</div><div class="req-detail-field-value">${req.tgl_pengambilan || '—'}</div></div>
+                        <div><div class="req-detail-field-label">Tgl Pengambilan</div><div class="req-detail-field-value">${normalizeDisplayDate(req.tgl_pengambilan)}</div></div>
                     </div>
                 </div>
             </div>` : ''}
@@ -529,7 +542,7 @@
                 <div class="req-detail-grid-2">
                     <div class="req-detail-field">
                         <div class="req-detail-field-icon" style="background:#dbeafe;color:#1d4ed8;">${ICONS.calendar}</div>
-                        <div><div class="req-detail-field-label">Tgl Pengembalian</div><div class="req-detail-field-value">${req.tgl_pengembalian || '—'}</div></div>
+                        <div><div class="req-detail-field-label">Tgl Pengembalian</div><div class="req-detail-field-value">${normalizeDisplayDate(req.tgl_pengembalian)}</div></div>
                     </div>
                     <div class="req-detail-field">
                         <div class="req-detail-field-icon" style="background:#dbeafe;color:#1d4ed8;">${ICONS.upload}</div>
@@ -545,7 +558,7 @@
                 <div class="req-detail-section-title">Waktu Pengajuan</div>
                 <div class="req-detail-field">
                     <div class="req-detail-field-icon" style="background:#fdf4ff;color:#a855f7;">${ICONS.clock}</div>
-                    <div><div class="req-detail-field-label">Timestamp</div><div class="req-detail-field-value">${req.timestamp || '-'}</div></div>
+                    <div><div class="req-detail-field-label">Timestamp</div><div class="req-detail-field-value">${normalizeDisplayDate(req.timestamp)}</div></div>
                 </div>
             </div>
         </div>`;
@@ -604,7 +617,19 @@
         const orig = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyetujui...';
         try {
-            const res = await callAPI({ action: 'updateVoucherRequest', id: currentApproveId, status: 'APPROVED', kode_voucher: kode, nominal_disetujui: nominal });
+            // Kirim waktu lokal (WIB) dengan format baku YYYY-MM-DDTHH:mm
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const localTglPengambilan = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
+
+            const res = await callAPI({
+                action: 'updateVoucherRequest',
+                id: currentApproveId,
+                status: 'APPROVED',
+                kode_voucher: kode,
+                nominal_disetujui: nominal,
+                tgl_pengambilan: localTglPengambilan
+            });
             if (res?.success) { if (window.showToast) showToast('Permintaan disetujui!', 'success'); closeModal('bbm-approveModal'); clearCache(); await loadRequests(true); }
             else if (window.showToast) showToast(res?.message || 'Gagal', 'error');
         } catch (e) { if (window.showToast) showToast('Error: ' + e.message, 'error'); }
@@ -631,6 +656,7 @@
     // ── Complete Modal ────────────────────────────────────────
     window.bbmOpenComplete = (id) => {
         currentCompleteId = id;
+
         // Reset state foto
         selectedBuktiFotoFile = null;
         selectedBuktiFotoBase64 = null;
@@ -660,6 +686,18 @@
                 </div>`;
         }
 
+        // Set default date & time (waktu saat tombol ditekan)
+        const tglInput = document.getElementById('bbm-complete-tgl');
+        if (tglInput) {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            tglInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        }
+
         // Reset UI file
         const fileInput = document.getElementById('bbm-complete-foto');
         const preview = document.getElementById('bbm-complete-foto-preview');
@@ -675,9 +713,9 @@
         openModal('bbm-completeModal');
     };
 
-    // ── Handle file pilih — sama persis seperti monev ─────────
+    // ── Handle file pilih ────────────────────────────────────
     window.bbmHandleCompleteFile = async (input) => {
-        const file = input.files[0];  // ← langsung 'file', tidak pakai 'rawFile'
+        const file = input.files[0];
         const info = document.getElementById('bbm-complete-foto-info');
         const errEl = document.getElementById('bbm-complete-foto-error');
         const preview = document.getElementById('bbm-complete-foto-preview');
@@ -701,7 +739,6 @@
             input.value = ''; return;
         }
 
-        // Preview langsung pakai file asli
         if (preview && previewImg && file.type.startsWith('image/')) {
             previewImg.src = URL.createObjectURL(file);
             preview.style.display = 'block';
@@ -710,7 +747,6 @@
         if (info) info.textContent = 'Membaca file...';
 
         try {
-            // Resize kalau gambar, langsung baca kalau PDF
             const fileToUpload = await bbmResizeImage(file, 800, 0.7);
             const base64 = await bbmReadFileAsBase64(fileToUpload);
             selectedBuktiFotoFile = fileToUpload;
@@ -723,6 +759,7 @@
             selectedBuktiFotoBase64 = null;
         }
     };
+
     // ── Batalkan file yang dipilih ─────────────────────────────
     window.bbmCancelFotoFile = () => {
         selectedBuktiFotoFile = null;
@@ -737,7 +774,6 @@
         if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
     };
 
-    // ── Set progress bar ───────────────────────────────────────
     function bbmSetProgress(pct, label) {
         const wrap = document.getElementById('bbm-complete-progress');
         const fill = document.getElementById('bbm-complete-progress-fill');
@@ -753,8 +789,15 @@
         if (fill) fill.style.width = '0%';
     }
 
-    // ── Confirm Complete — SAMA PERSIS seperti mnvSubmitInputNilai ──
+    // ── Confirm Complete ──────────────────────────────────────
     window.bbmConfirmComplete = async () => {
+        const tglInputRaw = document.getElementById('bbm-complete-tgl')?.value;
+        if (!tglInputRaw) {
+            if (window.showToast) showToast('Tanggal dan waktu pengembalian harus diisi', 'error');
+            else alert('Tanggal dan waktu pengembalian harus diisi');
+            return;
+        }
+
         const btn = document.getElementById('bbm-confirm-complete-btn');
         const orig = btn.innerHTML;
         btn.disabled = true;
@@ -763,9 +806,11 @@
         try {
             let fotoUrl = '';
 
+            // Kirim langsung nilai format datetime-local (ISO format YYYY-MM-DDTHH:mm)
+            // Backend Apps Script mengenali ini dengan sempurna di new Date(tgl_pengembalian)
+            const tglPengembalianStorage = tglInputRaw;
+
             if (selectedBuktiFotoFile) {
-                // ── Step 1: Pastikan base64 sudah tersedia (dari bbmHandleCompleteFile) ──
-                // Kalau somehow kosong (edge case), baca ulang
                 let base64ToSend = selectedBuktiFotoBase64;
                 if (!base64ToSend) {
                     btn.innerHTML = '<span class="spinner spinner-sm"></span> Membaca file...';
@@ -776,11 +821,9 @@
                 btn.innerHTML = '<span class="spinner spinner-sm"></span> Mengupload foto...';
                 bbmSetProgress(30, 'Mengupload foto ke Drive...');
 
-                // Ambil data kendaraan dan bulan dari request
                 const req = masterRequests.find(r => String(r.id) === String(currentCompleteId));
                 const nomorKendaraan = req?.nomor_kendaraan || '';
 
-                // Ambil bulan dari tgl_pengambilan
                 let bulanReq = MONTHS_ID[new Date().getMonth() + 1];
                 if (req?.tgl_pengambilan) {
                     const parts = req.tgl_pengambilan.split('-');
@@ -793,40 +836,35 @@
                 const ext = selectedBuktiFotoFile.name.split('.').pop().toLowerCase() || 'jpg';
                 const fileName = `BUKTI_BBM_${currentCompleteId}_${Date.now()}.${ext}`;
 
-                // ── Step 2: POST ke doPost via callAPIPost — sama seperti monev ──
                 try {
                     const uploadRes = await callAPIPost({
                         action: 'uploadVoucherPhoto',
-                        fileData: base64ToSend,          // ← base64 dari await, bukan state lama
+                        fileData: base64ToSend,
                         fileName: fileName,
                         mimeType: selectedBuktiFotoFile.type,
                         nomor_kendaraan: nomorKendaraan,
                         bulan: bulanReq
                     });
 
-                    console.log('[BBM Complete] Upload response:', uploadRes);
                     bbmSetProgress(80, 'Foto berhasil diupload...');
-
                     if (uploadRes && uploadRes.success && uploadRes.fileUrl) {
                         fotoUrl = uploadRes.fileUrl;
                     } else {
-                        console.warn('[BBM Upload] Gagal:', uploadRes?.message);
-                        if (window.showToast) showToast('Upload foto gagal (' + (uploadRes?.message || 'tidak ada response') + '). Data tetap disimpan tanpa foto.', 'error');
+                        if (window.showToast) showToast('Upload foto gagal. Data tetap disimpan tanpa foto.', 'error');
                     }
                 } catch (uploadErr) {
-                    console.warn('[BBM Upload] Error:', uploadErr.message);
-                    if (window.showToast) showToast('Upload foto error: ' + uploadErr.message + '. Data disimpan tanpa foto.', 'error');
+                    if (window.showToast) showToast('Upload foto error. Data disimpan tanpa foto.', 'error');
                 }
             }
 
-            // ── Step 3: Tandai COMPLETED via JSONP (GET) — sama seperti sebelumnya ──
             btn.innerHTML = '<span class="spinner spinner-sm"></span> Menyimpan status...';
             bbmSetProgress(90, 'Menyimpan status ke spreadsheet...');
 
             const res = await callAPI({
                 action: 'completeVoucherRequest',
                 id: currentCompleteId,
-                link_foto_bukti: fotoUrl
+                link_foto_bukti: fotoUrl,
+                tgl_pengembalian: tglPengembalianStorage
             });
 
             bbmSetProgress(100, 'Selesai!');
@@ -837,7 +875,6 @@
                     : '✅ Berhasil! Data tersimpan (tanpa foto).';
                 if (window.showToast) showToast(msg, 'success');
                 closeModal('bbm-completeModal');
-                // Reset state
                 selectedBuktiFotoFile = null;
                 selectedBuktiFotoBase64 = null;
                 clearCache();
@@ -1086,8 +1123,8 @@
         try {
             const res = await callAPI({
                 action: 'createBBMViolation', bulan, unit,
-                tanggal_pengambilan: inputDateToStorage(tglAmbilRaw),
-                tanggal_pengembalian: tglKembaliRaw ? inputDateToStorage(tglKembaliRaw) : '-',
+                tanggal_pengambilan: tglAmbilRaw, // KIRIM LANGSUNG FORMAT YYYY-MM-DD
+                tanggal_pengembalian: tglKembaliRaw ? tglKembaliRaw : '-', // KIRIM LANGSUNG FORMAT YYYY-MM-DD
                 nomor_kendaraan: noKendaraan
             });
             if (res?.success) { if (window.showToast) showToast('Catatan berhasil ditambahkan!', 'success'); closeModal('bbm-addViolModal'); clearCache(); await loadViolations(true); }
@@ -1160,8 +1197,8 @@
             const params = {
                 action: 'updateBBMViolation', id: currentEditViol.id,
                 bulan: bulanLama, unit: unitLama,
-                tanggal_pengambilan: inputDateToStorage(tglAmbil),
-                tanggal_pengembalian: tglKembali ? inputDateToStorage(tglKembali) : '-',
+                tanggal_pengambilan: tglAmbil, // KIRIM LANGSUNG FORMAT YYYY-MM-DD
+                tanggal_pengembalian: tglKembali ? tglKembali : '-', // KIRIM LANGSUNG FORMAT YYYY-MM-DD
                 nomor_kendaraan: noKendaraan,
                 pindah: isPindah ? '1' : '0'
             };
@@ -1362,7 +1399,6 @@
         </select>
     </div>
 
-    <!-- TAB 1: PERMINTAAN -->
     <div id="bbm-tab-requests" class="tab-content active">
         <div class="stats-grid">
             <div class="stat-card" style="border-left:3px solid #64748b;"><div class="stat-label">Total</div><div class="stat-value" id="bbm-stat-total">0</div></div>
@@ -1407,7 +1443,6 @@
         </div>
     </div>
 
-    <!-- TAB 2: CATATAN PELANGGARAN -->
     <div id="bbm-tab-violations" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1433,7 +1468,6 @@
         </div>
     </div>
 
-    <!-- TAB 3: PENILAIAN -->
     <div id="bbm-tab-scores" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1460,9 +1494,6 @@
     </div>
 </div>
 
-<!-- MODALS -->
-
-<!-- DETAIL -->
 <div id="bbm-detailModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:580px;">
         <div class="modal-header"><h2 class="modal-title">Detail Permintaan Voucher BBM</h2></div>
@@ -1473,7 +1504,6 @@
     </div>
 </div>
 
-<!-- APPROVE -->
 <div id="bbm-approveModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:500px;">
         <div class="modal-header"><h2 class="modal-title" style="display:flex;align-items:center;gap:8px;">${ICONS.check} Setujui Permintaan Voucher BBM</h2></div>
@@ -1507,7 +1537,6 @@
     </div>
 </div>
 
-<!-- COMPLETE — diperbarui dengan progress bar dan error display seperti monev -->
 <div id="bbm-completeModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:480px;">
         <div class="modal-header">
@@ -1515,18 +1544,22 @@
         </div>
         <div class="modal-content" style="padding:20px;">
             <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:14px;margin-bottom:18px;" id="bbm-complete-req-info"></div>
+            
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="input-label" style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;display:block;">Tanggal & Waktu Pengembalian Bukti <span style="color:#ef4444;">*</span></label>
+                <input type="datetime-local" class="form-input" id="bbm-complete-tgl" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;" required>
+            </div>
+
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1e40af;">
                 ℹ️ Pegawai telah mengembalikan sobekan voucher dan nota SPBU. Upload foto bukti (opsional), lalu klik Selesaikan.
             </div>
 
-            <!-- Upload zone — sama seperti monev -->
             <div style="background:#fafafa;border:1.5px dashed #cbd5e1;border-radius:10px;padding:16px;">
                 <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
                     📎 Foto Bukti Pengembalian
                     <span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;">Opsional</span>
                 </div>
 
-                <!-- Zona klik untuk upload -->
                 <label for="bbm-complete-foto" style="display:block;cursor:pointer;">
                     <input type="file" id="bbm-complete-foto" accept="image/*,.pdf"
                         style="display:none;"
@@ -1538,20 +1571,16 @@
                     </div>
                 </label>
 
-                <!-- Error message -->
                 <div id="bbm-complete-foto-error" style="display:none;font-size:12px;color:#ef4444;margin-top:6px;padding:6px 10px;background:#fee2e2;border-radius:5px;"></div>
 
-                <!-- File info setelah dipilih -->
                 <div id="bbm-complete-foto-info" style="font-size:12px;color:#10b981;margin-top:6px;font-weight:500;"></div>
 
-                <!-- Preview gambar -->
                 <div id="bbm-complete-foto-preview" style="display:none;margin-top:8px;position:relative;">
                     <img id="bbm-complete-foto-img" class="bbm-foto-preview" alt="Preview foto bukti">
                     <button onclick="bbmCancelFotoFile()"
                         style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.5);border:none;color:white;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
                 </div>
 
-                <!-- Progress bar — sama seperti monev -->
                 <div id="bbm-complete-progress" style="display:none;margin-top:10px;" class="bbm-progress-wrap">
                     <div class="bbm-progress-bar">
                         <div id="bbm-complete-progress-fill" class="bbm-progress-fill" style="width:0%;"></div>
@@ -1569,7 +1598,6 @@
     </div>
 </div>
 
-<!-- EDIT REQUEST -->
 <div id="bbm-editModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:420px;">
         <div class="modal-header"><h2 class="modal-title">Ubah Status Permintaan</h2></div>
@@ -1592,7 +1620,6 @@
     </div>
 </div>
 
-<!-- ADD VIOLATION -->
 <div id="bbm-addViolModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:680px;">
         <div class="modal-header"><h2 class="modal-title">Tambah Catatan Pelanggaran BBM</h2></div>
@@ -1643,7 +1670,6 @@
     </div>
 </div>
 
-<!-- EDIT VIOLATION -->
 <div id="bbm-editViolModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal">
         <div class="modal-header"><h2 class="modal-title">Edit Catatan Pelanggaran BBM</h2></div>

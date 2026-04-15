@@ -199,11 +199,13 @@
                 <td style="min-width:220px;"><div class="pdb-chips-wrap">${renderBidangChips(item.bidang)}</div></td>
                 <td style="text-align:center;vertical-align:middle;">${statusCell}</td>
                 <td>
+                    <td>
                     <div class="action-buttons"><div class="btn-icon-group">
-                        ${!isPending ? `<button onclick="pdbViewDetail('${item.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>` : ''}
+                        <button onclick="pdbViewDetail('${item.id}')" class="btn-icon btn-icon-view" title="Lihat Detail">${ICONS.eye}</button>
                         <button onclick="pdbOpenEditModal('${item.id}')"   class="btn-icon btn-icon-edit"   title="Edit Status">${ICONS.edit}</button>
                         <button onclick="pdbOpenDeleteModal('${item.id}')" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
                     </div></div>
+                </td>
                 </td>
             </tr>`;
         }).join('');
