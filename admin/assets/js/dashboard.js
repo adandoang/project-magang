@@ -307,6 +307,46 @@
             } catch (e) { }
         });
     }
+    function dbSyncToPPOCache() {
+        try {
+            var bulan = S.bulan;
+            if (!bulan || !S.scores) return;
+ 
+            var PPO_CACHE_KEY = 'penilaian_orang_team_cache_v1';
+            var MODS_KEYS = ['bbm', 'kendaraan', 'ruang', 'kearsipan', 'spj', 'monev'];
+ 
+            var scores = {};
+            Object.keys(S.scores).forEach(function(unit) {
+                var d = S.scores[unit];
+                if (!d) return;
+ 
+                var total = 0, hasAny = false, entry = {};
+                MODS_KEYS.forEach(function(k) {
+                    var raw = d[k];
+                    var v = (raw !== null && raw !== undefined) ? parseFloat(raw) : null;
+                    var val = (!isNaN(v) && v !== null) ? +v.toFixed(2) : 0;
+                    entry[k] = val;
+                    if (!isNaN(v) && v !== null) { total += val; hasAny = true; }
+                });
+ 
+                if (hasAny) {
+                    entry.total = +total.toFixed(2);
+                    scores[unit] = entry;
+                }
+            });
+ 
+            if (!Object.keys(scores).length) return;
+ 
+            var existing = {};
+            try { existing = JSON.parse(localStorage.getItem(PPO_CACHE_KEY) || '{}'); } catch(e) {}
+            existing[bulan] = { scores: scores, timestamp: Date.now() };
+            localStorage.setItem(PPO_CACHE_KEY, JSON.stringify(existing));
+ 
+            console.log('[Dashboard→PPO] Cache synced:', bulan, '—', Object.keys(scores).length, 'unit');
+        } catch(e) {
+            console.warn('[Dashboard→PPO] Sync gagal:', e);
+        }
+    }
 
     // ── Render ────────────────────────────────────────────────────
     function render() {
@@ -314,6 +354,7 @@
         renderTable();
         renderMobileCards(); // ← fix mobile
         renderPanel();
+        dbSyncToPPOCache();
     }
 
     function renderStats() {

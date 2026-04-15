@@ -6,18 +6,85 @@
 //   2. Fix FOUC: CSS diinjeksi ke <head> sebelum innerHTML di-set
 //   3. Password di-hash SHA-256 via Web Crypto API sebelum dikirim ke GAS
 //   4. UI diperbaiki: role cards, badge, avatar konsisten
+//   5. [FIX] Default role fallback diubah dari 'subumum' ke 'subkendaraan'
+//   6. [FIX] Semua role baru terdaftar dengan benar
 // ============================================================
 (function () {
     'use strict';
 
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwmSHwWWGpH5dCV7U2vWWs9ni-4-h_l_qDhK7ATalXCt5ZJAc5a_Szmo686tY8rkcys/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwjJwYtLjnhZ__smIDfVkLJTpu_m3rqvg4Sy1TSfyXvwA6_2FKrXGFgMUi4_MSMefpvtg/exec';
     const STYLE_ID = 'acc-section-styles';
 
     const ROLES = {
-        superadmin: { label: 'Super Admin', icon: '🛡️', color: '#1e293b', bg: '#f1f5f9', border: '#cbd5e1' },
-        subumum: { label: 'Sub Bagian Umum', icon: '📋', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
-        subkeuangan: { label: 'Sub Bagian Keuangan', icon: '💰', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
-        sekretariat: { label: 'Sekretariat', icon: '🏛️', color: '#7e22ce', bg: '#faf5ff', border: '#d8b4fe' },
+        superadmin: {
+            label: 'Super Admin',
+            icon: '🛡️',
+            color: '#1e293b', bg: '#f1f5f9', border: '#cbd5e1'
+        },
+        // --- Sub Bagian Umum (dipecah 3) ---
+        subkendaraan: {
+            label: 'Subbag Kendaraan & Ruang Rapat',
+            icon: '🚗',
+            color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe'
+        },
+        subvoucher: {
+            label: 'Subbag Voucher BBM',
+            icon: '⛽',
+            color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc'
+        },
+        subkearsipan: {
+            label: 'Subbag Kearsipan',
+            icon: '📁',
+            color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe'
+        },
+        // --- Keuangan ---
+        subkeuangan: {
+            label: 'Subbag Keuangan',
+            icon: '💰',
+            color: '#15803d', bg: '#f0fdf4', border: '#86efac'
+        },
+        // --- Program (dulu: sekretariat) ---
+        program: {
+            label: 'Program',
+            icon: '📊',
+            color: '#b45309', bg: '#fffbeb', border: '#fde68a'
+        },
+        // --- Penilai ---
+        penilai_sekretariat: {
+            label: 'Penilai Sekretariat',
+            icon: '✍️',
+            color: '#6b21a8', bg: '#faf5ff', border: '#d8b4fe'
+        },
+        penilai_ketua: {
+            label: 'Penilai Ketua',
+            icon: '👑',
+            color: '#92400e', bg: '#fef3c7', border: '#fcd34d'
+        },
+        penilai_koperasi: {
+            label: 'Penilai Bidang Koperasi',
+            icon: '🤝',
+            color: '#065f46', bg: '#ecfdf5', border: '#6ee7b7'
+        },
+        penilai_ukm: {
+            label: 'Penilai Bidang UKM',
+            icon: '🏪',
+            color: '#1e40af', bg: '#dbeafe', border: '#93c5fd'
+        },
+        penilai_usaha_mikro: {
+            label: 'Penilai Bidang Usaha Mikro',
+            icon: '🏬',
+            color: '#9a3412', bg: '#fff7ed', border: '#fdba74'
+        },
+        penilai_kewirausahaan: {
+            label: 'Penilai Bidang Kewirausahaan',
+            icon: '💡',
+            color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd'
+        },
+        penilai_blut: {
+            label: 'Penilai BLUT KUMKM',
+            icon: '🏢',
+            color: '#4338ca', bg: '#eef2ff', border: '#a5b4fc'
+        },
     };
 
     let allUsers = [], filteredUsers = [];
@@ -162,7 +229,6 @@
 
     function gasRequest(payload) {
         return new Promise((resolve, reject) => {
-            // Gunakan timestamp + random panjang agar tidak pernah bentrok
             const cb = '__gas_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             const body = encodeURIComponent(JSON.stringify(payload));
             const url = `${GAS_URL}?jsonBody=${body}&callback=${cb}`;
@@ -194,7 +260,6 @@
                 reject(new Error('Gagal terhubung ke server'));
             };
 
-            // Simpan ref timer agar bisa di-clear saat resolve
             const origCb = window[cb];
             window[cb] = data => {
                 clearTimeout(timer);
@@ -243,10 +308,17 @@
 
     function accRenderStats() {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        set('acc-stat-super', allUsers.filter(u => u.role === 'superadmin').length);
-        set('acc-stat-umum', allUsers.filter(u => u.role === 'subumum').length);
-        set('acc-stat-keuangan', allUsers.filter(u => u.role === 'subkeuangan').length);
-        set('acc-stat-sekretariat', allUsers.filter(u => u.role === 'sekretariat').length);
+        const penilaiRoles = [
+            'penilai_sekretariat','penilai_ketua','penilai_koperasi','penilai_ukm',
+            'penilai_usaha_mikro','penilai_kewirausahaan','penilai_blut'
+        ];
+        set('acc-stat-super',     allUsers.filter(u => u.role === 'superadmin').length);
+        set('acc-stat-kendaraan', allUsers.filter(u => u.role === 'subkendaraan').length);
+        set('acc-stat-voucher',   allUsers.filter(u => u.role === 'subvoucher').length);
+        set('acc-stat-kearsipan', allUsers.filter(u => u.role === 'subkearsipan').length);
+        set('acc-stat-keuangan',  allUsers.filter(u => u.role === 'subkeuangan').length);
+        set('acc-stat-program',   allUsers.filter(u => u.role === 'program').length);
+        set('acc-stat-penilai',   allUsers.filter(u => penilaiRoles.includes(u.role)).length);
     }
 
     function accRender() {
@@ -384,7 +456,8 @@
         } else {
             document.getElementById('acc-f-name').value = '';
             document.getElementById('acc-f-email').value = '';
-            const def = document.querySelector('#section-manageacc input[name="acc-role"][value="subumum"]');
+            // [FIX] Default role adalah 'subkendaraan', bukan 'subumum'
+            const def = document.querySelector('#section-manageacc input[name="acc-role"][value="subkendaraan"]');
             if (def) def.checked = true;
         }
 
@@ -397,7 +470,8 @@
         const name = document.getElementById('acc-f-name').value.trim();
         const email = document.getElementById('acc-f-email').value.trim();
         const password = document.getElementById('acc-f-password').value;
-        const role = document.querySelector('#section-manageacc input[name="acc-role"]:checked')?.value || 'subumum';
+        // [FIX] Default fallback diubah dari 'subumum' ke 'subkendaraan'
+        const role = document.querySelector('#section-manageacc input[name="acc-role"]:checked')?.value || 'subkendaraan';
         let valid = true;
 
         if (!name) { accShowErr('acc-e-name', 'acc-f-name'); valid = false; }
@@ -408,7 +482,7 @@
 
         const btn = document.getElementById('acc-btn-save');
         const orig = btn.innerHTML;
-        const savedId = editingId; // simpan sebelum async agar tidak hilang
+        const savedId = editingId;
 
         const resetBtn = () => { btn.disabled = false; btn.innerHTML = orig; };
 
@@ -428,7 +502,6 @@
 
             if (res.status === 'success') {
                 if (window.showToast) showToast(savedId ? 'Akun berhasil diperbarui!' : 'Akun baru berhasil dibuat!', 'success');
-                // Tutup modal dulu, reset state, baru reload
                 const ov = document.getElementById('acc-ov-form');
                 if (ov) ov.style.display = 'none';
                 editingId = null;
@@ -471,7 +544,6 @@
 
         document.getElementById('acc-del-name').textContent = u.name;
 
-        // Clone tombol untuk hapus semua event listener lama agar tidak menumpuk
         const btn = document.getElementById('acc-btn-confirm-del');
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
@@ -563,10 +635,8 @@
         const section = document.getElementById('section-manageacc');
         if (!section) return;
 
-        // LANGKAH 1: Inject CSS ke <head> SEBELUM set innerHTML
         injectStyles();
 
-        // LANGKAH 2: Set HTML
         section.innerHTML = `
 <div class="container">
 
@@ -592,20 +662,35 @@
             <div class="stat-value" id="acc-stat-super">0</div>
             <div class="stat-footer">Akses penuh</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #3b82f6;">
-            <div class="stat-label">Sub Bag. Umum</div>
-            <div class="stat-value" id="acc-stat-umum">0</div>
-            <div class="stat-footer">Administrasi umum</div>
+        <div class="stat-card" style="border-left:4px solid #1d4ed8;">
+            <div class="stat-label">Kendaraan &amp; Ruang Rapat</div>
+            <div class="stat-value" id="acc-stat-kendaraan">0</div>
+            <div class="stat-footer">Pengajuan kendaraan &amp; ruang</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #22c55e;">
-            <div class="stat-label">Sub Bagian Keuangan</div>
+        <div class="stat-card" style="border-left:4px solid #0891b2;">
+            <div class="stat-label">Voucher BBM</div>
+            <div class="stat-value" id="acc-stat-voucher">0</div>
+            <div class="stat-footer">Distribusi BBM</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #7c3aed;">
+            <div class="stat-label">Kearsipan</div>
+            <div class="stat-value" id="acc-stat-kearsipan">0</div>
+            <div class="stat-footer">Arsip &amp; diklat</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #15803d;">
+            <div class="stat-label">Sub Bag. Keuangan</div>
             <div class="stat-value" id="acc-stat-keuangan">0</div>
-            <div class="stat-footer">Keuangan & SPJ</div>
+            <div class="stat-footer">SPJ &amp; keuangan</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #a855f7;">
-            <div class="stat-label">Sekretariat</div>
-            <div class="stat-value" id="acc-stat-sekretariat">0</div>
-            <div class="stat-footer">Koordinasi & arsip</div>
+        <div class="stat-card" style="border-left:4px solid #b45309;">
+            <div class="stat-label">Program</div>
+            <div class="stat-value" id="acc-stat-program">0</div>
+            <div class="stat-footer">Monev &amp; penilaian</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #6b21a8;">
+            <div class="stat-label">Penilai</div>
+            <div class="stat-value" id="acc-stat-penilai">0</div>
+            <div class="stat-footer">7 role penilai</div>
         </div>
     </div>
 
@@ -616,10 +701,29 @@
             <div class="filter-container">
                 <select class="select-input" id="acc-fltRole" onchange="accApplyFilter()">
                     <option value="">Semua Role</option>
-                    <option value="superadmin">Super Admin</option>
-                    <option value="subumum">Sub Bagian Umum</option>
-                    <option value="subkeuangan">Sub Bagian Keuangan</option>
-                    <option value="sekretariat">Sekretariat</option>
+                    <optgroup label="Super Admin">
+                        <option value="superadmin">Super Admin</option>
+                    </optgroup>
+                    <optgroup label="Sub Bagian Umum">
+                        <option value="subkendaraan">Subbag Kendaraan &amp; Ruang Rapat</option>
+                        <option value="subvoucher">Subbag Voucher BBM</option>
+                        <option value="subkearsipan">Subbag Kearsipan</option>
+                    </optgroup>
+                    <optgroup label="Keuangan">
+                        <option value="subkeuangan">Subbag Keuangan</option>
+                    </optgroup>
+                    <optgroup label="Program">
+                        <option value="program">Program</option>
+                    </optgroup>
+                    <optgroup label="Penilai">
+                        <option value="penilai_sekretariat">Penilai Sekretariat</option>
+                        <option value="penilai_ketua">Penilai Ketua</option>
+                        <option value="penilai_koperasi">Penilai Bidang Koperasi</option>
+                        <option value="penilai_ukm">Penilai Bidang UKM</option>
+                        <option value="penilai_usaha_mikro">Penilai Bidang Usaha Mikro</option>
+                        <option value="penilai_kewirausahaan">Penilai Bidang Kewirausahaan</option>
+                        <option value="penilai_blut">Penilai BLUT KUMKM</option>
+                    </optgroup>
                 </select>
                 <input type="text" class="search-input" id="acc-searchQ" placeholder="Cari nama / email..." oninput="accApplyFilter()">
                 <button onclick="accLoadUsers()" class="btn btn-sm" title="Refresh">
@@ -709,35 +813,117 @@
 
             <div class="form-group" style="margin:0;">
                 <label class="input-label">Role Akun <span style="color:#ef4444;">*</span></label>
-                <div class="acc-role-opts">
-                    <div class="acc-role-opt">
+                <div class="acc-role-opts" style="grid-template-columns:1fr 1fr;">
+
+                    <!-- Super Admin -->
+                    <div class="acc-role-opt" style="grid-column:1/-1;">
                         <input type="radio" name="acc-role" id="acc-r-superadmin" value="superadmin">
                         <label class="acc-role-opt-label" for="acc-r-superadmin">
                             <span class="acc-role-ico">🛡️</span>
-                            <div><div class="acc-role-nm">Super Admin</div><div class="acc-role-ds">Akses penuh & kelola akun</div></div>
+                            <div><div class="acc-role-nm">Super Admin</div><div class="acc-role-ds">Akses penuh &amp; kelola akun</div></div>
+                        </label>
+                    </div>
+
+                    <!-- Sub Bagian Umum (3 role) -->
+                    <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;padding:8px 0 4px;">Sub Bagian Umum</div>
+
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-subkendaraan" value="subkendaraan" checked>
+                        <label class="acc-role-opt-label" for="acc-r-subkendaraan">
+                            <span class="acc-role-ico">🚗</span>
+                            <div><div class="acc-role-nm">Kendaraan &amp; Ruang Rapat</div><div class="acc-role-ds">Pengajuan kendaraan &amp; ruang</div></div>
                         </label>
                     </div>
                     <div class="acc-role-opt">
-                        <input type="radio" name="acc-role" id="acc-r-subumum" value="subumum" checked>
-                        <label class="acc-role-opt-label" for="acc-r-subumum">
-                            <span class="acc-role-ico">📋</span>
-                            <div><div class="acc-role-nm">Sub Bag. Umum</div><div class="acc-role-ds">Administrasi umum</div></div>
+                        <input type="radio" name="acc-role" id="acc-r-subvoucher" value="subvoucher">
+                        <label class="acc-role-opt-label" for="acc-r-subvoucher">
+                            <span class="acc-role-ico">⛽</span>
+                            <div><div class="acc-role-nm">Voucher BBM</div><div class="acc-role-ds">Permintaan &amp; distribusi BBM</div></div>
                         </label>
                     </div>
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-subkearsipan" value="subkearsipan">
+                        <label class="acc-role-opt-label" for="acc-r-subkearsipan">
+                            <span class="acc-role-ico">📁</span>
+                            <div><div class="acc-role-nm">Kearsipan</div><div class="acc-role-ds">Kearsipan internal &amp; diklat</div></div>
+                        </label>
+                    </div>
+
+                    <!-- Keuangan -->
+                    <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;padding:8px 0 4px;">Keuangan</div>
+
                     <div class="acc-role-opt">
                         <input type="radio" name="acc-role" id="acc-r-subkeuangan" value="subkeuangan">
                         <label class="acc-role-opt-label" for="acc-r-subkeuangan">
                             <span class="acc-role-ico">💰</span>
-                            <div><div class="acc-role-nm">Sub Bagian Keuangan</div><div class="acc-role-ds">Keuangan & SPJ</div></div>
+                            <div><div class="acc-role-nm">Sub Bagian Keuangan</div><div class="acc-role-ds">SPJ, pengajuan dana</div></div>
+                        </label>
+                    </div>
+
+                    <!-- Program -->
+                    <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;padding:8px 0 4px;">Program</div>
+
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-program" value="program">
+                        <label class="acc-role-opt-label" for="acc-r-program">
+                            <span class="acc-role-ico">📊</span>
+                            <div><div class="acc-role-nm">Program</div><div class="acc-role-ds">Monev &amp; penilaian orang</div></div>
+                        </label>
+                    </div>
+
+                    <!-- Penilai -->
+                    <div style="grid-column:1/-1;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;padding:8px 0 4px;">Penilai</div>
+
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-penilai_sekretariat" value="penilai_sekretariat">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_sekretariat">
+                            <span class="acc-role-ico">✍️</span>
+                            <div><div class="acc-role-nm">Penilai Sekretariat</div><div class="acc-role-ds">Menilai pegawai Sekretariat</div></div>
                         </label>
                     </div>
                     <div class="acc-role-opt">
-                        <input type="radio" name="acc-role" id="acc-r-sekretariat" value="sekretariat">
-                        <label class="acc-role-opt-label" for="acc-r-sekretariat">
-                            <span class="acc-role-ico">🏛️</span>
-                            <div><div class="acc-role-nm">Sekretariat</div><div class="acc-role-ds">Koordinasi & kearsipan</div></div>
+                        <input type="radio" name="acc-role" id="acc-r-penilai_ketua" value="penilai_ketua">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_ketua">
+                            <span class="acc-role-ico">👑</span>
+                            <div><div class="acc-role-nm">Penilai Ketua</div><div class="acc-role-ds">Menilai 6 kepala bidang</div></div>
                         </label>
                     </div>
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-penilai_koperasi" value="penilai_koperasi">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_koperasi">
+                            <span class="acc-role-ico">🤝</span>
+                            <div><div class="acc-role-nm">Penilai Bidang Koperasi</div><div class="acc-role-ds">Menilai Bidang Koperasi</div></div>
+                        </label>
+                    </div>
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-penilai_ukm" value="penilai_ukm">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_ukm">
+                            <span class="acc-role-ico">🏪</span>
+                            <div><div class="acc-role-nm">Penilai Bidang UKM</div><div class="acc-role-ds">Menilai Bidang UKM</div></div>
+                        </label>
+                    </div>
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-penilai_usaha_mikro" value="penilai_usaha_mikro">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_usaha_mikro">
+                            <span class="acc-role-ico">🏬</span>
+                            <div><div class="acc-role-nm">Penilai Usaha Mikro</div><div class="acc-role-ds">Menilai Bidang Usaha Mikro</div></div>
+                        </label>
+                    </div>
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-penilai_kewirausahaan" value="penilai_kewirausahaan">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_kewirausahaan">
+                            <span class="acc-role-ico">💡</span>
+                            <div><div class="acc-role-nm">Penilai Kewirausahaan</div><div class="acc-role-ds">Menilai Bidang Kewirausahaan</div></div>
+                        </label>
+                    </div>
+                    <div class="acc-role-opt">
+                        <input type="radio" name="acc-role" id="acc-r-penilai_blut" value="penilai_blut">
+                        <label class="acc-role-opt-label" for="acc-r-penilai_blut">
+                            <span class="acc-role-ico">🏢</span>
+                            <div><div class="acc-role-nm">Penilai BLUT KUMKM</div><div class="acc-role-ds">Menilai Balai Layanan Usaha Terpadu</div></div>
+                        </label>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -817,7 +1003,6 @@
 </div>
         `;
 
-        // LANGKAH 3: Init
         document.querySelectorAll('#section-manageacc .modal-overlay').forEach(ov => {
             ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
         });

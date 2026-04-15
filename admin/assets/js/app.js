@@ -58,6 +58,9 @@ function logout() {
 // Setiap section mendaftarkan fungsi init-nya ke sini
 window.sectionInits = window.sectionInits || {};
 
+// Menyimpan section yang sedang aktif (untuk retry)
+var _pendingSection = null;
+
 function showSection(id) {
     // ── Otorisasi SPA ──
     if (typeof AUTH !== 'undefined') {
@@ -111,11 +114,35 @@ function showSection(id) {
         if (overlay) overlay.classList.remove('active');
     }
 
-    // Panggil init function jika belum diinisialisasi (lazy init)
-    if (window.sectionInits && window.sectionInits[id]) {
+    // ── Panggil init function (dengan retry jika script belum selesai load) ──
+    _runSectionInit(id, 0);
+}
+
+/**
+ * Mencoba memanggil sectionInits[id].
+ * Jika belum tersedia (script defer belum selesai), retry sampai max 20x (2 detik).
+ */
+function _runSectionInit(id, attempt) {
+    if (window.sectionInits && typeof window.sectionInits[id] === 'function') {
         var initFn = window.sectionInits[id];
         delete window.sectionInits[id]; // hanya sekali
-        try { initFn(); } catch (e) { console.error('[SPA] init error for section', id, e); }
+        try {
+            initFn();
+        } catch (e) {
+            console.error('[SPA] init error for section', id, e);
+        }
+    } else if (attempt < 20) {
+        // Script defer belum selesai load — tunggu 100ms lalu coba lagi
+        setTimeout(function () {
+            // Pastikan section ini masih yang aktif (user belum pindah)
+            var currentHash = window.location.hash.replace('#', '') || 'dashboard';
+            if (currentHash === id) {
+                _runSectionInit(id, attempt + 1);
+            }
+        }, 100);
+    } else {
+        console.warn('[SPA] sectionInits["' + id + '"] tidak ditemukan setelah 2 detik. ' +
+            'Pastikan script section sudah di-load dan SECTION_ID cocok.');
     }
 }
 
