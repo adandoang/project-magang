@@ -5,7 +5,6 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbyHLaM0b5HH3O5Uagscvo41
 
 // ============================================
 // HELPER: JSONP request ke Google Apps Script
-// (fetch() tidak bisa dipakai ke GAS karena CORS/redirect)
 // ============================================
 function apiGet(params, callback, errorCallback) {
     const cbName = 'gas_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -13,18 +12,23 @@ function apiGet(params, callback, errorCallback) {
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
         .join('&');
     const url = `${GAS_URL}?${qs}&callback=${cbName}`;
+
+    // Create script element early so we can reference it in timeout
+    const script = document.createElement('script');
+
     const timeout = setTimeout(() => {
         delete window[cbName];
         if (script.parentNode) document.body.removeChild(script);
         if (errorCallback) errorCallback(new Error('Request timeout'));
     }, 15000);
+
     window[cbName] = function (data) {
         clearTimeout(timeout);
         delete window[cbName];
         if (script.parentNode) document.body.removeChild(script);
         callback(data);
     };
-    const script = document.createElement('script');
+
     script.src = url;
     script.onerror = function () {
         clearTimeout(timeout);
@@ -38,7 +42,7 @@ function apiGet(params, callback, errorCallback) {
 // GLOBAL VARIABLES
 // ============================================
 let selectedFile = null;
-let selectedArsipFile = null;   // ★ GANTI: hanya 1 file untuk arsip
+let selectedArsipFile = null;
 let arsipUploadMode = 'file';
 let driveLinksCounter = 1;
 let selectedPengajuanFile = null;
@@ -51,6 +55,53 @@ let calendarData = {};
 let allSchedules = [];
 let allVouchers = [];
 let currentVoucherFilter = 'ALL';
+
+// ============================================
+// LOCAL LOADERS (MENGGANTIKAN GLOBAL OVERLAY)
+// ============================================
+function showCalendarLoading() {
+    const grid = document.getElementById('calendar-grid');
+    if (grid) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
+                <div class="spinner" style="margin: 0 auto 12px;"></div>
+                <div style="font-size: 13px; color: #64748b;">Memuat data kalender...</div>
+            </div>
+        `;
+    }
+}
+
+function showDetailLoading() {
+    const container = document.getElementById('detail-schedules-container');
+    if (container) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px;">
+                <div class="spinner" style="margin: 0 auto 12px;"></div>
+                <div style="font-size: 13px; color: #64748b;">Memuat detail jadwal...</div>
+            </div>
+        `;
+    }
+}
+
+function showVoucherLoading() {
+    const tbody = document.getElementById('voucher-table-body');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">
+            <div class="spinner" style="margin:0 auto 10px;"></div>
+            <div style="font-size:13px;">Memuat data...</div>
+        </td></tr>`;
+    }
+    const pgn = document.getElementById('voucher-pagination');
+    if (pgn) pgn.innerHTML = '';
+}
+
+// Global Loader tetap dipertahankan untuk fungsi lain yang mungkin masih butuh (seperti Auth/Submit form)
+function showLoading() {
+    document.getElementById('loading-overlay').classList.add('show');
+}
+function hideLoading() {
+    document.getElementById('loading-overlay').classList.remove('show');
+}
 
 // ============================================
 // HELPER: Animasi progress bar
@@ -145,7 +196,6 @@ function handleMobileNav(value) {
         case 'status-dana':
             showDanaStatus();
             break;
-        // Di dalam switch di handleMobileNav(), setelah case 'status-dana':
         case 'status-dana-bersama':
             showDanaBersamaStatus();
             break;
@@ -174,14 +224,6 @@ function showSection(sectionId) {
             event.target.classList.add('active');
         }
     } catch (e) { }
-}
-
-function showLoading() {
-    document.getElementById('loading-overlay').classList.add('show');
-}
-
-function hideLoading() {
-    document.getElementById('loading-overlay').classList.remove('show');
 }
 
 // ============================================
@@ -301,7 +343,7 @@ function initTimeValidationListeners() {
 }
 
 // ============================================
-// CALENDAR FUNCTIONS
+// CALENDAR FUNCTIONS (Menggunakan Local Loading)
 // ============================================
 function showCalendar(type) {
     currentCalendarType = type;
@@ -319,7 +361,9 @@ function showCalendar(type) {
     const now = new Date();
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();
-    showLoading();
+
+    // Ganti showLoading global dengan local
+    showCalendarLoading();
     loadCalendarData();
 }
 
@@ -333,13 +377,12 @@ function loadCalendarData() {
                 calendarData = {};
             }
             renderCalendar();
-            hideLoading();
+            // Loading otomatis tertimpa oleh renderCalendar()
         },
         function (error) {
             console.error('❌ JSONP error:', error);
             calendarData = {};
             renderCalendar();
-            hideLoading();
         }
     );
 }
@@ -353,7 +396,9 @@ function renderCalendar() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const grid = document.getElementById('calendar-grid');
+
     grid.innerHTML = '';
+
     dayNames.forEach(day => {
         const header = document.createElement('div');
         header.className = 'calendar-day-header';
@@ -395,37 +440,45 @@ function changeMonth(delta) {
     currentMonth += delta;
     if (currentMonth > 11) { currentMonth = 0; currentYear++; }
     else if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    showLoading();
-    setTimeout(() => { renderCalendar(); hideLoading(); }, 300);
+    showCalendarLoading();
+    setTimeout(() => { renderCalendar(); }, 300);
 }
 
 function goToToday() {
     const now = new Date();
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();
-    showLoading();
-    setTimeout(() => { renderCalendar(); hideLoading(); }, 300);
+    showCalendarLoading();
+    setTimeout(() => { renderCalendar(); }, 300);
+}
+
+function refreshCalendar() {
+    showCalendarLoading();
+    loadCalendarData();
 }
 
 // ============================================
-// SCHEDULE DETAIL FUNCTIONS
+// SCHEDULE DETAIL FUNCTIONS (Menggunakan Local Loading)
 // ============================================
 function showScheduleDetail(date) {
-    showLoading();
+    // Tampilkan loading di dalam detail container
+    activateSection('detail-jadwal');
+    showDetailLoading();
+
     apiGet(
         { action: 'getSchedule', type: currentCalendarType, date: date },
         function (data) {
-            hideLoading();
             if (data.status === 'success' && data.schedules && data.schedules.length > 0) {
                 displayScheduleDetailPage(date, data.schedules);
             } else {
                 alert('Tidak ada jadwal pada tanggal ini');
+                backToCalendar();
             }
         },
         function (error) {
             console.error('❌ Error:', error);
-            hideLoading();
             alert('Gagal memuat detail jadwal');
+            backToCalendar();
         }
     );
 }
@@ -439,7 +492,6 @@ function displayScheduleDetailPage(date, schedules) {
     document.getElementById('detail-subtitle').textContent = `${schedules.length} pengajuan ditemukan`;
     document.getElementById('search-schedule').value = '';
     renderScheduleList(schedules);
-    activateSection('detail-jadwal');
 }
 
 function formatTime(dateString) {
@@ -564,7 +616,7 @@ function backToCalendar() {
 }
 
 // ============================================
-// VOUCHER STATUS FUNCTIONS
+// VOUCHER STATUS FUNCTIONS (Menggunakan Local Loading)
 // ============================================
 function showVoucherStatus() {
     const dropdownContent = document.getElementById('status-dropdown');
@@ -572,7 +624,9 @@ function showVoucherStatus() {
     activateSection('status-voucher');
     const mobileSelect = document.getElementById('mobile-nav-select');
     if (mobileSelect) mobileSelect.value = 'status-voucher';
-    showLoading();
+
+    // Ganti showLoading global dengan local
+    showVoucherLoading();
     loadVoucherData();
 }
 
@@ -595,14 +649,13 @@ function loadVoucherData() {
             voucherCurrentPage = 1;
             voucherDisplayData = allVouchers;
             renderVoucherTable(voucherDisplayData, voucherCurrentPage);
-            hideLoading();
+            // Loading otomatis hilang karena renderVoucherTable me-replace tbody
         },
         function (error) {
             console.error('❌ JSONP error:', error);
             allVouchers = [];
             voucherDisplayData = [];
             renderVoucherTable([], 1);
-            hideLoading();
         }
     );
 }
@@ -654,11 +707,13 @@ function renderVoucherTable(vouchers, page) {
             ? parseVoucherDate(rawTs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
             : '-';
         return `<tr>
-            <td>${timestamp}</td>
-            <td>${voucher.Nama || '-'}</td>
-            <td>${voucher.Unit || '-'}</td>
-            <td><strong>${voucher['Nomor Polisi'] || '-'}</strong></td>
-            <td><span class="status-badge ${statusClass}">${voucher.Status || 'UNKNOWN'}</span></td>
+            <td style="vertical-align: middle;">${timestamp}</td>
+            <td style="vertical-align: middle;">${voucher.Nama || '-'}</td>
+            <td style="vertical-align: middle;">${voucher.Unit || '-'}</td>
+            <td style="vertical-align: middle;"><strong>${voucher['Nomor Polisi'] || '-'}</strong></td>
+            <td style="vertical-align: middle; text-align: center;">
+                <span class="status-badge ${statusClass}">${voucher.Status || 'UNKNOWN'}</span>
+            </td>
         </tr>`;
     }).join('');
     renderVoucherPagination(total, page, totalPages);
@@ -711,11 +766,8 @@ function filterVouchers() {
     renderVoucherTable(voucherDisplayData, 1);
 }
 
-function filterVoucherByStatus(status, clickedBtn) {
+function filterVoucherByStatus(status) {
     currentVoucherFilter = status;
-    document.querySelectorAll('#status-voucher .filter-btn').forEach(b => b.classList.remove('active'));
-    const btn = clickedBtn || (typeof event !== 'undefined' && event && event.target);
-    if (btn && btn.classList) btn.classList.add('active');
     const searchTerm = document.getElementById('search-voucher').value.toLowerCase();
     let filtered = allVouchers;
     if (status !== 'ALL') filtered = filtered.filter(v => v.Status === status);
@@ -757,20 +809,16 @@ function handlePengajuanFileSelect(event) {
 
 // ============================================
 // ★ ARSIP: Single File Select Handler
-//   Menggantikan handleMultiFileSelect.
-//   selectedFiles dihapus, diganti selectedArsipFile.
 // ============================================
 function handleArsipFileSelect(event) {
     const file = event.target.files[0];
     const infoEl = document.getElementById('arsip-file-info');
 
-    // Reset dulu
     selectedArsipFile = null;
     if (infoEl) { infoEl.textContent = ''; infoEl.className = 'arsip-file-info'; }
 
     if (!file) return;
 
-    // Validasi ukuran maks 10 MB
     if (file.size > 10 * 1024 * 1024) {
         alert('❌ Ukuran file melebihi batas 10 MB. Silakan pilih file yang lebih kecil.');
         event.target.value = '';
@@ -779,7 +827,6 @@ function handleArsipFileSelect(event) {
 
     selectedArsipFile = file;
 
-    // Tampilkan info file yang dipilih
     if (infoEl) {
         infoEl.innerHTML = `✅ <strong>${file.name}</strong> &nbsp;(${formatFileSize(file.size)})`;
         infoEl.className = 'arsip-file-info show';
@@ -938,7 +985,6 @@ function submitSPJ(event) {
 async function submitPengajuanDana(event) {
     event.preventDefault();
 
-    // Sync hidden field nominal
     const displayEl = document.getElementById('display-nominal-pengajuan');
     const hiddenEl = document.getElementById('nominal_pengajuan');
     if (displayEl && hiddenEl) {
@@ -1054,15 +1100,12 @@ function updateDriveLinkRemoveButtons() {
 
 // ============================================
 // ★ DOKUMEN ARSIP SUBMISSION
-//   Mode 'file' : kirim 1 file saja
-//   Mode 'drive': kirim link Google Drive (boleh banyak)
 // ============================================
 async function submitDokumen(event) {
     event.preventDefault();
     const formElement = event.target;
     const submitBtn = document.getElementById('submit-arsip');
 
-    // ── Validasi ──────────────────────────────────────────
     if (arsipUploadMode === 'file') {
         if (!selectedArsipFile) {
             alert('❌ Silakan pilih file terlebih dahulu!');
@@ -1117,7 +1160,6 @@ async function submitDokumen(event) {
         setProgress('progress-arsip', 'loading-arsip', 100, 'Selesai!');
         setTimeout(() => hideProgress('progress-arsip', 'loading-arsip'), 600);
 
-        // Cek apakah berhasil (status:'success' atau success:true)
         const ok = result?.status === 'success' || result?.success === true;
         if (ok) {
             const msg = arsipUploadMode === 'file'
@@ -1128,7 +1170,6 @@ async function submitDokumen(event) {
             showAlert('alert-arsip', '✗ ' + (result?.message || 'Gagal menyimpan dokumen'), 'error');
         }
 
-        // Reset form
         formElement.reset();
         selectedArsipFile = null;
         const infoEl = document.getElementById('arsip-file-info');
@@ -1174,7 +1215,7 @@ async function submitViaIframeFields(fields, _iframeId) {
     console.log('[submitViaIframeFields] raw response:', text.slice(0, 300));
 
     try { return JSON.parse(text); }
-    catch (e) { return { status: 'success' }; } // GAS kadang redirect, tetap anggap sukses
+    catch (e) { return { status: 'success' }; }
 }
 
 // ============================================

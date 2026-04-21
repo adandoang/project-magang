@@ -9,20 +9,21 @@ const WA_ADMIN_KEARSIPAN   = '62895333318630'; // admin kearsipan
 
 // Mapping: alertId → waBoxId
 const WA_BOX_MAP = {
-    'alert-kendaraan':      'wa-box-kendaraan',
-    'alert-ruangan':        'wa-box-ruangan',
-    'alert-voucher':        'wa-box-voucher',
-    'alert-spj':            'wa-box-spj',
+    'alert-kendaraan': 'wa-box-kendaraan',
+    'alert-ruangan': 'wa-box-ruangan',
+    'alert-voucher': 'wa-box-voucher',
+    'alert-spj': 'wa-box-spj',
     'alert-pengajuan-dana': 'wa-box-pengajuan-dana',
-    'alert-arsip':          'wa-box-arsip'
+    'alert-arsip': 'wa-box-arsip',
+    'alert-dana-bersama': 'wa-box-dana-bersama'
 };
 
 // ── Timestamp WIB ─────────────────────────────────────────
 function waTimestamp() {
     const now = new Date();
-    const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const months = ['January','February','March','April','May','June',
-                    'July','August','September','October','November','December'];
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
     const pad = n => String(n).padStart(2, '0');
     const wib = new Date(now.getTime() + 7 * 3600 * 1000);
     return `${days[now.getDay()]}, ${pad(now.getDate())} ${months[now.getMonth()]} ${now.getFullYear()} pukul ${pad(wib.getUTCHours())}:${pad(wib.getUTCMinutes())} WIB`;
@@ -141,26 +142,26 @@ function submitKendaraan(event) {
 
     hideWABox('alert-kendaraan');
 
-    const nama      = form.querySelector('[name="nama"]').value;
-    const unit      = form.querySelector('[name="unit"]').value;
-    const tanggal   = form.querySelector('[name="tanggal"]').value;
-    const mulai     = form.querySelector('[name="waktu_mulai"]').value;
-    const selesai   = form.querySelector('[name="waktu_selesai"]').value;
+    const nama = form.querySelector('[name="nama"]').value;
+    const unit = form.querySelector('[name="unit"]').value;
+    const tanggal = form.querySelector('[name="tanggal"]').value;
+    const mulai = form.querySelector('[name="waktu_mulai"]').value;
+    const selesai = form.querySelector('[name="waktu_selesai"]').value;
     const keperluan = form.querySelector('[name="keperluan"]').value;
-    const alamat    = form.querySelector('[name="alamat"]').value;
-    const ts        = waTimestamp();
+    const alamat = form.querySelector('[name="alamat"]').value;
+    const ts = waTimestamp();
 
     const waMsg =
-`🚗 PENGAJUAN KENDARAAN DINAS
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-📅 Tanggal Pakai: ${tanggal}
-🕐 Waktu: ${mulai} – ${selesai}
-📍 Keperluan: ${keperluan}
-📝 Alamat: ${alamat}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
+        `- PENGAJUAN KENDARAAN DINAS
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- Tanggal Pakai: ${tanggal}
+- Waktu: ${mulai} - ${selesai}
+- Keperluan: ${keperluan}
+- Alamat: ${alamat}
+--------------------
+- Diajukan: ${ts}
 Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const formData = new FormData(form);
@@ -199,31 +200,31 @@ function submitRuang(event) {
 
     hideWABox('alert-ruangan');
 
-    const nama      = form.querySelector('[name="nama"]').value;
-    const unit      = form.querySelector('[name="unit"]').value;
-    const tanggal   = form.querySelector('[name="tanggal"]').value;
-    const mulai     = form.querySelector('[name="waktu_mulai"]').value;
-    const selesai   = form.querySelector('[name="waktu_selesai"]').value;
-    const kegiatan  = form.querySelector('[name="nama_kegiatan"]').value;
-    const peserta   = form.querySelector('[name="jumlah_peserta"]').value;
+    const nama = form.querySelector('[name="nama"]').value;
+    const unit = form.querySelector('[name="unit"]').value;
+    const tanggal = form.querySelector('[name="tanggal"]').value;
+    const mulai = form.querySelector('[name="waktu_mulai"]').value;
+    const selesai = form.querySelector('[name="waktu_selesai"]').value;
+    const kegiatan = form.querySelector('[name="nama_kegiatan"]').value;
+    const peserta = form.querySelector('[name="jumlah_peserta"]').value;
     const difabelEl = form.querySelector('[name="difabel"]:checked');
-    const difabel   = difabelEl ? difabelEl.value : 'Tidak Tahu';
-    const khusus    = form.querySelector('[name="permintaan_khusus"]').value;
-    const ts        = waTimestamp();
+    const difabel = difabelEl ? difabelEl.value : 'Tidak Tahu';
+    const khusus = form.querySelector('[name="permintaan_khusus"]').value;
+    const ts = waTimestamp();
 
     const waMsg =
-`🏛️ PERMINTAAN RUANG RAPAT
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-📅 Tanggal: ${tanggal}
-🕐 Waktu: ${mulai} – ${selesai}
-📝 Kegiatan: ${kegiatan}
-👥 Peserta: ${peserta} orang
-♿ Peserta Difabel: ${difabel}
-📌 Permintaan Khusus: ${khusus || '-'}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
+        `- PERMINTAAN RUANG RAPAT
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- Tanggal: ${tanggal}
+- Waktu: ${mulai} - ${selesai}
+- Kegiatan: ${kegiatan}
+- Peserta: ${peserta} orang
+- Peserta Difabel: ${difabel}
+- Permintaan Khusus: ${khusus || '-'}
+--------------------
+- Diajukan: ${ts}
 Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const formData = new FormData(form);
@@ -261,25 +262,25 @@ function submitVoucher(event) {
 
     hideWABox('alert-voucher');
 
-    const nama    = form.querySelector('[name="nama"]').value;
-    const unit    = form.querySelector('[name="unit"]').value;
-    const nopol   = form.querySelector('[name="nomor_polisi"]').value;
-    const jenis   = form.querySelector('[name="jenis_voucher"]').value;
+    const nama = form.querySelector('[name="nama"]').value;
+    const unit = form.querySelector('[name="unit"]').value;
+    const nopol = form.querySelector('[name="nomor_polisi"]').value;
+    const jenis = form.querySelector('[name="jenis_voucher"]').value;
     const nominal = document.getElementById('nominal_diajukan').value;
-    const alamat  = form.querySelector('[name="alamat_tujuan"]').value;
-    const ts      = waTimestamp();
+    const alamat = form.querySelector('[name="alamat_tujuan"]').value;
+    const ts = waTimestamp();
 
     const waMsg =
-`⛽ PERMINTAAN VOUCHER BBM
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-🚗 No. Kendaraan: ${nopol}
-⛽ Jenis Voucher: ${jenis}
-💵 Nominal Diajukan: ${waRupiah(nominal)}
-📍 Alamat Tujuan: ${alamat}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
+        `- PERMINTAAN VOUCHER BBM
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- No. Kendaraan: ${nopol}
+- Jenis Voucher: ${jenis}
+- Nominal Diajukan: ${waRupiah(nominal)}
+- Alamat Tujuan: ${alamat}
+--------------------
+- Diajukan: ${ts}
 Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const formData = new FormData(form);
@@ -317,12 +318,24 @@ function submitSPJ(event) {
 
     hideWABox('alert-spj');
 
-    const nama        = form.querySelector('[name="nama"]').value;
-    const unit        = form.querySelector('[name="unit"]').value;
+    const nama = form.querySelector('[name="nama"]').value;
+    const unit = form.querySelector('[name="unit"]').value;
     const subKegiatan = form.querySelector('[name="sub_kegiatan"]').value;
-    const bulan       = form.querySelector('[name="bulan"]').value;
-    const nominal     = document.getElementById('nominal_spj').value;
-    const ts          = waTimestamp();
+    const bulan = form.querySelector('[name="bulan"]').value;
+    const nominal = document.getElementById('nominal_spj').value;
+    const ts = waTimestamp();
+
+    const waMsg =
+        `- PENYAMPAIAN SPJ BARU
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- Sub Kegiatan: ${subKegiatan}
+- Bulan SPJ: ${bulan}
+- Nominal SPJ: ${waRupiah(nominal)}
+--------------------
+- Diajukan: ${ts}
+Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const formData = new FormData(form);
     formData.append('type', 'SPJ');
@@ -358,7 +371,7 @@ async function submitPengajuanDana(event) {
     hideWABox('alert-pengajuan-dana');
 
     const displayEl = document.getElementById('display-nominal-pengajuan');
-    const hiddenEl  = document.getElementById('nominal_pengajuan');
+    const hiddenEl = document.getElementById('nominal_pengajuan');
     if (displayEl && hiddenEl) {
         const raw = displayEl.value.replace(/\D/g, '');
         if (raw) hiddenEl.value = raw;
@@ -375,11 +388,23 @@ async function submitPengajuanDana(event) {
     }
 
     const formElement = event.target;
-    const nama        = formElement.querySelector('[name="nama"]').value;
-    const unit        = formElement.querySelector('[name="unit"]').value;
+    const nama = formElement.querySelector('[name="nama"]').value;
+    const unit = formElement.querySelector('[name="unit"]').value;
     const subKegiatan = formElement.querySelector('[name="sub_kegiatan"]').value;
-    const bulan       = formElement.querySelector('[name="bulan_pengajuan"]').value;
-    const ts          = waTimestamp();
+    const bulan = formElement.querySelector('[name="bulan_pengajuan"]').value;
+    const ts = waTimestamp();
+
+    const waMsg =
+        `- PENGAJUAN DANA BARU
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- Sub Kegiatan: ${subKegiatan}
+- Bulan Pengajuan: ${bulan}
+- Nominal: ${waRupiah(nominalRaw)}
+--------------------
+- Diajukan: ${ts}
+Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const submitBtn = document.getElementById('submit-pengajuan-dana');
     submitBtn.disabled = true;
@@ -462,43 +487,43 @@ async function submitDokumen(event) {
         if (getDriveLinks().length === 0) { alert('❌ Silakan isi minimal satu link Google Drive!'); return; }
     }
 
-    const nama       = formElement.querySelector('[name="nama"]').value;
-    const unit       = formElement.querySelector('[name="unit"]').value;
-    const bulan      = formElement.querySelector('[name="bulan"]').value;
-    const tahun      = formElement.querySelector('[name="tahun"]').value;
-    const jenisDok   = formElement.querySelector('[name="jenis_dokumen"]').value;
+    const nama = formElement.querySelector('[name="nama"]').value;
+    const unit = formElement.querySelector('[name="unit"]').value;
+    const bulan = formElement.querySelector('[name="bulan"]').value;
+    const tahun = formElement.querySelector('[name="tahun"]').value;
+    const jenisDok = formElement.querySelector('[name="jenis_dokumen"]').value;
     const keterangan = formElement.querySelector('[name="keterangan"]').value;
-    const ts         = waTimestamp();
+    const ts = waTimestamp();
 
     let waMsg;
     if (arsipUploadMode === 'drive') {
         const links = getDriveLinks();
         const linksText = links.map((l, i) => `${i + 1}. ${l}`).join('\n');
         waMsg =
-`📁 UPLOAD DOKUMEN ARSIP (LINK DRIVE)
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-📂 Jenis Dokumen: ${jenisDok}
-📅 Bulan/Tahun: ${bulan} / ${tahun}
-🔗 Link Drive (${links.length}):
+            `- UPLOAD DOKUMEN ARSIP (LINK DRIVE)
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- Jenis Dokumen: ${jenisDok}
+- Bulan/Tahun: ${bulan} / ${tahun}
+- Link Drive (${links.length}):
 ${linksText}
-📝 Keterangan: ${keterangan || '-'}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
+- Keterangan: ${keterangan || '-'}
+--------------------
+- Diajukan: ${ts}
 Silakan buka dashboard admin untuk memproses pengajuan ini.`;
     } else {
         waMsg =
-`📁 UPLOAD DOKUMEN ARSIP
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-📂 Jenis Dokumen: ${jenisDok}
-📅 Bulan/Tahun: ${bulan} / ${tahun}
-📄 File: ${selectedArsipFile ? selectedArsipFile.name : '-'}
-📝 Keterangan: ${keterangan || '-'}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
+            `- UPLOAD DOKUMEN ARSIP
+--------------------
+- Pemohon: ${nama}
+- Unit/Divisi: ${unit}
+- Jenis Dokumen: ${jenisDok}
+- Bulan/Tahun: ${bulan} / ${tahun}
+- File: ${selectedArsipFile ? selectedArsipFile.name : '-'}
+- Keterangan: ${keterangan || '-'}
+--------------------
+- Diajukan: ${ts}
 Silakan buka dashboard admin untuk memproses pengajuan ini.`;
     }
 
@@ -565,5 +590,96 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
         showAlert('alert-arsip', '✗ ' + error.message, 'error');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Kirim Dokumen';
+    }
+}
+
+async function submitDanaBersama(event) {
+    event.preventDefault();
+
+    hideWABox('alert-dana-bersama');
+
+    // Validasi dasar
+    var subKegiatan = (document.getElementById('db-sub-kegiatan-val') || {}).value || '';
+    if (!subKegiatan.trim()) {
+        alert('❌ Sub Kegiatan harus dipilih dari daftar!');
+        return;
+    }
+    if (selectedBidangSet.size === 0) {
+        alert('❌ Pilih minimal satu bidang yang terlibat!');
+        return;
+    }
+    if (!selectedDanaBersamaFile) {
+        alert('❌ Silakan pilih file PDF pengajuan dana!');
+        return;
+    }
+
+    const form = event.target;
+    const nama = form.querySelector('[name="nama"]').value;
+    const bidang = Array.from(selectedBidangSet).join(', ');
+    const bulan = form.querySelector('[name="bulan_pengajuan"]').value;
+    const nominalRaw = document.getElementById('nominal_dana_bersama_hidden').value;
+    const ts = waTimestamp();
+
+    // Template Pesan WA
+    const waMsg =
+        `- PENGAJUAN DANA LINTAS BIDANG
+--------------------
+- Pemohon: ${nama}
+- Bidang Terlibat: ${bidang}
+- Sub Kegiatan: ${subKegiatan}
+- Bulan Pengajuan: ${bulan}
+- Nominal: ${waRupiah(nominalRaw)}
+- File: ${selectedDanaBersamaFile.name}
+--------------------
+- Diajukan: ${ts}
+Silakan buka dashboard admin untuk memproses pengajuan kolaboratif ini.`;
+
+    const submitBtn = document.getElementById('submit-dana-bersama');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Mengunggah...';
+    setProgress('progress-dana-bersama', 'loading-dana-bersama', 20, 'Membaca file...');
+
+    try {
+        const base64Data = await fileToBase64(selectedDanaBersamaFile);
+        setProgress('progress-dana-bersama', 'loading-dana-bersama', 55, 'Mengunggah ke sistem...');
+
+        const fields = {
+            action: 'uploadDanaBersama',
+            nama: nama,
+            sub_kegiatan: subKegiatan,
+            bulan_pengajuan: bulan,
+            nominal_pengajuan: nominalRaw,
+            bidang: Array.from(selectedBidangSet).join(','),
+            fileName: selectedDanaBersamaFile.name,
+            fileData: base64Data,
+            mimeType: 'application/pdf'
+        };
+
+        setProgress('progress-dana-bersama', 'loading-dana-bersama', 80, 'Menyimpan data...');
+        const result = await submitViaIframeFields(fields, 'iframe-dana-bersama');
+
+        setProgress('progress-dana-bersama', 'loading-dana-bersama', 100, 'Selesai!');
+
+        setTimeout(() => {
+            hideProgress('progress-dana-bersama', 'loading-dana-bersama');
+            const ok = result && (result.status === 'success' || result.success === true);
+
+            if (ok) {
+                showAlert('alert-dana-bersama', '✓ Pengajuan Dana Lintas Bidang berhasil dikirim!');
+                showWhatsAppButton('alert-dana-bersama', waMsg);
+                resetDanaBersamaForm(); // Fungsi reset yang sudah ada di HTML
+            } else {
+                showAlert('alert-dana-bersama', '✗ Gagal mengirim pengajuan.', 'error');
+            }
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Kirim Pengajuan Dana Lintas Bidang';
+        }, 1000);
+
+    } catch (error) {
+        console.error(error);
+        hideProgress('progress-dana-bersama', 'loading-dana-bersama');
+        showAlert('alert-dana-bersama', '✗ ' + error.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Kirim Pengajuan Dana Lintas Bidang';
     }
 }

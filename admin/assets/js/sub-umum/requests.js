@@ -2,6 +2,7 @@
 // requests.js — Kendaraan Dinas section (SPA)
 // Admin Panel — Dinas Koperasi UKM
 // v4: newest first, full edit, reject loading, beautiful detail
+// Update: Hapus status "Selesai" (Mentok di Approved)
 // ============================================================
 (function () {
     'use strict';
@@ -25,7 +26,6 @@
         export: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
         plus: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
         check: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        checkCircle: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
         x: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
         eye: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
         edit: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
@@ -149,7 +149,6 @@
         const base = 'display:inline-flex;align-items:center;justify-content:center;min-width:80px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap;';
         if (s === 'approved') return `<span style="${base}background:#dcfce7;color:#15803d;">Disetujui</span>`;
         if (s === 'rejected') return `<span style="${base}background:#fee2e2;color:#b91c1c;">Ditolak</span>`;
-        if (s === 'completed') return `<span style="${base}background:#dbeafe;color:#1d4ed8;">Selesai</span>`;
         return `<span style="${base}background:#fef9c3;color:#a16207;">Menunggu</span>`;
     }
     function formatTime(t) { if (!t) return '-'; if (typeof t === 'string' && t.includes('T')) return t.split('T')[1].substring(0, 5); return t; }
@@ -269,7 +268,6 @@
                 </td>
                 <td>
                     <div class="action-buttons"><div class="btn-icon-group">
-                        ${isApproved ? `<button onclick="reqMarkAsCompleted('${req.id}', this)" class="btn-icon btn-icon-complete" title="Selesai">${ICONS.checkCircle}</button>` : ''}
                         <button onclick="reqViewDetail('${req.id}')" class="btn-icon btn-icon-view" title="Detail">${ICONS.eye}</button>
                         <button onclick="reqOpenEdit('${req.id}')" class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
                         <button onclick="reqDeleteRequest('${req.id}', this)" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
@@ -301,7 +299,6 @@
                 </div>
                 <div class="requests-card-footer">
                     <div class="action-buttons" style="justify-content:flex-end;"><div class="btn-icon-group">
-                        ${isApproved ? `<button onclick="reqMarkAsCompleted('${req.id}', this)" class="btn-icon btn-icon-complete" title="Selesai">${ICONS.checkCircle}</button>` : ''}
                         <button onclick="reqViewDetail('${req.id}')" class="btn-icon btn-icon-view" title="Detail">${ICONS.eye}</button>
                         <button onclick="reqOpenEdit('${req.id}')" class="btn-icon btn-icon-edit" title="Edit">${ICONS.edit}</button>
                         <button onclick="reqDeleteRequest('${req.id}', this)" class="btn-icon btn-icon-delete" title="Hapus">${ICONS.trash}</button>
@@ -322,21 +319,21 @@
         const req = masterRequests.find(r => String(r.id) === String(id)); if (!req) return;
         const el = document.getElementById('req-detail-body');
         const statusS = (req.status || 'pending').toLowerCase();
-        const statusColor = statusS === 'approved' ? '#10b981' : statusS === 'rejected' ? '#ef4444' : statusS === 'completed' ? '#3b82f6' : '#f59e0b';
-        const statusBg = statusS === 'approved' ? '#f0fdf4' : statusS === 'rejected' ? '#fff1f2' : statusS === 'completed' ? '#eff6ff' : '#fffbeb';
-        const statusLabel = statusS === 'approved' ? 'Disetujui' : statusS === 'rejected' ? 'Ditolak' : statusS === 'completed' ? 'Selesai' : 'Menunggu';
+
+        const statusColor = statusS === 'approved' ? '#10b981' : statusS === 'rejected' ? '#ef4444' : '#f59e0b';
+        const statusBg = statusS === 'approved' ? '#f0fdf4' : statusS === 'rejected' ? '#fff1f2' : '#fffbeb';
+        const statusLabel = statusS === 'approved' ? 'Disetujui' : statusS === 'rejected' ? 'Ditolak' : 'Menunggu';
+
         const kendaraan = (req.nomorKendaraan && req.nomorKendaraan !== '-') ? req.nomorKendaraan : 'Belum Ditentukan';
 
         if (el) el.innerHTML = `
         <div class="req-detail-wrap">
-            <!-- Status Banner -->
             <div class="req-detail-status-banner" style="background:${statusBg};border-color:${statusColor};">
                 <div class="req-detail-status-dot" style="background:${statusColor};"></div>
                 <span style="font-weight:700;color:${statusColor};font-size:14px;">${statusLabel}</span>
                 <span style="margin-left:auto;font-size:12px;color:#64748b;">${req.id || ''}</span>
             </div>
 
-            <!-- Pegawai Info -->
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Informasi Pegawai</div>
                 <div class="req-detail-grid-2">
@@ -357,7 +354,6 @@
                 </div>
             </div>
 
-            <!-- Waktu & Kendaraan -->
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Jadwal Penggunaan</div>
                 <div class="req-detail-grid-3">
@@ -385,7 +381,6 @@
                 </div>
             </div>
 
-            <!-- Kendaraan -->
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Kendaraan</div>
                 <div class="req-detail-vehicle-box" style="border-color:${kendaraan !== 'Belum Ditentukan' ? '#10b981' : '#e2e8f0'};background:${kendaraan !== 'Belum Ditentukan' ? '#f0fdf4' : '#f8fafc'};">
@@ -394,7 +389,6 @@
                 </div>
             </div>
 
-            <!-- Keperluan -->
             <div class="req-detail-section">
                 <div class="req-detail-section-title">Detail Keperluan</div>
                 <div class="req-detail-field req-detail-field-block">
@@ -469,7 +463,8 @@
                 if (String(r.id) === String(targetReqId)) return false;
                 if ((r.nomorKendaraan || '') !== plate) return false;
                 const rStatus = (r.status || '').toLowerCase();
-                if (rStatus !== 'approved' && rStatus !== 'completed') return false;
+                // Hanya cek yang statusnya approved
+                if (rStatus !== 'approved') return false;
                 const rDate = normalizeDateForCompare(r.tanggal_penggunaan);
                 if (rDate !== targetDate) return false;
                 return isTimeConflict(
@@ -608,23 +603,6 @@
                 if (window.showToast) showToast('Gagal: ' + e.message, 'error');
                 if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = orig; }
             }
-        });
-    };
-
-    window.reqMarkAsCompleted = (id, btnEl) => {
-        showConfirmModal({
-            icon: '✅',
-            title: 'Tandai Selesai?',
-            message: 'Pengajuan ini akan ditandai sebagai <strong>Selesai</strong>.',
-            confirmText: 'Ya, Selesai',
-            confirmClass: 'btn-success',
-        }, async () => {
-            const orig = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner spinner-sm"></span>';
-            try {
-                const res = await callAPI({ action: 'updateRequest', id, status: 'completed' });
-                if (res.success) { if (window.showToast) showToast('Status diperbarui menjadi Selesai', 'success'); clearCache(); await loadRequests(true); }
-                else { if (window.showToast) showToast(res.message || 'Gagal', 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
-            } catch (e) { if (window.showToast) showToast('Gagal: ' + e.message, 'error'); btnEl.disabled = false; btnEl.innerHTML = orig; }
         });
     };
 
@@ -1191,7 +1169,6 @@
         </select>
     </div>
 
-    <!-- TAB 1: Permintaan -->
     <div id="req-tab-requests" class="tab-content active">
         <div class="stats-grid">
             <div class="stat-card" style="border-left:3px solid #64748b;"><div class="stat-label">Total Permintaan</div><div class="stat-value" id="req-stat-total">0</div></div>
@@ -1208,7 +1185,6 @@
                         <option value="PENDING">Menunggu</option>
                         <option value="APPROVED">Disetujui</option>
                         <option value="REJECTED">Ditolak</option>
-                        <option value="COMPLETED">Selesai</option>
                     </select>
                     <input type="text" class="search-input" placeholder="Cari Nama atau unit/bidang..." id="req-search-input" oninput="reqApplyFilter()">
                     <button onclick="reqLoadRequests(true)" class="btn btn-sm btn-action-view">${ICONS.refresh} Refresh</button>
@@ -1225,7 +1201,6 @@
         </div>
     </div>
 
-    <!-- TAB 2: Catatan Pelanggaran -->
     <div id="req-tab-violations" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1264,7 +1239,6 @@
         </div>
     </div>
 
-    <!-- TAB 3: Penilaian -->
     <div id="req-tab-scores" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1299,9 +1273,6 @@
     </div>
 </div>
 
-<!-- ════════ MODALS ════════ -->
-
-<!-- DETAIL — Beautiful redesign -->
 <div id="req-detailModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:560px;">
         <div class="modal-header" style="border-bottom:1px solid #f1f5f9;">
@@ -1314,7 +1285,6 @@
     </div>
 </div>
 
-<!-- APPROVE — Smart Vehicle Picker -->
 <div id="req-approveModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:520px;">
         <div class="modal-header">
@@ -1322,17 +1292,14 @@
         </div>
         <div class="modal-content" style="padding:20px;">
 
-            <!-- Info pengajuan -->
             <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:14px;margin-bottom:18px;" id="req-approve-req-info"></div>
 
-            <!-- Smart vehicle list -->
             <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">
                 Pilih Kendaraan
                 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;margin-left:6px;">— kendaraan merah tidak tersedia pada jam tersebut</span>
             </div>
             <div id="req-vehicle-smart-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;"></div>
 
-            <!-- Selected display -->
             <div id="req-vehicle-selected-display" style="display:none;align-items:center;gap:10px;margin-top:14px;padding:12px 16px;background:#f0fdf4;border:1.5px solid #10b981;border-radius:10px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 <span style="font-size:13px;color:#064e3b;">Kendaraan dipilih:</span>
@@ -1360,7 +1327,6 @@
 .req-veh-status-busy { background:#fee2e2; color:#b91c1c; }
 </style>
 
-<!-- EDIT REQUEST — Full edit semua field -->
 <div id="req-editModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:600px;">
         <div class="modal-header"><h2 class="modal-title">Edit Pengajuan Kendaraan Dinas</h2></div>
@@ -1407,7 +1373,7 @@
                     <label class="input-label">Status Pengajuan</label>
                     <select class="form-input" id="req-edit-status">
                         <option value="pending">Menunggu</option><option value="approved">Disetujui</option>
-                        <option value="rejected">Ditolak</option><option value="completed">Selesai</option>
+                        <option value="rejected">Ditolak</option>
                     </select>
                 </div>
             </div>
@@ -1420,7 +1386,6 @@
     </div>
 </div>
 
-<!-- ADD VIOLATION -->
 <div id="req-addViolModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal" style="max-width:680px;">
         <div class="modal-header"><h2 class="modal-title">Tambah Catatan Pelanggaran</h2></div>
@@ -1480,7 +1445,6 @@
     </div>
 </div>
 
-<!-- EDIT VIOLATION -->
 <div id="req-editViolModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal">
         <div class="modal-header"><h2 class="modal-title">Edit Catatan Pelanggaran</h2></div>
