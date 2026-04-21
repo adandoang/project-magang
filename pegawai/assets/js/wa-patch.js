@@ -3,7 +3,9 @@
 // Load SETELAH main.js
 // ============================================================
 
-const WA_ADMIN_NUMBER = '6281215955400';
+const WA_ADMIN_VOUCHER_BBM = '6289518014663';  // admin voucher BBM & kendaraan
+const WA_ADMIN_RUANG_RAPAT = '6282136890388';  // admin ruang rapat
+const WA_ADMIN_KEARSIPAN   = '62895333318630'; // admin kearsipan
 
 // Mapping: alertId → waBoxId
 const WA_BOX_MAP = {
@@ -41,13 +43,9 @@ function hideWABox(alertId) {
 }
 
 // ── Tampilkan WA box — SELALU di luar & di bawah alert ────
-// Cara kerja:
-//   1. Cari alertEl
-//   2. Cari/buat waBox dengan id unik
-//   3. Pastikan waBox adalah nextElementSibling dari alertEl
-//      (kalau belum, pindahkan dengan insertAdjacentElement)
+// Parameter adminNumber wajib diisi sesuai jenis pengajuan
 // ─────────────────────────────────────────────────────────
-function showWhatsAppButton(alertId, waMessage) {
+function showWhatsAppButton(alertId, waMessage, adminNumber) {
     const alertEl = document.getElementById(alertId);
     if (!alertEl) return;
 
@@ -62,12 +60,11 @@ function showWhatsAppButton(alertId, waMessage) {
     }
 
     // Pastikan box berada tepat SETELAH alertEl di DOM
-    // (tidak di dalamnya — ini kuncinya)
     if (alertEl.nextSibling !== box) {
         alertEl.insertAdjacentElement('afterend', box);
     }
 
-    const waUrl = `https://wa.me/${WA_ADMIN_NUMBER}?text=${encodeURIComponent(waMessage)}`;
+    const waUrl = `https://wa.me/${adminNumber}?text=${encodeURIComponent(waMessage)}`;
 
     box.style.cssText = `
         display: block;
@@ -135,6 +132,7 @@ function showWhatsAppButton(alertId, waMessage) {
 
 // ============================================================
 // OVERRIDE submitKendaraan
+// → WA ke: WA_ADMIN_VOUCHER_BBM (admin kendaraan & BBM)
 // ============================================================
 function submitKendaraan(event) {
     event.preventDefault();
@@ -179,7 +177,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
             hideProgress('progress-kendaraan', 'loading-kendaraan');
             if (success) {
                 showAlert('alert-kendaraan', '✓ Pengajuan kendaraan dinas berhasil dikirim!');
-                showWhatsAppButton('alert-kendaraan', waMsg);
+                showWhatsAppButton('alert-kendaraan', waMsg, WA_ADMIN_VOUCHER_BBM);
                 form.reset();
             } else {
                 showAlert('alert-kendaraan', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
@@ -192,6 +190,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
 // ============================================================
 // OVERRIDE submitRuang
+// → WA ke: WA_ADMIN_RUANG_RAPAT
 // ============================================================
 function submitRuang(event) {
     event.preventDefault();
@@ -241,7 +240,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
             hideProgress('progress-ruangan', 'loading-ruangan');
             if (success) {
                 showAlert('alert-ruangan', '✓ Pengajuan ruang rapat berhasil dikirim!');
-                showWhatsAppButton('alert-ruangan', waMsg);
+                showWhatsAppButton('alert-ruangan', waMsg, WA_ADMIN_RUANG_RAPAT);
                 form.reset();
             } else {
                 showAlert('alert-ruangan', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
@@ -254,6 +253,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
 // ============================================================
 // OVERRIDE submitVoucher
+// → WA ke: WA_ADMIN_VOUCHER_BBM
 // ============================================================
 function submitVoucher(event) {
     event.preventDefault();
@@ -296,7 +296,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
             hideProgress('progress-voucher', 'loading-voucher');
             if (success) {
                 showAlert('alert-voucher', '✓ Permintaan voucher BBM berhasil dikirim!');
-                showWhatsAppButton('alert-voucher', waMsg);
+                showWhatsAppButton('alert-voucher', waMsg, WA_ADMIN_VOUCHER_BBM);
                 form.reset();
             } else {
                 showAlert('alert-voucher', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
@@ -309,6 +309,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
 // ============================================================
 // OVERRIDE submitSPJ
+// → Tidak ada WA button (SPJ tidak memerlukan konfirmasi manual)
 // ============================================================
 function submitSPJ(event) {
     event.preventDefault();
@@ -322,18 +323,6 @@ function submitSPJ(event) {
     const bulan       = form.querySelector('[name="bulan"]').value;
     const nominal     = document.getElementById('nominal_spj').value;
     const ts          = waTimestamp();
-
-    const waMsg =
-`📄 PENYAMPAIAN SPJ BARU
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-🗂️ Sub Kegiatan: ${subKegiatan}
-📅 Bulan SPJ: ${bulan}
-💵 Nominal SPJ: ${waRupiah(nominal)}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
-Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const formData = new FormData(form);
     formData.append('type', 'SPJ');
@@ -349,7 +338,6 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
             hideProgress('progress-spj', 'loading-spj');
             if (success) {
                 showAlert('alert-spj', '✓ SPJ berhasil dikirim!');
-                showWhatsAppButton('alert-spj', waMsg);
                 form.reset();
             } else {
                 showAlert('alert-spj', '✗ Terjadi kesalahan, silakan coba lagi', 'error');
@@ -362,6 +350,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
 // ============================================================
 // OVERRIDE submitPengajuanDana (async)
+// → Tidak ada WA button (dana diproses internal)
 // ============================================================
 async function submitPengajuanDana(event) {
     event.preventDefault();
@@ -391,18 +380,6 @@ async function submitPengajuanDana(event) {
     const subKegiatan = formElement.querySelector('[name="sub_kegiatan"]').value;
     const bulan       = formElement.querySelector('[name="bulan_pengajuan"]').value;
     const ts          = waTimestamp();
-
-    const waMsg =
-`💰 PENGAJUAN DANA BARU
-━━━━━━━━━━━━━━━━━━━━
-📋 Pemohon: ${nama}
-🏢 Unit/Divisi: ${unit}
-🗂️ Sub Kegiatan: ${subKegiatan}
-📅 Bulan Pengajuan: ${bulan}
-💵 Nominal: ${waRupiah(nominalRaw)}
-━━━━━━━━━━━━━━━━━━━━
-⏰ Diajukan: ${ts}
-Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
     const submitBtn = document.getElementById('submit-pengajuan-dana');
     submitBtn.disabled = true;
@@ -451,7 +428,6 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
         setTimeout(() => {
             hideProgress('progress-pengajuan-dana', 'loading-pengajuan-dana');
             showAlert('alert-pengajuan-dana', '✓ Pengajuan dana berhasil dikirim! File tersimpan di sistem.');
-            showWhatsAppButton('alert-pengajuan-dana', waMsg);
             formElement.reset();
             selectedPengajuanFile = null;
             document.getElementById('file-pengajuan-info').classList.remove('show');
@@ -471,6 +447,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
 
 // ============================================================
 // OVERRIDE submitDokumen (async)
+// → WA ke: WA_ADMIN_KEARSIPAN
 // ============================================================
 async function submitDokumen(event) {
     event.preventDefault();
@@ -562,7 +539,7 @@ Silakan buka dashboard admin untuk memproses pengajuan ini.`;
                 ? '✓ Dokumen berhasil diunggah ke Google Drive!'
                 : '✓ Link Google Drive berhasil dikirim!';
             showAlert('alert-arsip', msg, 'success');
-            showWhatsAppButton('alert-arsip', waMsg);
+            showWhatsAppButton('alert-arsip', waMsg, WA_ADMIN_KEARSIPAN);
 
             formElement.reset();
             selectedArsipFile = null;
